@@ -23,7 +23,7 @@ import h5py
 import json
 import pandas as pd
 from pathlib import Path
-from functools import lru_cache, cache
+from functools import lru_cache
 from torch.utils.data import Dataset
 from scipy.signal import find_peaks
 import matplotlib.pyplot as plt

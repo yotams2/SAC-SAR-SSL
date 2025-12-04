@@ -202,6 +202,9 @@ def GenerateRandomMicSig(
     gpu_conv: bool=False,
     gpus: List[int]=[0,0,1,1],
     use_gpu: bool=True,
+    contrastive_learning: bool=False,
+    num_rooms_for_cl: int=300,
+    num_utterances_for_cl: int=300,
     ): 
  
     if traj_pt_mode == 'time':
@@ -251,26 +254,61 @@ def GenerateRandomMicSig(
         spatialacoustics = SpatialAcoustics()
         roomir = RoomImpulseResponse(fs=fs, c=c, ism_db=ism_db) 
         sa_cfgs = []
-        for idx in range(data_num):
-            sa_cfg = spatialacoustics.generate_random_spatial_acoustics(
-                room_sz_range=room_sz_range, 
-                T60_range=T60_range, 
-                abs_weights_range=abs_weights_range, 
-                c=c,
-                ism_db=ism_db,
-                mic_array_cfg=mic_array_cfg,
-                array_pos_ratio_range=array_pos_ratio_range,
-                num_source_range=num_source_range, 
-                source_state=source_state,
-                min_src_array_dist=min_src_array_dist, 
-                min_src_boundary_dist=min_src_boundary_dist, 
-                traj_pt_mode=traj_pt_mode,
-                nb_points=nb_points,
-                room_cfg=None,
-                seed=seed,
-                idx=idx
-            )
-            sa_cfgs.append(sa_cfg)
+        if contrastive_learning:
+            data_num = num_rooms_for_cl * num_utterances_for_cl
+            print(f'Contrastive Learning Mode: Generating {num_rooms_for_cl} rooms, each with {num_utterances_for_cl} utterances. Total data_num: {data_num}')
+            
+            for room_idx in range(num_rooms_for_cl):
+                if (room_idx+1)%10 == 0:
+                     print('Generating MicSig config: {}/{} rooms ({}%)'.format(room_idx+1, num_rooms_for_cl, round((room_idx+1)/num_rooms_for_cl*100,2)))
+                
+                # Generate one random spatial acoustic config per room
+                sa_cfg = spatialacoustics.generate_random_spatial_acoustics(
+                    room_sz_range=room_sz_range, 
+                    T60_range=T60_range, 
+                    abs_weights_range=abs_weights_range, 
+                    c=c,
+                    ism_db=ism_db,
+                    mic_array_cfg=mic_array_cfg,
+                    array_pos_ratio_range=array_pos_ratio_range,
+                    num_source_range=num_source_range, 
+                    source_state=source_state,
+                    min_src_array_dist=min_src_array_dist, 
+                    min_src_boundary_dist=min_src_boundary_dist, 
+                    traj_pt_mode=traj_pt_mode,
+                    nb_points=nb_points,
+                    room_cfg=None,
+                    seed=seed,
+                    idx=room_idx # Use room_idx as seed offset for unique rooms
+                )
+                
+                # Duplicate this config for num_utterances_for_cl times
+                for _ in range(num_utterances_for_cl):
+                    sa_cfgs.append(sa_cfg)
+
+        else:
+            for idx in range(data_num):
+                if (idx+1)%10000 == 0:
+                    print('Generating MicSig config: {}/{} ({}%)'.format(idx+1, data_num, round((idx+1)/data_num*100,2)))
+                sa_cfg = spatialacoustics.generate_random_spatial_acoustics(
+                    room_sz_range=room_sz_range, 
+                    T60_range=T60_range, 
+                    abs_weights_range=abs_weights_range, 
+                    c=c,
+                    ism_db=ism_db,
+                    mic_array_cfg=mic_array_cfg,
+                    array_pos_ratio_range=array_pos_ratio_range,
+                    num_source_range=num_source_range, 
+                    source_state=source_state,
+                    min_src_array_dist=min_src_array_dist, 
+                    min_src_boundary_dist=min_src_boundary_dist, 
+                    traj_pt_mode=traj_pt_mode,
+                    nb_points=nb_points,
+                    room_cfg=None,
+                    seed=seed,
+                    idx=idx
+                )
+                sa_cfgs.append(sa_cfg)
 
         # Save to npz
         np.savez_compressed(save_to_file, 
@@ -333,6 +371,8 @@ def GenerateRandomMicSig(
                 save_dp=save_dp,
                 gpu_conv=gpu_conv,
                 seed=seed,
+                contrastive_learning=contrastive_learning,
+                num_utterances_for_cl=num_utterances_for_cl,
             ),
             range(data_num),
             chunksize=100,
@@ -357,6 +397,8 @@ def GenerateRandomMicSig(
                 save_dp=save_dp,
                 gpu_conv=gpu_conv,
                 seed=seed,
+                contrastive_learning=contrastive_learning,
+                num_utterances_for_cl=num_utterances_for_cl,
                 )
 
 

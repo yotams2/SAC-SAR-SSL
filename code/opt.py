@@ -8,7 +8,7 @@ class opt_pretrain():
         time_stamp = time.time()
         local_time = time.localtime(time_stamp)
         self.time = time.strftime('%m%d%H%M', local_time)
-        self.work_dir = r'~'
+        self.work_dir = os.getcwd() + '/../..' # r'~'
         self.work_dir = os.path.abspath(os.path.expanduser(self.work_dir))
         self.work_dir_local = os.path.abspath(os.path.expanduser(self.work_dir))
 
@@ -50,12 +50,17 @@ class opt_pretrain():
         parser.add_argument('--test', action='store_true', default=False, help='change to test stage of downstream tasks (default: False)')
         parser.add_argument('--test-mode', type=str, default='all', metavar='TestMode', help='test mode (default: all)')
 
+        parser.add_argument('--contrastive-learning', '--cl', action='store_true', default=False, help='Use contrastive learning batch sampling')
+        parser.add_argument('--num-rooms-cl', type=int, default=300, help='Total number of rooms for CL')
+        parser.add_argument('--num-utterances-cl', type=int, default=300, help='Total number of utterances per room for CL')
+
         args = parser.parse_args()
         assert (args.pretrain + args.pretrain_frozen_encoder + args.test)==1, 'Pretraining stage (pretrain or test) is undefined'
         assert args.test_mode in ['all', 'ins'], 'Test mode is undefined'
 
         self.time = args.time
         self.work_dir = args.work_dir
+        self.cl = args.contrastive_learning
 
         args.acoustic_setting = self.acoustic_setting
         
@@ -72,7 +77,10 @@ class opt_pretrain():
 
         dirs['code'] = work_dir + '/SAR-SSL/code'
         dirs['data'] = self.work_dir_local + '/data'
-        dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data'
+        if self.cl:
+            dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data_cl'
+        else:
+            dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data'
         dirs['exp'] = work_dir + '/SAR-SSL/exp'
 
         dirs['micsig_simu_pretrain'] = dirs['gerdata'] + '/MicSig/simu/pretrain'
@@ -120,7 +128,7 @@ class opt_downstream():
         time_stamp = time.time()
         local_time = time.localtime(time_stamp)
         self.time = time.strftime('%m%d%H%M', local_time)
-        self.work_dir = r'~'
+        self.work_dir = os.getcwd() + '/../..' # r'~'
         self.work_dir = os.path.abspath(os.path.expanduser(self.work_dir))
         self.work_dir_local = os.path.abspath(os.path.expanduser(self.work_dir))
 

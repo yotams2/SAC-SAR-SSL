@@ -29,6 +29,35 @@ args = opts.parse()
 dirs = opts.dir()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
 
+import numpy as np
+from torch.utils.data import Sampler
+
+class ContrastiveBatchSampler(Sampler):
+    def __init__(self, num_rooms, num_utterances, batch_size, rooms_per_batch=8, utterances_per_batch=16):
+        self.num_rooms = num_rooms
+        self.num_utterances = num_utterances
+        self.batch_size = batch_size
+        self.rooms_per_batch = rooms_per_batch
+        self.utterances_per_batch = utterances_per_batch
+        assert rooms_per_batch * utterances_per_batch == batch_size
+        
+        self.num_batches = (num_rooms * num_utterances) // batch_size 
+
+    def __iter__(self):
+        for _ in range(self.num_batches):
+            rooms = np.random.choice(self.num_rooms, self.rooms_per_batch, replace=False)
+            utterances = np.random.choice(self.num_utterances, self.utterances_per_batch, replace=False)
+            
+            batch = []
+            for r in rooms:
+                for u in utterances:
+                    idx = r * self.num_utterances + u
+                    batch.append(idx)
+            yield batch
+
+    def __len__(self):
+        return self.num_batches
+
 import torch
 torch.backends.cuda.matmul.allow_tf32 = True  # The flag below controls whether to allow TF32 on matmul. This flag defaults to False in PyTorch 1.12 and later.
 torch.backends.cudnn.allow_tf32 = True  # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
@@ -93,7 +122,7 @@ if args.pretrain:
 	nepoch = args.nepoch
 
 	# Dataset
-	data_num = {'train': 5120*100, 'val':4000*2, 'test':4000*2}
+	data_num = {'train': 90000, 'val':4000*2, 'test':4000*2} # FIXME 'train': 5120*100,
 
 	remove_spkoverlap = True
 	prob_mode = ['duration', 'micpair']
@@ -105,6 +134,7 @@ if args.pretrain:
 			fs = fs,
 			dataset_sz=data_num['train'],
 			transforms = None,
+            sort=args.contrastive_learning
 			)
 		dataset_preval = at_dataset.FixMicSigDataset( 
 			data_dir = dirs['micsig_simu_preval'], 
@@ -115,10 +145,10 @@ if args.pretrain:
 			transforms = None,
 			)
 	else:
-		dataset_list_train = ['LOCATA', 'MCWSJ', 'LibriCSS', 'AMI', 'AISHELL4', 'M2MeT', 'RealMAN', # RealSig
-							  'DCASE', 'MIR', 'Mesh', 'ACE', 'dEchorate', 'BUTReverb'] # RealRIR
-		dataset_probs_train = [1, 5, 5, 8, 8, 8, 15,
-							   5, 5, 5, 5, 5, 5] 
+		dataset_list_train = ['LOCATA', 'RealMAN', # FIXME 'LOCATA', 'MCWSJ', 'LibriCSS', 'AMI', 'AISHELL4', 'M2MeT', 'RealMAN', # RealSig
+							  'DCASE', 'Mesh', 'ACE', 'dEchorate', 'BUTReverb'] # FIXME , 'MIR' RealRIR
+		dataset_probs_train = [1, 15, # FIXME 1, 5, 5, 8, 8, 8, 15,
+							   5, 5, 5, 5, 5] # FIXME 5, 5, 5, 5, 5, 5
 
 		dataset_pretrain = at_dataset.RandomRealDataset(
 			data_dirs = dirs['micsig_real_pretrain'], 
@@ -136,9 +166,9 @@ if args.pretrain:
 			dataset_probs = dataset_probs_train,
 			sound_speed = speed) 
 
-		dataset_list_val = ['AISHELL4', 'M2MeT', 'RealMAN', # RealSig
+		dataset_list_val = ['RealMAN', # FIXME 'AISHELL4', 'M2MeT',  RealSig
 							'DCASE', 'BUTReverb'] 			# RealRIR
-		dataset_probs_val = [1, 2, 5, 
+		dataset_probs_val = [5,  # FIXME 1, 2, 5,
 							 2, 1]
 		dataset_preval_real = at_dataset.RandomRealDataset(
 			data_dirs = dirs['micsig_real_preval'], 
@@ -190,7 +220,18 @@ if args.pretrain:
 
 	kwargs = {'num_workers': args.workers, 'pin_memory': True}  if use_cuda else {}
 
-	dataloader_pretrain = torch.utils.data.DataLoader(dataset=dataset_pretrain, batch_size=args.bs[0], shuffle=True, **kwargs)
+	if args.contrastive_learning:
+		batch_sampler = ContrastiveBatchSampler(
+			num_rooms=args.num_rooms_cl,
+			num_utterances=args.num_utterances_cl,
+			batch_size=args.bs[0],
+			rooms_per_batch=8,
+			utterances_per_batch=16
+		)
+		dataloader_pretrain = torch.utils.data.DataLoader(dataset=dataset_pretrain, batch_sampler=batch_sampler, **kwargs)
+	else:
+		dataloader_pretrain = torch.utils.data.DataLoader(dataset=dataset_pretrain, batch_size=args.bs[0], shuffle=True, **kwargs)
+
 	if args.simu_exp:
 		dataloader_preval_sim = torch.utils.data.DataLoader(dataset=dataset_preval, batch_size=args.bs[1], shuffle=False, **kwargs)
 	else:
@@ -320,7 +361,7 @@ if (args.pretrain_frozen_encoder):
 	nepoch = args.nepoch
 
 	# Dataset
-	data_num = {'train': 5120*100, 'val':4000, 'test':4000} 
+	data_num = {'train': 90000, 'val':4000, 'test':4000} # FIXME 'train': 5120*100,
 	dataset_pretrain = at_dataset.FixMicSigDataset( 
 		data_dir = dirs['micsig_simu_pretrain'], 
 		load_anno=False, 
@@ -355,7 +396,7 @@ if (args.pretrain_frozen_encoder):
 	if args.checkpoint_start:
 		learner.resume_checkpoint(checkpoints_dir=dirs['log_pretrain_frozen_encoder'], from_latest=True, as_all_state=True) # Train from latest checkpoints
 	learner.load_checkpoint_best(checkpoints_dir=dirs['log_pretrain'], as_all_state=False, param_frozen=False) # Train from pretrained frozen encoder 
-
+	
 	# Learning rate
 	lr_schedule = create_learning_rate_schedule(total_steps=args.nepoch, base = args.lr, decay_type='cosine', warmup_steps=1, linear_end=1e-6)
 
@@ -481,4 +522,3 @@ if (args.test):
 				# 'dp_tar': data_vis_test['dp_tar'].cpu().detach().numpy(),
 				'pesq': results_test['pesq'].cpu().detach().numpy(),
 				'pesq_mask_ch': results_test['pesq_mask_ch'].cpu().detach().numpy()})
-		

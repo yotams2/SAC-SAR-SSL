@@ -23,7 +23,7 @@ import soundfile
 import tqdm
 from torch.utils.data import DataLoader
 from pathlib import Path
-from functools import lru_cache, cache
+from functools import lru_cache
 from torch.utils.data import Dataset
 try:
     from utils_src import *

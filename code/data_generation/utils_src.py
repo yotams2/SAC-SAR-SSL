@@ -72,11 +72,15 @@ class WSJ0Dataset(Dataset):
     def __init__(self, path, T, fs, num_source=1, size=None):
 
         self.corpus, self.paths = explore_corpus(path, 'wav')
+        # self.corpus is expected to map speaker_id -> {utt_id: utt_path, ...}
+        # Keep one entry per speaker: spkWAVs will be a list of dicts (utt_id->path)
+        # and spkIDs will be the matching list of speaker IDs
         self.spkWAVs = []
         self.spkIDs = []
-        for spks in list(self.corpus.values()):
-            self.spkWAVs += list(spks.values())
-            self.spkIDs += list(spks.keys())
+        for spk_id, spks in self.corpus.items():
+            # spks should be a dict mapping utterance id -> wav path
+            self.spkWAVs.append(spks)
+            self.spkIDs.append(spk_id)
 
         # self.paths.sort()
         # random.shuffle(self.paths)
@@ -109,7 +113,9 @@ class WSJ0Dataset(Dataset):
             utt_paths = list(spkWAVs.values())
             # Get a random speech utterance from specific speaker
             utt_idx = np.random.randint(0, len(utt_paths))
-            s, fs = soundfile.read(self.paths[utt_idx], dtype='float32')
+            # read from the selected speaker's utterance paths (utt_paths),
+            # not from the global self.paths (that would be the wrong list)
+            s, fs = soundfile.read(utt_paths[utt_idx], dtype='float32')
             if fs != self.fs:
                 s = scipy.signal.resample_poly(s, up=self.fs, down=fs)
                 raise Warning('WSJ0 is downsampled to requrired frequency~')

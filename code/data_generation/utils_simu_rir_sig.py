@@ -760,9 +760,21 @@ class MicrophoneSignalOrRIR():
         save_dp=False,
         gpu_conv=False,
         seed=1,
+        contrastive_learning=False,
+        num_utterances_for_cl=300,
         ):
         # print(seed+idx)
-        np.random.seed(seed=seed+idx)
+        if contrastive_learning:
+            # For contrastive learning:
+            # 1. Same utterance for different rooms (Spectrally positive): 
+            #    We need same src_idx and same random state for source selection.
+            #    We use src_idx = idx % num_utterances_for_cl.
+            #    We set seed based on src_idx so that WSJ0Dataset picks the same utterance.
+            src_idx = idx % num_utterances_for_cl
+            np.random.seed(seed=seed+src_idx)
+        else:
+            np.random.seed(seed=seed+idx)
+        
         sa_cfg = sa_cfgs[idx]
 
         # Generate room impulse response
@@ -798,7 +810,12 @@ class MicrophoneSignalOrRIR():
         sa_cfg['T60_edc'] = T60_edc
         
         # Get source signal
-        src_idx = np.random.randint(0, srcdataset.__len__())
+        if contrastive_learning:
+             # src_idx is already calculated above
+             pass
+        else:
+             src_idx = np.random.randint(0, srcdataset.__len__())
+        
         src_sig = srcdataset.__getitem__(src_idx)
         src_sig = src_sig[:, 0:sa_cfg['src_traj_pts'].shape[-1]]
         sa_cfg['src_idx'] = src_idx

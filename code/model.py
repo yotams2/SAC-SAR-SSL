@@ -9,10 +9,10 @@ import common.utils_module as at_module
 from common.Conformer import ConformerEncoder
 from common.Transformer import TransformerEncoder
 from common.CRNN import crnn, crnn_sim, tcrnn
-from common.NBC import NBC
-from common.FNSSL import FNblock
-from common.UNet import UNet
-from common.CNN import resnet50, res2net50, densenet121
+# from common.NBC import NBC
+# from common.FNSSL import FNblock
+# from common.UNet import UNet
+# from common.CNN import resnet50, res2net50, densenet121
 # from ks.model_ds_compare import CausCRNN_predhead
 
 class EmbedEncoder(nn.Module):

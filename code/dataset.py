@@ -110,7 +110,7 @@ class FixMicSigDataset(Dataset):
         2. for pretraining with microphone signals generated with real RIR
         3. for fine-tuning with only simulated data
 	"""
-    def __init__(self, data_dir, fs, load_anno, dataset_sz, load_dp=False, transforms=None):
+    def __init__(self, data_dir, fs, load_anno, dataset_sz, load_dp=False, transforms=None, sort=False):
 
         self.data_paths = []
         
@@ -125,6 +125,9 @@ class FixMicSigDataset(Dataset):
             files = list(Path(data_dir).rglob('*.wav'))
             dp_files = list(Path(data_dir).rglob('*_dp.wav'))
 
+        if sort:
+            files.sort(key=lambda x: int(x.stem))
+            
         self.files = [item for item in files if item not in dp_files]
 
         if dataset_sz is not None:
@@ -135,12 +138,12 @@ class FixMicSigDataset(Dataset):
         self.load_anno = load_anno
         self.load_dp = load_dp
         self.transforms = transforms
+        self.data_dir = data_dir
 
     def __len__(self):
         return self.dataset_sz
 
     def __getitem__(self, idx):
-
         file_name = str(self.files[idx])
         mic_sig, fs = soundfile.read(file_name)
 

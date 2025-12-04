@@ -9,7 +9,7 @@ import pandas as pd
 from typing import *
 from torch.utils.data import Dataset
 from abc import ABC, abstractmethod
-from functools import lru_cache, cache
+from functools import lru_cache
 
 def pad_cut_sig_sameutt(sig, nsample_desired):
     """ Pad (by repeating the same utterance) and cut signal to desired length
