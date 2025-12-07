@@ -101,6 +101,11 @@ class RandomRealDataset(Dataset):
             for t in self.transforms:
                 mic_sig = t(mic_sig)
 
+        if isinstance(mic_sig, list):
+             mic_sig += [idx]
+        else:
+             mic_sig = [mic_sig, idx]
+
         return mic_sig 
 
 
@@ -178,6 +183,7 @@ class FixMicSigDataset(Dataset):
                     dp_sig = t(dp_sig)
             return_data += [dp_sig]
 
+        return_data += [idx]
         return return_data
  
 class FixMicSigDatasetLOCATA(Dataset):

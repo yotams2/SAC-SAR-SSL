@@ -522,13 +522,13 @@ if (args.ds_test):
 	
 	print('Task: ', args.ds_task)
 	if args.test_mode == 'cal_metric':
-		print('Test loss: {:.4f}'.format(losses_test))
-		print('Test metric: {:.4f}'.format(metrics_test))
+		print('Test loss: {}'.format([f"{x:.4f}" for x in losses_test]))
+		print('Test metric: {}'.format([f"{x:.4f}" for x in metrics_test]))
 	if args.test_mode == 'cal_metric_wo_info':	
-		print('Test MAE: {:.4f}'.format(maes_test_data))
-		print('Test MIN: {:.4f}'.format(mins_test_data))
-		print('Test MAX: {:.4f}'.format(maxs_test_data))
-		print('Train MAE: {:.4f}'.format(maes_data))
-		print('Train Mean: {:.4f}'.format(means_data))
-		print('Train MIN: {:.4f}'.format(mins_data))
-		print('Train MAX: {:.4f}'.format(maxs_data))
+		print('Test MAE: {}'.format([f"{x:.4f}" for x in maes_test_data]))
+		print('Test MIN: {}'.format([f"{x:.4f}" for x in mins_test_data]))
+		print('Test MAX: {}'.format([f"{x:.4f}" for x in maxs_test_data]))
+		print('Train MAE: {}'.format([f"{x:.4f}" for x in maes_data]))
+		print('Train Mean: {}'.format([f"{x:.4f}" for x in means_data]))
+		print('Train MIN: {}'.format([f"{x:.4f}" for x in mins_data]))
+		print('Train MAX: {}'.format([f"{x:.4f}" for x in maxs_data]))

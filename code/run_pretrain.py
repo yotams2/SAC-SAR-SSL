@@ -83,6 +83,10 @@ if args.pretrain:
 	file_path = os.path.join(dirs['log_pretrain'],"config.json")
 	save_config_to_file([args.__dict__, dirs], file_path)
 
+	if args.description is not None:
+		with open(os.path.join(dirs['log_pretrain'], "description.txt"), "w") as f:
+			f.write(args.description)
+
 # Acoustic setting parameters
 assert args.source_state == 'static', 'Source state model unrecognized~'
 nmic = args.acoustic_setting['nmic']
@@ -103,7 +107,7 @@ print(f"T: {T:.3f}, nt: {nt}, nf: {nf}")
 
 # Network
 if args.pretrain | args.test:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl)
 if args.pretrain_frozen_encoder:
 	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True)
 

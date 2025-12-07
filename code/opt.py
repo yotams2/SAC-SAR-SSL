@@ -53,6 +53,7 @@ class opt_pretrain():
         parser.add_argument('--contrastive-learning', '--cl', action='store_true', default=False, help='Use contrastive learning batch sampling')
         parser.add_argument('--num-rooms-cl', type=int, default=300, help='Total number of rooms for CL')
         parser.add_argument('--num-utterances-cl', type=int, default=300, help='Total number of utterances per room for CL')
+        parser.add_argument('--description', '--d', type=str, default=None, help='Description of the experiment to be saved in description.txt')
 
         args = parser.parse_args()
         assert (args.pretrain + args.pretrain_frozen_encoder + args.test)==1, 'Pretraining stage (pretrain or test) is undefined'

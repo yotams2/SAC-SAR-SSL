@@ -349,7 +349,7 @@ class EmbedDecoder(nn.Module):
  
 class SARSSL(nn.Module): 
 
-    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False):#vis=False):
+    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300):#vis=False):
         # patch_shape: size of each patch, (nf, nt)
         # patch_shape=(16,16), maskedpatch_mode='TF',
         # patch_shape=(256,1), maskedpatch_mode='T'
@@ -369,6 +369,8 @@ class SARSSL(nn.Module):
 
         self.pretrain = pretrain
         self.pretrain_frozen_encoder = pretrain_frozen_encoder
+        self.contrastive_learning = contrastive_learning
+        self.num_utterances = num_utterances
         self.device = device
         self.use_cls = use_cls
 
@@ -466,6 +468,22 @@ class SARSSL(nn.Module):
             dec_model = ['', 'fc']
             # dec_model = ['conformer', 'fc']
             self.decoder = EmbedDecoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=dec_dembed, model=dec_model, use_cls=False)
+            
+            if self.contrastive_learning:
+                # Projection head for Contrastive Loss (Spatial)
+                self.cl_proj = nn.Sequential(
+                    nn.Linear(spat_dembed, spat_dembed),
+                    nn.BatchNorm1d(spat_dembed),
+                    nn.ReLU(),
+                    nn.Linear(spat_dembed, spat_dembed)
+                )
+                # Projection head for Contrastive Loss (Spectral)
+                self.cl_proj_spec = nn.Sequential(
+                    nn.Linear(spec_dembed, spec_dembed),
+                    nn.BatchNorm1d(spec_dembed),
+                    nn.ReLU(),
+                    nn.Linear(spec_dembed, spec_dembed)
+                )
         
         elif pretrain_frozen_encoder:
             self.patch_mask = at_module.PatchMask(patch_mode=patch_mode, nmasked_patch=nmasked_patch, npatch_shape=npatch_shape, device=self.device)
@@ -516,7 +534,7 @@ class SARSSL(nn.Module):
             self.downstream_dlabel = downstream_dlabel
             self.ds_token = downstream_token
 
-    def forward(self, x):
+    def forward(self, x, indices=None):
         nbatch, nmic, nf, nt, nreim = x.shape
         
         if self.pretrain:
@@ -598,7 +616,25 @@ class SARSSL(nn.Module):
             data_vis = {}
             data_vis['mask'], data_vis['pred'], data_vis['tar'] = self.vis_results(mask_patches=mask, pred_patches=pred, tar_patches=tar)
             
-            return loss, diff, data_vis
+            if self.contrastive_learning and indices is not None:
+                # Spatial CL
+                z_spat = torch.mean(embed_spat, dim=1) # (nbatch, dembed)
+                z_proj_spat = self.cl_proj(z_spat)
+                label_spat = indices // self.num_utterances
+                loss_cl_spat = self.cl_loss(z_proj_spat, label_spat)
+                
+                # Spectral CL
+                z_spec = torch.mean(embed_spec, dim=1) # (nbatch, dembed)
+                z_proj_spec = self.cl_proj_spec(z_spec)
+                label_spec = indices % self.num_utterances
+                loss_cl_spec = self.cl_loss(z_proj_spec, label_spec)
+                
+                loss = (loss + loss_cl_spat + loss_cl_spec) / 3.0
+            else:
+                loss_cl_spat = torch.tensor(0.0, device=self.device)
+                loss_cl_spec = torch.tensor(0.0, device=self.device)
+
+            return loss, diff, data_vis, loss_cl_spat, loss_cl_spec
 
         elif self.pretrain_frozen_encoder:
             ## Patch (frame) spliting
@@ -663,7 +699,9 @@ class SARSSL(nn.Module):
             data_vis = {}
             data_vis['mask'], data_vis['pred'], data_vis['tar'] = self.vis_results(mask_patches=mask, pred_patches=pred, tar_patches=tar)
             
-            return loss, loss*0.0, data_vis
+            data_vis['mask'], data_vis['pred'], data_vis['tar'] = self.vis_results(mask_patches=mask, pred_patches=pred, tar_patches=tar)
+            
+            return loss, loss*0.0, data_vis, torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device)
         else:
             ## Patch (frame) spliting
             data = x.permute(0, 2, 3, 4, 1) # (nbatch, nf, nt, nreim, nmic)
@@ -772,6 +810,64 @@ class SARSSL(nn.Module):
             loss = torch.mean((pred - tar_unmaskch)**2)
          
         return loss 
+
+    def cl_loss(self, z, labels):
+        """ Calculate Supervised Contrastive Loss
+            Args: z - (nbatch, dim)
+                  labels - (nbatch)
+            Returns: loss
+        """
+        device = z.device
+        temperature = 0.07
+
+        # Normalize embeddings
+        z = F.normalize(z, dim=1)
+
+        # Calculate similarity matrix
+        sim_matrix = torch.matmul(z, z.T) / temperature # (nbatch, nbatch)
+        exp_sim_matrix = torch.exp(sim_matrix)
+
+        # get labels (rir index)
+        # labels = indices // self.num_utterances # (nbatch)
+        
+        # Create masks
+        self_mask = torch.eye(z.shape[0], device=device)
+        pos_mask = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
+        neg_mask = 1 - pos_mask
+        
+        # P(i) set size (number of positives excluding self)
+        p_i = pos_mask.sum(dim=1) - 1
+        # Avoid division by zero if there are no positives
+        p_i = torch.max(p_i, torch.ones_like(p_i))
+
+        # Denominator: sum over A(i) (all other samples)
+        # sum_{a \in A(i)} exp(sim) = sum_{all} exp(sim) - exp(self_sim)
+        denom_sum = exp_sim_matrix.sum(dim=1) - torch.diag(exp_sim_matrix) # (nbatch)
+
+        # Numerator: exp(sim(z_i, z_p)) for p in P(i)
+        # We need log(exp(sim_ip) / denom) = sim_ip/tau - log(denom)
+        
+        # logic:
+        # L = sum_{i} -1/|P(i)| sum_{p in P(i)} log ( exp(sim_ip)/denom )
+        #   = sum_{i} -1/|P(i)| sum_{p in P(i)} ( sim_ip - log(denom) )
+        
+        # Extract sim_ip for positive pairs (excluding self)
+        # mask out self matches from pos_mask for selection
+        pos_mask_no_self = pos_mask - self_mask
+        
+        # We can implement this efficiently:
+        # log_prob = sim_matrix - torch.log(denom_sum).unsqueeze(1)
+        # loss_i = - (log_prob * pos_mask_no_self).sum(dim=1) / p_i
+        # loss = loss_i.mean()
+        
+        log_prob = sim_matrix - torch.log(denom_sum).unsqueeze(1) # (nbatch, nbatch)
+        
+        # Sum log probs for positive pairs
+        sum_log_prob_pos = (log_prob * pos_mask_no_self).sum(dim=1) # (nbatch)
+        
+        loss = - (sum_log_prob_pos / p_i).mean()
+        
+        return loss
 
     def vis_results(self, mask_patches, pred_patches, tar_patches):
         """ Visualized constructed results

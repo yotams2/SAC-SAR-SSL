@@ -92,15 +92,24 @@ class Learner(ABC):
 		optimizer.zero_grad()
 		pbar = tqdm(enumerate(dataset), total=len(dataset), leave=False) 
 
-		for batch_idx, (mic_sig_batch,) in pbar:
+		for batch_idx, data in pbar:
 			if epoch is not None: pbar.set_description('Epoch {}'.format(epoch))
 
+			mic_sig_batch = data[0]
+			if len(data) > 1:
+				indices = data[-1]
+			
 			in_batch, = self.data_preprocess(mic_sig_batch, None)
 
 			with torch.cuda.amp.autocast(enabled=self.use_amp):
-				loss_batch, diff_batch, vis_batch = self.model(in_batch)
+				if 'indices' in locals():
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec = self.model(in_batch, indices=indices)
+				else:
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec = self.model(in_batch)
 			loss_batch = loss_batch.mean() # for multiple gpus
 			diff_batch = diff_batch.mean()
+			loss_cl_spat = loss_cl_spat.mean()
+			loss_cl_spec = loss_cl_spec.mean()
 
 			if self.use_amp:
 				self.scaler.scale(loss_batch).backward()
@@ -113,7 +122,8 @@ class Learner(ABC):
 			optimizer.zero_grad()
 
 			avg_loss = avg_beta * avg_loss + (1 - avg_beta) * loss_batch.item()
-			pbar.set_postfix(loss=avg_loss / (1 - avg_beta ** (batch_idx + 1)))
+			avg_loss = avg_beta * avg_loss + (1 - avg_beta) * loss_batch.item()
+			pbar.set_postfix(loss=avg_loss / (1 - avg_beta ** (batch_idx + 1)), cl_spat=loss_cl_spat.item(), cl_spec=loss_cl_spec.item())
 			# pbar.set_postfix(loss=loss.item())
 			pbar.update()
 
@@ -144,7 +154,7 @@ class Learner(ABC):
 				in_batch, = self.data_preprocess(mic_sig_batch, None)
 
 				with torch.cuda.amp.autocast(enabled=self.use_amp):
-					loss_batch, diff_batch, vis_batch = self.model(in_batch) 
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec = self.model(in_batch) 
 
 				loss_batch = loss_batch.mean() 
 				diff_batch = diff_batch.mean()
@@ -184,7 +194,9 @@ class Learner(ABC):
 
 		optimizer.zero_grad()
 		pbar = tqdm(enumerate(dataset), total=len(dataset), leave=False) 
-		for batch_idx, (mic_sig_batch, gt_batch) in pbar:
+		for batch_idx, data in pbar:
+			mic_sig_batch = data[0]
+			gt_batch = data[1]
 			if epoch is not None: pbar.set_description('Epoch {}'.format(epoch))
 
 			in_batch, gt_batch = self.data_preprocess(mic_sig_batch, gt_batch)
@@ -234,7 +246,9 @@ class Learner(ABC):
 			if return_vis:
 				embed = []
 				gt = []
-			for mic_sig_batch, gt_batch in dataset:
+			for data in dataset:
+				mic_sig_batch = data[0]
+				gt_batch = data[1]
 				in_batch, gt_batch = self.data_preprocess(mic_sig_batch, gt_batch)
 
 				with torch.cuda.amp.autocast(enabled=self.use_amp):
