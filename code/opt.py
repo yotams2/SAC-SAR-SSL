@@ -87,6 +87,7 @@ class opt_pretrain():
         dirs['micsig_simu_pretrain'] = dirs['gerdata'] + '/MicSig/simu/pretrain'
         dirs['micsig_simu_preval'] = dirs['gerdata'] + '/MicSig/simu/preval'
         dirs['micsig_simu_pretest'] = dirs['gerdata'] + '/MicSig/simu/pretest'
+        dirs['micsig_simu_pretest_vis'] = dirs['gerdata'] + '/MicSig/simu/pretest_vis'
         dirs['micsig_simu_pretest_ins'] = [dirs['gerdata'] + '/MicSig/simu/pretest_ins_T1000']
         dirs['micsig_real_pretrain'] = {
             'DCASE': dirs['gerdata'] + '/MicSig/real/pretrain/DCASE',

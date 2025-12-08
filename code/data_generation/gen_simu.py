@@ -72,6 +72,8 @@ def GenerateRandomRIR(
         seed = 2e6
     elif stage == 'pretest':
         seed = 3e6
+    elif stage == 'pretest_vis':
+        seed = 3e6
     elif stage == 'train':
         seed = 4e6
     elif stage == 'val':
@@ -216,12 +218,14 @@ def GenerateRandomMicSig(
             raise Exception('Unknown source state: {}'.format(source_state))
     else:
         nb_points = None
-    assert (stage in ['pretrain', 'preval', 'pretest']) | ('pretest_ins' in stage), stage
+    assert (stage in ['pretrain', 'preval', 'pretest', 'pretest_vis']) | ('pretest_ins' in stage), stage
     if stage == 'pretrain':
         seed = 1
     elif stage == 'preval':
         seed = 2e6
     elif stage == 'pretest':
+        seed = 3e6
+    elif stage == 'pretest_vis':
         seed = 3e6
     elif 'pretest_ins' in stage:
         seed = 3e6
@@ -322,6 +326,8 @@ def GenerateRandomMicSig(
     elif stage == 'preval':
         src_dir = src_dir + '/dt'
     elif stage == 'pretest':
+        src_dir = src_dir + '/et'
+    elif stage == 'pretest_vis':
         src_dir = src_dir + '/et'
     elif 'pretest_ins' in stage:
         src_dir = src_dir + '/et'
