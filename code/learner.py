@@ -88,6 +88,8 @@ class Learner(ABC):
 		loss = 0
 		if return_diff:
 			diff = 0
+			loss_cl_spat_avg = 0
+			loss_cl_spec_avg = 0
 
 		optimizer.zero_grad()
 		pbar = tqdm(enumerate(dataset), total=len(dataset), leave=False) 
@@ -122,7 +124,6 @@ class Learner(ABC):
 			optimizer.zero_grad()
 
 			avg_loss = avg_beta * avg_loss + (1 - avg_beta) * loss_batch.item()
-			avg_loss = avg_beta * avg_loss + (1 - avg_beta) * loss_batch.item()
 			pbar.set_postfix(loss=avg_loss / (1 - avg_beta ** (batch_idx + 1)), cl_spat=loss_cl_spat.item(), cl_spec=loss_cl_spec.item())
 			# pbar.set_postfix(loss=loss.item())
 			pbar.update()
@@ -130,13 +131,17 @@ class Learner(ABC):
 			loss += loss_batch.item()
 			if return_diff: 
 				diff += diff_batch.item()
+				loss_cl_spat_avg += loss_cl_spat.item()
+				loss_cl_spec_avg += loss_cl_spec.item()
 
 		loss /= len(pbar)
 		if return_diff: 
 			diff /= len(pbar)
+			loss_cl_spat_avg /= len(pbar)
+			loss_cl_spec_avg /= len(pbar)
 
 		if return_diff: 
-			return loss, diff, vis_batch
+			return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg
 		else:
 			return loss
 
@@ -148,6 +153,8 @@ class Learner(ABC):
 			loss = 0
 			if return_diff: 
 				diff = 0
+				loss_cl_spat_avg = 0
+				loss_cl_spec_avg = 0
 
 			for data in dataset:
 				mic_sig_batch = data[0]
@@ -162,17 +169,21 @@ class Learner(ABC):
 				loss += loss_batch.item()
 				if return_diff: 
 					diff += diff_batch.item()
+					loss_cl_spat_avg += loss_cl_spat.item()
+					loss_cl_spec_avg += loss_cl_spec.item()
 
 			loss /= len(dataset)
 			if return_diff: 
 				diff /= len(dataset)
+				loss_cl_spat_avg /= len(dataset)
+				loss_cl_spec_avg /= len(dataset)
 
 			if return_diff: 
 				if return_eval:
 					result_batch = self.pretrain_evaluate(pred_batch=vis_batch['pred'], gt_batch=vis_batch['tar'], mask_batch=vis_batch['mask'])
 					return loss, diff, vis_batch, result_batch # only return visual data of the last batch
 				else:
-					return loss, diff, vis_batch 
+					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg
 			else:
 				return loss
 

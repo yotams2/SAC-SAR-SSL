@@ -349,7 +349,7 @@ class EmbedDecoder(nn.Module):
  
 class SARSSL(nn.Module): 
 
-    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300):#vis=False):
+    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False):#vis=False):
         # patch_shape: size of each patch, (nf, nt)
         # patch_shape=(16,16), maskedpatch_mode='TF',
         # patch_shape=(256,1), maskedpatch_mode='T'
@@ -370,6 +370,7 @@ class SARSSL(nn.Module):
         self.pretrain = pretrain
         self.pretrain_frozen_encoder = pretrain_frozen_encoder
         self.contrastive_learning = contrastive_learning
+        self.contrastive_learning_data_aug = contrastive_learning_data_aug
         self.num_utterances = num_utterances
         self.device = device
         self.use_cls = use_cls
@@ -469,7 +470,7 @@ class SARSSL(nn.Module):
             # dec_model = ['conformer', 'fc']
             self.decoder = EmbedDecoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=dec_dembed, model=dec_model, use_cls=False)
             
-            if self.contrastive_learning:
+            if self.contrastive_learning or self.contrastive_learning_data_aug:
                 # Projection head for Contrastive Loss (Spatial)
                 self.cl_proj = nn.Sequential(
                     nn.Linear(spat_dembed, spat_dembed),
@@ -616,17 +617,31 @@ class SARSSL(nn.Module):
             data_vis = {}
             data_vis['mask'], data_vis['pred'], data_vis['tar'] = self.vis_results(mask_patches=mask, pred_patches=pred, tar_patches=tar)
             
-            if self.contrastive_learning and indices is not None:
+            if (self.contrastive_learning or self.contrastive_learning_data_aug) and indices is not None:
                 # Spatial CL
                 z_spat = torch.mean(embed_spat, dim=1) # (nbatch, dembed)
                 z_proj_spat = self.cl_proj(z_spat)
-                label_spat = indices // self.num_utterances
+                
+                if self.contrastive_learning:
+                    label_spat = indices // self.num_utterances
+                elif self.contrastive_learning_data_aug:
+                    base_indices = (indices // 8) * 8
+                    offset = indices % 8
+                    mask = offset < 4
+                    label_spat = torch.where(mask, indices, base_indices)
+                
                 loss_cl_spat = self.cl_loss(z_proj_spat, label_spat)
                 
                 # Spectral CL
                 z_spec = torch.mean(embed_spec, dim=1) # (nbatch, dembed)
                 z_proj_spec = self.cl_proj_spec(z_spec)
-                label_spec = indices % self.num_utterances
+
+                if self.contrastive_learning:
+                    label_spec = indices % self.num_utterances
+                elif self.contrastive_learning_data_aug:
+                    # Reuse previously computed base_indices, offset, mask
+                    label_spec = torch.where(mask, base_indices, indices)
+
                 loss_cl_spec = self.cl_loss(z_proj_spec, label_spec)
                 
                 loss = (loss + loss_cl_spat + loss_cl_spec) / 3.0

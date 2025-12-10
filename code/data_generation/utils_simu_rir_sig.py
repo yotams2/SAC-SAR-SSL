@@ -746,6 +746,190 @@ class MicrophoneSignalOrRIR():
         save_to_file = os.path.join(save_to, str(idx) + f'_info.npz')
         np.savez(save_to_file, **{**sa_cfg, **annos, **{'fs':fs}})
 
+    def augment_spatial(self, mic_sig, mic_sig_dp, fs, aug_idx):
+        """ conserve spectral info, change spatial info 
+            aug_idx: 0 -> Swap
+                     1 -> Delay Ch0
+                     2 -> Delay Ch1
+        """
+        nch = mic_sig.shape[1]
+        sig = mic_sig.copy()
+        sig_dp = mic_sig_dp.copy() if mic_sig_dp is not None else None
+        
+        # 1. Swap (Guaranteed for 2-channel)
+        if aug_idx == 0:
+            if nch == 2:
+                perm = [1, 0]
+                sig = sig[:, perm]
+                if sig_dp is not None:
+                    sig_dp = sig_dp[:, perm]
+            else:
+                # For >2 channels, ensure random permutation is not identity
+                while True:
+                    perm = np.random.permutation(nch)
+                    if not np.all(perm == np.arange(nch)):
+                        break
+                sig = sig[:, perm]
+                if sig_dp is not None:
+                    sig_dp = sig_dp[:, perm]
+
+        # 2. Delay Ch0 (Positive Delay on Ch0 relative to Ch1)
+        elif aug_idx == 1:
+            # Shift Ch0 by 1ms to 5ms
+            min_shift = int(1e-3 * fs)
+            max_shift = int(5e-3 * fs)
+            shift = np.random.randint(min_shift, max_shift)
+            
+            sig[:, 0] = np.roll(sig[:, 0], shift)
+            if sig_dp is not None:
+                sig_dp[:, 0] = np.roll(sig_dp[:, 0], shift)
+
+        # 3. Delay Ch1 (Positive Delay on Ch1 relative to Ch0)
+        elif aug_idx == 2:
+            min_shift = int(1e-3 * fs)
+            max_shift = int(5e-3 * fs)
+            shift = np.random.randint(min_shift, max_shift)
+            
+            sig[:, 1] = np.roll(sig[:, 1], shift)
+            if sig_dp is not None:
+                sig_dp[:, 1] = np.roll(sig_dp[:, 1], shift)
+                    
+        return sig, sig_dp
+
+    def augment_spectral(self, mic_sig, mic_sig_dp, fs):
+        """ conserve spatial info, change spectral info using Identical Channel EQ (Source Filtering) """
+        # Theory: s(t) = x(t) * h(t)
+        # We want to change x(t) to x'(t) while keeping h(t) constant.
+        # If we apply a linear filter g(t) to s(t):
+        # s'(t) = s(t) * g(t) = (x(t) * h(t)) * g(t) = (x(t) * g(t)) * h(t) = x'(t) * h(t)
+        # Thus, applying the SAME filter to all channels preserves the spatial RIR h(t).
+        
+        sig = mic_sig.copy()
+        sig_dp = mic_sig_dp.copy() if mic_sig_dp is not None else None
+        
+        # Helper: Design Parametric EQ Filter
+        def design_filter(fs):
+            # Randomly choose filter type: Peaking, LowShelf, HighShelf
+            # Avoid aggressive cuts (LPF/HPF) that remove entire bands used for spatial correlation.
+            ftype = np.random.choice(['peaking', 'lowshelf', 'highshelf'])
+            
+            f0 = np.random.uniform(200, fs/2 - 1000)
+            Q = np.random.uniform(0.5, 2.0)
+            grad_db = np.random.uniform(-10, 10) # +/- 10dB gain
+            
+            # Convert to linear gain
+            A = 10**(grad_db/40.0)
+            w0 = 2 * np.pi * f0 / fs
+            alpha = np.sin(w0) / (2 * Q)
+            cos_w0 = np.cos(w0)
+            
+            if ftype == 'peaking':
+                b = [1 + alpha*A, -2*cos_w0, 1 - alpha*A]
+                a = [1 + alpha/A, -2*cos_w0, 1 - alpha/A]
+            elif ftype == 'lowshelf':
+                # Simplified shelf coefficients
+                A = 10**(grad_db/40.0) # Recalc for shelf (standard definition usually uses A^0.5 but let's stick to standard biquad formulas)
+                # Actually, using scipy.signal.iirpeak might be easier, but let's use standard biquad cookbook formulas for shelving if possible.
+                # To be safe and simple, let's use standard Peaking filters only for now as they are safe stability-wise and definitely color the sound.
+                # Or use multiple peaking filters.
+                b = [1 + alpha*A, -2*cos_w0, 1 - alpha*A]
+                a = [1 + alpha/A, -2*cos_w0, 1 - alpha/A]
+            else: 
+                # fallback to peaking
+                b = [1 + alpha*A, -2*cos_w0, 1 - alpha*A]
+                a = [1 + alpha/A, -2*cos_w0, 1 - alpha/A]
+                
+            return np.array(b), np.array(a)
+
+        # Apply 1 to 3 serial filters to create a complex spectral coloration
+        num_filters = np.random.randint(1, 4)
+        
+        for _ in range(num_filters):
+            b, a = design_filter(fs)
+            # Normalize filter coeff to avoid massive gain issues (a[0] should be 1)
+            b = b / a[0]
+            a = a / a[0]
+            
+            # Apply to ALL channels identically (axis=0)
+            sig = scipy.signal.lfilter(b, a, sig, axis=0)
+            if sig_dp is not None:
+                sig_dp = scipy.signal.lfilter(b, a, sig_dp, axis=0)
+
+        # Normalize
+        max_val = np.max(np.abs(sig))
+        if max_val > 0:
+            sig = sig / max_val * 0.9
+            if sig_dp is not None:
+                sig_dp = sig_dp / max_val * 0.9
+                
+        return sig, sig_dp
+
+# Previous version of spectral augmentation, using method from MC-SimCLR paper
+# def augment_spectral(self, mic_sig, mic_sig_dp, fs):
+#         """ conserve spatial info, change spectral info using Mixup or RandomResizedCrop """
+        
+#         # Helper: Normalization
+#         def normalize(s):
+#             m = np.max(np.abs(s))
+#             if m > 0:
+#                 return s / m
+#             return s
+
+#         # Helper: RandomResizedCrop
+#         def random_resized_crop(x, x_dp):
+#             nsample = x.shape[0]
+#             # Random Crop ratio between 0.8 and 1.0
+#             crop_ratio = np.random.uniform(0.8, 1.0)
+#             crop_len = int(nsample * crop_ratio)
+#             start = np.random.randint(0, nsample - crop_len + 1)
+            
+#             x_crop = x[start : start + crop_len]
+#             x_out = scipy.signal.resample(x_crop, nsample, axis=0) # Resample back to original length
+            
+#             x_dp_out = None
+#             if x_dp is not None:
+#                 x_dp_crop = x_dp[start : start + crop_len]
+#                 x_dp_out = scipy.signal.resample(x_dp_crop, nsample, axis=0)
+                
+#             return x_out, x_dp_out
+
+#         # Helper: Mixup
+#         def mixup(x, x_dp):
+#             # Simulate Random Source y (Background)
+#             shift = np.random.randint(low=int(fs*0.5), high=len(x)-int(fs*0.5))
+#             y = np.roll(x, shift, axis=0)
+            
+#             if np.random.rand() > 0.5:
+#                 y = y[:, [1, 0]]
+#             else:
+#                  d = np.random.randint(1, 100)
+#                  y[:, 0] = np.roll(y[:, 0], d)
+                 
+#             y = normalize(y)
+#             alpha = np.random.uniform(0.01, 0.05) 
+#             x_mix = (1 - alpha) * x + alpha * y
+#             x_dp_mix = (1 - alpha) * x_dp if x_dp is not None else None
+#             return x_mix, x_dp_mix
+
+#         # Main Logic: Choose Augmentation
+#         x_in = normalize(mic_sig.copy())
+#         x_dp_in = normalize(mic_sig_dp.copy()) if mic_sig_dp is not None else None
+        
+#         # 50% Mixup, 50% RRC
+#         if np.random.rand() > 0.5:
+#             # Mixup
+#             sig, sig_dp = mixup(x_in, x_dp_in)
+#         else:
+#             # RandomResizedCrop
+#             sig, sig_dp = random_resized_crop(x_in, x_dp_in)
+
+#         # Final Normalization
+#         sig = normalize(sig) * 0.9
+#         if sig_dp is not None:
+#             sig_dp = normalize(sig_dp) * 0.9
+
+#         return sig, sig_dp
+
     def generate_microphone_signal(
         self, 
         idx,
@@ -761,7 +945,8 @@ class MicrophoneSignalOrRIR():
         gpu_conv=False,
         seed=1,
         contrastive_learning=False,
-        num_utterances_for_cl=300,
+        num_utterances_for_cl: int=300,
+        contrastive_learning_data_aug: bool=False,
         ):
         # print(seed+idx)
         if contrastive_learning:
@@ -772,6 +957,9 @@ class MicrophoneSignalOrRIR():
             #    We set seed based on src_idx so that WSJ0Dataset picks the same utterance.
             src_idx = idx % num_utterances_for_cl
             np.random.seed(seed=seed+src_idx)
+        elif contrastive_learning_data_aug:
+            # Base sample seed
+            np.random.seed(seed=seed+idx)
         else:
             np.random.seed(seed=seed+idx)
         
@@ -813,6 +1001,8 @@ class MicrophoneSignalOrRIR():
         if contrastive_learning:
              # src_idx is already calculated above
              pass
+        elif contrastive_learning_data_aug:
+             src_idx = np.random.randint(0, srcdataset.__len__())
         else:
              src_idx = np.random.randint(0, srcdataset.__len__())
         
@@ -869,13 +1059,55 @@ class MicrophoneSignalOrRIR():
 
         # Save data
         Path(save_to).mkdir(parents=True, exist_ok=True)
-        save_to_file = os.path.join(save_to, str(idx) + f'.wav')
-        soundfile.write(save_to_file, mic_sig, fs)
-        if save_dp:
-            save_to_file = os.path.join(save_to, str(idx) + f'_dp.wav')
-            soundfile.write(save_to_file, mic_sig_dp, fs)
-        save_to_file = os.path.join(save_to, str(idx) + f'_info.npz')
-        np.savez(save_to_file, **{**sa_cfg, **annos})
+        
+        if contrastive_learning_data_aug:
+            # Save 8 versions
+            # 0: Original
+            base_idx = idx * 8
+            
+            # Helper to save
+            def save_version(i, s, s_dp, tag=""):
+                 # Normalize
+                 max_val = np.max(np.abs(s))
+                 if s_dp is not None:
+                     max_val = max(max_val, np.max(np.abs(s_dp)))
+                 if max_val > 0:
+                     s = s / max_val * 0.9
+                     if s_dp is not None: s_dp = s_dp / max_val * 0.9
+
+                 soundfile.write(os.path.join(save_to, f'{base_idx + i}.wav'), s, fs)
+                 if save_dp and s_dp is not None:
+                     soundfile.write(os.path.join(save_to, f'{base_idx + i}_dp.wav'), s_dp, fs)
+                 np.savez(os.path.join(save_to, f'{base_idx + i}_info.npz'), **{**sa_cfg, **annos, 'aug_tag': tag})
+
+            # Original
+            save_version(0, mic_sig, mic_sig_dp, "original")
+            
+            # 3 Spatial Augmentations
+            # We explicitly want:
+            # 1: Swap
+            # 2: Delay Ch0
+            # 3: Delay Ch1
+            for i in range(1, 4):
+                 # i-1 maps to 0,1,2 for the aug_idx logic
+                 np.random.seed(seed + idx*100 + i) 
+                 aug_sig, aug_dp = self.augment_spatial(mic_sig, mic_sig_dp, fs, i-1)
+                 save_version(i, aug_sig, aug_dp, "spatial")
+                
+            # 4 Spectral Augmentations
+            for i in range(4, 8):
+                np.random.seed(seed + idx*100 + i)
+                aug_sig, aug_dp = self.augment_spectral(mic_sig, mic_sig_dp, fs)
+                save_version(i, aug_sig, aug_dp, "spectral")
+
+        else:
+            save_to_file = os.path.join(save_to, str(idx) + f'.wav')
+            soundfile.write(save_to_file, mic_sig, fs)
+            if save_dp:
+                save_to_file = os.path.join(save_to, str(idx) + f'_dp.wav')
+                soundfile.write(save_to_file, mic_sig_dp, fs)
+            save_to_file = os.path.join(save_to, str(idx) + f'_info.npz')
+            np.savez(save_to_file, **{**sa_cfg, **annos})
  
     def generate_annotation(
         self,

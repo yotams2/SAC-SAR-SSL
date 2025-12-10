@@ -51,6 +51,7 @@ class opt_pretrain():
         parser.add_argument('--test-mode', type=str, default='all', metavar='TestMode', help='test mode (default: all)')
 
         parser.add_argument('--contrastive-learning', '--cl', action='store_true', default=False, help='Use contrastive learning batch sampling')
+        parser.add_argument('--contrastive-learning-data-aug', '--clda', action='store_true', default=False, help='Use data augmentation in contrastive learning batch sampling')
         parser.add_argument('--num-rooms-cl', type=int, default=300, help='Total number of rooms for CL')
         parser.add_argument('--num-utterances-cl', type=int, default=300, help='Total number of utterances per room for CL')
         parser.add_argument('--description', '--d', type=str, default=None, help='Description of the experiment to be saved in description.txt')
@@ -62,6 +63,7 @@ class opt_pretrain():
         self.time = args.time
         self.work_dir = args.work_dir
         self.cl = args.contrastive_learning
+        self.clda = args.contrastive_learning_data_aug
 
         args.acoustic_setting = self.acoustic_setting
         
@@ -80,6 +82,8 @@ class opt_pretrain():
         dirs['data'] = self.work_dir_local + '/data'
         if self.cl:
             dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data_cl'
+        elif self.clda:
+            dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data_cl_da'
         else:
             dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data'
         dirs['exp'] = work_dir + '/SAR-SSL/exp'
@@ -181,6 +185,8 @@ class opt_downstream():
         parser.add_argument('--ds-test', action='store_true', default=False, help='change to test stage of downstream tasks (default: False)')
         parser.add_argument('--test-mode', type=str, default='cal_metric_wo_info', metavar='TestMode', help='test mode (default: cal_metric_wo_info)')
 
+        parser.add_argument('--my-tmp', action='store_true', default=False, help='run tmp script only for GPU testing')
+
         args = parser.parse_args()
         assert (args.ds_train + args.ds_test)==1, 'Downstream stage (train or test) is not defined'
         assert args.ds_trainmode in ['scratchLOW', 'finetune', 'lineareval'], 'Downstream train mode in not defined' # 'sratchUP'   
@@ -215,6 +221,13 @@ class opt_downstream():
             num = args.ds_nsimroom * 100
             ntrial = np.maximum(1, round(32/(args.ds_nsimroom+10e-4)))
             self.ntrail = ntrial
+
+            if args.my_tmp:
+                lr_set = [0.0001]
+                nepoch = 20
+                ntrial = 1
+                self.ntrail = 1
+
             args.ds_setting = {}
             args.ds_setting['TDOA'] = {'nepoch': nepoch, 'num': num, 'lr_set': lr_set, 'bs_set': bs_set, 'ntrial': ntrial}
             args.ds_setting['DRR'] = {'nepoch': nepoch, 'num': num, 'lr_set': lr_set, 'bs_set': bs_set, 'ntrial': ntrial}

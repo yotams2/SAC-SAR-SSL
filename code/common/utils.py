@@ -18,6 +18,26 @@ from sklearn.datasets import load_iris
 from sklearn.decomposition import PCA
 
 
+def plot_learning_curve(loss_dict, save_path):
+    """ Plot learning curve
+        Args:   loss_dict - {'loss_train': [0.1, 0.05, ...], 'loss_val': [0.12, 0.06, ...]}
+                save_path - path to save the plot
+    """
+    plt.switch_backend('agg')
+    plt.figure(figsize=(10, 6))
+    
+    for key, values in loss_dict.items():
+        plt.plot(values, label=key)
+        
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Learning Curve')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(save_path)
+    plt.close()
+
+
 def detect_infnan(data, mode='torch', info=''):
     """ Check whether there is inf/nan in the element of data or not
     """ 

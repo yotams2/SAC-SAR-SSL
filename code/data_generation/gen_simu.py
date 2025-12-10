@@ -207,6 +207,7 @@ def GenerateRandomMicSig(
     contrastive_learning: bool=False,
     num_rooms_for_cl: int=300,
     num_utterances_for_cl: int=300,
+    contrastive_learning_data_aug: bool=False,
     ): 
  
     if traj_pt_mode == 'time':
@@ -290,6 +291,35 @@ def GenerateRandomMicSig(
                 for _ in range(num_utterances_for_cl):
                     sa_cfgs.append(sa_cfg)
 
+        elif contrastive_learning_data_aug:
+            # New mode: generates 8 augmented versions for each base sample
+            num_base_samples = data_num // 8
+            print(f'Contrastive Learning Data Aug Mode: Generating {num_base_samples} base samples, each augmented to 8 versions. Total data_num: {data_num}')
+            
+            for idx in range(num_base_samples):
+                if (idx+1)%1000 == 0:
+                    print('Generating MicSig config: {}/{} ({}%)'.format(idx+1, num_base_samples, round((idx+1)/num_base_samples*100,2)))
+                
+                sa_cfg = spatialacoustics.generate_random_spatial_acoustics(
+                    room_sz_range=room_sz_range, 
+                    T60_range=T60_range, 
+                    abs_weights_range=abs_weights_range, 
+                    c=c,
+                    ism_db=ism_db,
+                    mic_array_cfg=mic_array_cfg,
+                    array_pos_ratio_range=array_pos_ratio_range,
+                    num_source_range=num_source_range, 
+                    source_state=source_state,
+                    min_src_array_dist=min_src_array_dist, 
+                    min_src_boundary_dist=min_src_boundary_dist, 
+                    traj_pt_mode=traj_pt_mode,
+                    nb_points=nb_points,
+                    room_cfg=None,
+                    seed=seed,
+                    idx=idx
+                )
+                sa_cfgs.append(sa_cfg)
+
         else:
             for idx in range(data_num):
                 if (idx+1)%10000 == 0:
@@ -350,6 +380,11 @@ def GenerateRandomMicSig(
     pbar = tqdm.tqdm(total=data_num)
     pbar.set_description('generating rirs|microphone signals')
 
+    if contrastive_learning_data_aug:
+        gen_range = range(data_num // 8)
+    else:
+        gen_range = range(data_num)
+
     if use_gpu:
         def init_env_var(gpus: List[int]):
             i = queue.get()
@@ -379,17 +414,24 @@ def GenerateRandomMicSig(
                 seed=seed,
                 contrastive_learning=contrastive_learning,
                 num_utterances_for_cl=num_utterances_for_cl,
+                contrastive_learning_data_aug=contrastive_learning_data_aug,
             ),
-            range(data_num),
+            gen_range,
             chunksize=100,
         ):
-            pbar.update()
+            if contrastive_learning_data_aug:
+                pbar.update(8)
+            else:
+                pbar.update()
         p.close()
         p.join()
 
     else:
-        for idx in range(data_num):
-            pbar.update()
+        for idx in gen_range:
+            if contrastive_learning_data_aug:
+                pbar.update(8)
+            else:
+                pbar.update()
             mic_sig_or_rir.generate_microphone_signal(
                 idx=idx, 
                 sa_cfgs=sa_cfgs, 
@@ -405,6 +447,7 @@ def GenerateRandomMicSig(
                 seed=seed,
                 contrastive_learning=contrastive_learning,
                 num_utterances_for_cl=num_utterances_for_cl,
+                contrastive_learning_data_aug=contrastive_learning_data_aug,
                 )
 
 
