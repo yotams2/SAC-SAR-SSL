@@ -49,9 +49,38 @@ def verify_clda_logic():
     print(f"Spectral Labels: {label_spec.tolist()}")
     print("  Expected Grouping: {0,1,2,3} should match. {4}, {5}, {6}, {7} should be singletons.")
     
+    # --- Verify Neutral Masks ---
+    print("\n--- Verifying Neutral Masks ---")
+    
+    # Spat Neutral Mask Logic
+    # Any pair from same base signal that is NOT a positive pair should be neutral
+    same_base_mask = (base_indices.unsqueeze(0) == base_indices.unsqueeze(1)).float()
+    pos_mask_spat = (label_spat.unsqueeze(0) == label_spat.unsqueeze(1)).float()
+    neutral_mask_spat = same_base_mask * (1 - pos_mask_spat)
+    
+    # Spec Neutral Mask Logic
+    # Any pair from same base signal that is NOT a positive pair should be neutral
+    pos_mask_spec = (label_spec.unsqueeze(0) == label_spec.unsqueeze(1)).float()
+    neutral_mask_spec = same_base_mask * (1 - pos_mask_spec)
+    
+    print(f"Neutral Mask Spat (Sum): {neutral_mask_spat.sum().item()}")
+    # Total pairs for one base (8 samples): 8*8 = 64.
+    # Positives + Neutrals = Total (since all share base)
+    # Spat Labels: 1 group of 5 (offset>=4 + base), 3 singletons (offset 1,2,3).
+    # Positives: 5*5 + 1*1 + 1*1 + 1*1 = 25 + 3 = 28.
+    # Expected Neutrals: 64 - 28 = 36.
+    # Total Neutral for 2 bases: 36 * 2 = 72.
+    print("Expected Spat Neutral Count (incl diag): 72")
+    
+    print(f"Neutral Mask Spec (Sum): {neutral_mask_spec.sum().item()}")
+    # Spec Labels: 1 group of 4 (offset<4), 4 singletons (offset 4,5,6,7).
+    # Positives: 4*4 + 4*1 = 16 + 4 = 20.
+    # Expected Neutrals: 64 - 20 = 44.
+    # Total Neutral for 2 bases: 44 * 2 = 88.
+    print("Expected Spec Neutral Count (incl diag): 88")
+
     # Visualize Masks
     pos_mask_spat = (label_spat.unsqueeze(0) == label_spat.unsqueeze(1)).float()
-    self_mask = torch.eye(batch_size)
     p_i_spat = pos_mask_spat.sum(dim=1) - 1
     p_i_spat = torch.max(p_i_spat, torch.ones_like(p_i_spat))
     
@@ -68,9 +97,9 @@ def verify_clda_logic():
     # Mock z_spat
     z_spat = torch.randn(batch_size, 256, requires_grad=True)
     
-    # Run Loss
-    loss_spat = model.cl_loss(z_spat, label_spat)
-    print(f"\nCalculated Spatial Loss (Random Init): {loss_spat.item():.4f}")
+    # Run Loss WITH Neutral Mask
+    loss_spat = model.cl_loss(z_spat, label_spat, neutral_mask=neutral_mask_spat)
+    print(f"\nCalculated Spatial Loss (Random Init) WITH Neutral Mask: {loss_spat.item():.4f}")
     
     # Check Gradients
     loss_spat.backward()
@@ -81,20 +110,15 @@ def verify_clda_logic():
         if grad_norm == 0:
             print("WARNING: Gradient is ZERO.")
     
-    expected_loss = np.log(batch_size - 1)
-    print(f"Note: Log({batch_size}-1) = {expected_loss:.4f}")
+    # Check Logic without neutral mask for comparison
+    z_spat_2 = z_spat.clone().detach().requires_grad_(True)
+    loss_spat_no_neutral = model.cl_loss(z_spat_2, label_spat, neutral_mask=None)
+    print(f"Calculated Spatial Loss (Random Init) WITHOUT Neutral Mask: {loss_spat_no_neutral.item():.4f}")
     
-    # Check Collapse Case
-    z_collapse = torch.ones(batch_size, 256, requires_grad=True)
-    loss_collapse = model.cl_loss(z_collapse, label_spat)
-    print(f"Calculated Spatial Loss (Collapsed): {loss_collapse.item():.4f}")
-    
-    if abs(loss_spat.item() - expected_loss) < 0.1:
-        print("Observation: Random Init Loss is close to Log(B-1). This is normal for orthogonal vectors.")
-        
-    if abs(loss_collapse.item() - expected_loss) < 0.1:
-        print("Observation: Collapsed Loss is ALSO close to Log(B-1).")
-        print("CRITICAL: 'Stuck on constant value' likely means the model isn't learning to discriminate.")
+    if loss_spat.item() != loss_spat_no_neutral.item():
+        print("Verification SUCCESS: Neutral mask implies different loss value.")
+    else:
+        print("Verification WARNING: Loss is same. Might be because random vectors are already orthogonal enough or mask had no effect?")
 
 if __name__ == "__main__":
     verify_clda_logic()

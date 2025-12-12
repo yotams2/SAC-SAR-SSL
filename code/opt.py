@@ -52,6 +52,7 @@ class opt_pretrain():
 
         parser.add_argument('--contrastive-learning', '--cl', action='store_true', default=False, help='Use contrastive learning batch sampling')
         parser.add_argument('--contrastive-learning-data-aug', '--clda', action='store_true', default=False, help='Use data augmentation in contrastive learning batch sampling')
+        parser.add_argument('--data-aug', '--da', action='store_true', default=False, help='Use data augmentation without contrastive learning batch sampling')
         parser.add_argument('--num-rooms-cl', type=int, default=300, help='Total number of rooms for CL')
         parser.add_argument('--num-utterances-cl', type=int, default=300, help='Total number of utterances per room for CL')
         parser.add_argument('--description', '--d', type=str, default=None, help='Description of the experiment to be saved in description.txt')
@@ -64,6 +65,7 @@ class opt_pretrain():
         self.work_dir = args.work_dir
         self.cl = args.contrastive_learning
         self.clda = args.contrastive_learning_data_aug
+        self.da = args.data_aug
 
         args.acoustic_setting = self.acoustic_setting
         
@@ -82,7 +84,7 @@ class opt_pretrain():
         dirs['data'] = self.work_dir_local + '/data'
         if self.cl:
             dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data_cl'
-        elif self.clda:
+        elif self.clda or self.da:
             dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data_cl_da'
         else:
             dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data'

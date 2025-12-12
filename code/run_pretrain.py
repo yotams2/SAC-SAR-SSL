@@ -31,6 +31,33 @@ os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
 
 import numpy as np
 from torch.utils.data import Sampler
+from pathlib import Path
+
+def count_wav_files(directory_or_dict):
+    """
+    Recursively counts .wav files in a directory or dict of directories.
+    Excludes *_dp.wav files.
+    """
+    count = 0
+    if isinstance(directory_or_dict, dict):
+        for key, val in directory_or_dict.items():
+            count += count_wav_files(val)
+    elif isinstance(directory_or_dict, list):
+        for d in directory_or_dict:
+             count += count_wav_files(d)
+    elif isinstance(directory_or_dict, str):
+        path = Path(directory_or_dict)
+        if path.exists():
+            # Logic from dataset.py:FixMicSigDataset
+            files = list(path.rglob('*.wav'))
+            dp_files = list(path.rglob('*_dp.wav'))
+            # Convert to sets for faster exclusion if needed, but list check is fine for moderate size
+            # dataset.py uses: [item for item in files if item not in dp_files]
+            # Since Path objects compare by path, this works.
+            valid_files = [f for f in files if f not in dp_files]
+            count = len(valid_files)
+    return count
+
 
 class ContrastiveBatchSampler(Sampler):
     def __init__(self, num_rooms, num_utterances, batch_size, rooms_per_batch=8, utterances_per_batch=16):
@@ -151,7 +178,24 @@ if args.pretrain:
 	nepoch = args.nepoch
 
 	# Dataset
-	data_num = {'train': 4000, 'val':4000*2, 'test':4000*2} # FIXME 'train': 5120*100,
+	# Dataset
+	if args.simu_exp:
+		train_count = count_wav_files(dirs['micsig_simu_pretrain'])
+		val_count = count_wav_files(dirs['micsig_simu_preval'])
+		# For test, we might use pretest_ins or just pretest dir. 
+		# dataset.py uses pretest dir for 'all' mode and pretest_ins list for 'ins' mode.
+		# run_pretrain.py logic for test isn't fully unified in pretrain block, 
+		# but let's assume standard pretest dir for count if needed.
+		# However, `data_num` keys are 'train', 'val', 'test'.
+		test_count = count_wav_files(dirs['micsig_simu_pretest'])
+	else:
+		train_count = count_wav_files(dirs['micsig_real_pretrain'])
+		val_count = count_wav_files(dirs['micsig_real_preval'])
+		test_count = count_wav_files(dirs['micsig_real_pretest'])
+
+	print(f"Dynamic Data Counts - Train: {train_count}, Val: {val_count}, Test: {test_count}")
+	data_num = {'train': train_count, 'val': val_count, 'test': test_count}
+
 	
 	history = {'loss_train': []}
 	if args.simu_exp:
@@ -437,7 +481,20 @@ if (args.pretrain_frozen_encoder):
 
 	# Dataset
 	# Dataset
-	data_num = {'train': 40000, 'val':4000, 'test':4000} # FIXME 'train': 5120*100,
+	# Dataset
+	if args.simu_exp:
+		train_count = count_wav_files(dirs['micsig_simu_pretrain'])
+		val_count = count_wav_files(dirs['micsig_simu_preval'])
+		test_count = count_wav_files(dirs['micsig_simu_pretest'])
+	else:
+		# Frozen encoder essentially assumes simu_exp according to assert above, but for completeness:
+		train_count = count_wav_files(dirs['micsig_real_pretrain'])
+		val_count = count_wav_files(dirs['micsig_real_preval'])
+		test_count = count_wav_files(dirs['micsig_real_pretest'])
+
+	print(f"Dynamic Data Counts (Frozen) - Train: {train_count}, Val: {val_count}, Test: {test_count}")
+	data_num = {'train': train_count, 'val': val_count, 'test': test_count}
+
 
 	history = {'loss_train': [], 'loss_val_sim': []}
 	if args.contrastive_learning or args.contrastive_learning_data_aug:

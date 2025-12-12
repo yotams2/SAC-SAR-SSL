@@ -826,10 +826,11 @@ class SARSSL(nn.Module):
          
         return loss 
 
-    def cl_loss(self, z, labels):
+    def cl_loss(self, z, labels, neutral_mask=None):
         """ Calculate Supervised Contrastive Loss
             Args: z - (nbatch, dim)
                   labels - (nbatch)
+                  neutral_mask - (nbatch, nbatch) Optional mask where 1 indicates pairs to ignore (neutral)
             Returns: loss
         """
         device = z.device
@@ -851,9 +852,15 @@ class SARSSL(nn.Module):
         neg_mask = 1 - pos_mask
         
         # P(i) set size (number of positives excluding self)
-        p_i = pos_mask.sum(dim=1) - 1
-        # Avoid division by zero if there are no positives
-        p_i = torch.max(p_i, torch.ones_like(p_i))
+        # We need to adjust p_i if neutral matches were counted as positives (unlikely given logic, but safe to check)
+        # Actually p_i is sum of pos_mask. If a neutral pair was in pos_mask, we'd remove it later.
+        # But for now p_i assumes all positives are valid.
+        
+        if neutral_mask is not None:
+             # Ensure neutral mask has 0 on diagonal
+             neutral_mask = neutral_mask.float() * (1 - self_mask)
+             exp_sim_matrix = exp_sim_matrix * (1 - neutral_mask)
+
 
         # Denominator: sum over A(i) (all other samples)
         # sum_{a \in A(i)} exp(sim) = sum_{all} exp(sim) - exp(self_sim)
@@ -870,6 +877,15 @@ class SARSSL(nn.Module):
         # mask out self matches from pos_mask for selection
         pos_mask_no_self = pos_mask - self_mask
         
+        if neutral_mask is not None:
+             # Ensure neutral pairs are not treated as positives
+             pos_mask_no_self = pos_mask_no_self * (1 - neutral_mask)
+
+        # Recalculate p_i based on effective positives
+        p_i = pos_mask_no_self.sum(dim=1)
+        # Avoid division by zero if there are no positives
+        p_i = torch.max(p_i, torch.ones_like(p_i))
+
         # We can implement this efficiently:
         # log_prob = sim_matrix - torch.log(denom_sum).unsqueeze(1)
         # loss_i = - (log_prob * pos_mask_no_self).sum(dim=1) / p_i
@@ -877,11 +893,25 @@ class SARSSL(nn.Module):
         
         log_prob = sim_matrix - torch.log(denom_sum).unsqueeze(1) # (nbatch, nbatch)
         
+        # if True: # Debug printing
+        #      with torch.no_grad():
+        #          sim_mean = sim_matrix.mean().item()
+        #          sim_std = sim_matrix.std().item()
+        #          pos_count = pos_mask_no_self.sum().item()
+        #          denom_mean = denom_sum.mean().item()
+        #          print(f"CL Debug: Sim Mean: {sim_mean:.4f}, Sim Std: {sim_std:.4f}, Pos Count: {pos_count}, Denom Mean: {denom_mean:.4f}")
+        #          if pos_count == 0:
+        #              print("CL Debug: NO POSITIVES!")
+        #          # Check if embeddings are collapsed
+        #          z_std = z.std(dim=0).mean().item()
+        #          print(f"CL Debug: Z std (dim=0): {z_std:.6f}")
+
         # Sum log probs for positive pairs
         sum_log_prob_pos = (log_prob * pos_mask_no_self).sum(dim=1) # (nbatch)
         
         loss = - (sum_log_prob_pos / p_i).mean()
         
+        # print(f"CL Debug: Loss: {loss.item():.4f}")
         return loss
 
     def vis_results(self, mask_patches, pred_patches, tar_patches):

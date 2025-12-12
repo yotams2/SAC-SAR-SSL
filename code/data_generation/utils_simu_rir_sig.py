@@ -746,12 +746,14 @@ class MicrophoneSignalOrRIR():
         save_to_file = os.path.join(save_to, str(idx) + f'_info.npz')
         np.savez(save_to_file, **{**sa_cfg, **annos, **{'fs':fs}})
 
-    def augment_spatial(self, mic_sig, mic_sig_dp, fs, aug_idx):
+    def augment_spatial(self, mic_sig, mic_sig_dp, fs, aug_idx, aug_coef=1.0):
         """ conserve spectral info, change spatial info 
             aug_idx: 0 -> Swap
                      1 -> Delay Ch0
                      2 -> Delay Ch1
+            aug_coef: 0.0 to 1.0, controls the strength of the augmentation (shift amount)
         """
+
         nch = mic_sig.shape[1]
         sig = mic_sig.copy()
         sig_dp = mic_sig_dp.copy() if mic_sig_dp is not None else None
@@ -775,9 +777,11 @@ class MicrophoneSignalOrRIR():
 
         # 2. Delay Ch0 (Positive Delay on Ch0 relative to Ch1)
         elif aug_idx == 1:
-            # Shift Ch0 by 1ms to 5ms
-            min_shift = int(1e-3 * fs)
-            max_shift = int(5e-3 * fs)
+            # Shift Ch0 by 1ms to 5ms * coef
+            min_shift = int(1e-3 * fs * 0.1) # Minimum 0.1ms
+            max_shift = int(5e-3 * fs * aug_coef) # Max 5ms scaled by coef
+            max_shift = max(min_shift + 1, max_shift)
+            
             shift = np.random.randint(min_shift, max_shift)
             
             sig[:, 0] = np.roll(sig[:, 0], shift)
@@ -786,17 +790,21 @@ class MicrophoneSignalOrRIR():
 
         # 3. Delay Ch1 (Positive Delay on Ch1 relative to Ch0)
         elif aug_idx == 2:
-            min_shift = int(1e-3 * fs)
-            max_shift = int(5e-3 * fs)
+            min_shift = int(1e-3 * fs * 0.1)
+            max_shift = int(5e-3 * fs * aug_coef)
+            max_shift = max(min_shift + 1, max_shift)
+            
             shift = np.random.randint(min_shift, max_shift)
             
             sig[:, 1] = np.roll(sig[:, 1], shift)
             if sig_dp is not None:
                 sig_dp[:, 1] = np.roll(sig_dp[:, 1], shift)
+
                     
         return sig, sig_dp
 
-    def augment_spectral(self, mic_sig, mic_sig_dp, fs):
+    def augment_spectral(self, mic_sig, mic_sig_dp, fs, aug_coef=1.0):
+
         """ conserve spatial info, change spectral info using Identical Channel EQ (Source Filtering) """
         # Theory: s(t) = x(t) * h(t)
         # We want to change x(t) to x'(t) while keeping h(t) constant.
@@ -815,7 +823,8 @@ class MicrophoneSignalOrRIR():
             
             f0 = np.random.uniform(200, fs/2 - 1000)
             Q = np.random.uniform(0.5, 2.0)
-            grad_db = np.random.uniform(-10, 10) # +/- 10dB gain
+            grad_db = np.random.uniform(-10 * aug_coef, 10 * aug_coef) # +/- 10dB gain scaled by coef
+
             
             # Convert to linear gain
             A = 10**(grad_db/40.0)
@@ -947,7 +956,10 @@ class MicrophoneSignalOrRIR():
         contrastive_learning=False,
         num_utterances_for_cl: int=300,
         contrastive_learning_data_aug: bool=False,
+        spat_aug_coef: float=1.0,
+        spec_aug_coef: float=1.0,
         ):
+
         # print(seed+idx)
         if contrastive_learning:
             # For contrastive learning:
@@ -1091,13 +1103,14 @@ class MicrophoneSignalOrRIR():
             for i in range(1, 4):
                  # i-1 maps to 0,1,2 for the aug_idx logic
                  np.random.seed(seed + idx*100 + i) 
-                 aug_sig, aug_dp = self.augment_spatial(mic_sig, mic_sig_dp, fs, i-1)
+                 aug_sig, aug_dp = self.augment_spatial(mic_sig, mic_sig_dp, fs, i-1, aug_coef=spat_aug_coef)
                  save_version(i, aug_sig, aug_dp, "spatial")
                 
             # 4 Spectral Augmentations
             for i in range(4, 8):
                 np.random.seed(seed + idx*100 + i)
-                aug_sig, aug_dp = self.augment_spectral(mic_sig, mic_sig_dp, fs)
+                aug_sig, aug_dp = self.augment_spectral(mic_sig, mic_sig_dp, fs, aug_coef=spec_aug_coef)
+
                 save_version(i, aug_sig, aug_dp, "spectral")
 
         else:

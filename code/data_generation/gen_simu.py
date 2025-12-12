@@ -208,6 +208,8 @@ def GenerateRandomMicSig(
     num_rooms_for_cl: int=300,
     num_utterances_for_cl: int=300,
     contrastive_learning_data_aug: bool=False,
+    spat_aug_coef: float=1.0,
+    spec_aug_coef: float=1.0,
     ): 
  
     if traj_pt_mode == 'time':
@@ -415,6 +417,8 @@ def GenerateRandomMicSig(
                 contrastive_learning=contrastive_learning,
                 num_utterances_for_cl=num_utterances_for_cl,
                 contrastive_learning_data_aug=contrastive_learning_data_aug,
+                spat_aug_coef=spat_aug_coef,
+                spec_aug_coef=spec_aug_coef,
             ),
             gen_range,
             chunksize=100,
@@ -448,6 +452,8 @@ def GenerateRandomMicSig(
                 contrastive_learning=contrastive_learning,
                 num_utterances_for_cl=num_utterances_for_cl,
                 contrastive_learning_data_aug=contrastive_learning_data_aug,
+                spat_aug_coef=spat_aug_coef,
+                spec_aug_coef=spec_aug_coef,
                 )
 
 
