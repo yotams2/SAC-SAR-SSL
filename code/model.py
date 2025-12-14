@@ -616,6 +616,8 @@ class SARSSL(nn.Module):
             pred = vec_patch_pred.clone().detach()
             data_vis = {}
             data_vis['mask'], data_vis['pred'], data_vis['tar'] = self.vis_results(mask_patches=mask, pred_patches=pred, tar_patches=tar)
+            data_vis['embed_spec'] = embed_spec
+            data_vis['embed_spat'] = embed_spat
             
             if (self.contrastive_learning or self.contrastive_learning_data_aug) and indices is not None:
                 # Spatial CL

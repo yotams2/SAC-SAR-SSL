@@ -389,15 +389,15 @@ if args.pretrain:
 		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		if args.simu_exp:
 			set_random_seed(seeds['val']) # can be fixed when there is one card, where therea are multiple cards, inputs are fix but network are not
-			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 			print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 		else:
 			set_random_seed(seeds['val']) 
-			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
+			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, _ = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _ = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
+			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _ = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _ = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
+			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _ = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
 
 			print('Val loss real: {:.4f}'.format(loss_val_real) )
 			print('Test loss locata: {:.4f}'.format(loss_test_locata) )
@@ -564,7 +564,7 @@ if (args.pretrain_frozen_encoder):
 		set_random_seed(epoch)
 		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		set_random_seed(args.seed+10001)
-		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 		print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 
 		# Update history and plot learning curve
@@ -629,9 +629,10 @@ if (args.test):
 		dataloader_pretest = torch.utils.data.DataLoader(dataset=dataset_pretest, batch_size=args.bs[2], shuffle=False, **kwargs)
 
 		# Test
-		loss_test, diff_test, data_vis_test, _, _ = learner.pretest_epoch(dataloader_pretest, return_diff=True)
+		loss_test, diff_test, data_vis_test, _, _, cka_test = learner.pretest_epoch(dataloader_pretest, return_diff=True)
 
 		print('Test loss: {:.4f}'.format(loss_test) )
+		print('Test CKA: {:.4f}'.format(cka_test) )
 
 	elif args.test_mode == 'ins':
 		for dir_pretest in dirs['micsig_simu_pretest_ins']:

@@ -69,9 +69,16 @@ class WSJ0Dataset(Dataset):
         test: /et 5h
         spk/wav
     """
-    def __init__(self, path, T, fs, num_source=1, size=None):
+    def __init__(self, path, T, fs, num_source=1, size=None, exclude_spk_ids=None):
 
         self.corpus, self.paths = explore_corpus(path, 'wav')
+        
+        # Filter excluded speakers
+        if exclude_spk_ids is not None:
+             for spk_id in exclude_spk_ids:
+                 if spk_id in self.corpus:
+                     del self.corpus[spk_id]
+
         # self.corpus is expected to map speaker_id -> {utt_id: utt_path, ...}
         # Keep one entry per speaker: spkWAVs will be a list of dicts (utt_id->path)
         # and spkIDs will be the matching list of speaker IDs

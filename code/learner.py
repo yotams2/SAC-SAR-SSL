@@ -155,6 +155,7 @@ class Learner(ABC):
 				diff = 0
 				loss_cl_spat_avg = 0
 				loss_cl_spec_avg = 0
+				cka_avg = 0
 
 			for data in dataset:
 				mic_sig_batch = data[0]
@@ -171,19 +172,26 @@ class Learner(ABC):
 					diff += diff_batch.item()
 					loss_cl_spat_avg += loss_cl_spat.item()
 					loss_cl_spec_avg += loss_cl_spec.item()
+					
+					if 'embed_spec' in vis_batch and 'embed_spat' in vis_batch:
+						e_spec = vis_batch['embed_spec'].reshape(-1, vis_batch['embed_spec'].shape[-1])
+						e_spat = vis_batch['embed_spat'].reshape(-1, vis_batch['embed_spat'].shape[-1])
+						cka_val = self.cka(e_spec, e_spat)
+						cka_avg += cka_val.item()
 
 			loss /= len(dataset)
 			if return_diff: 
 				diff /= len(dataset)
 				loss_cl_spat_avg /= len(dataset)
 				loss_cl_spec_avg /= len(dataset)
+				cka_avg /= len(dataset)
 
 			if return_diff: 
 				if return_eval:
 					result_batch = self.pretrain_evaluate(pred_batch=vis_batch['pred'], gt_batch=vis_batch['tar'], mask_batch=vis_batch['mask'])
 					return loss, diff, vis_batch, result_batch # only return visual data of the last batch
 				else:
-					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg
+					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, cka_avg
 			else:
 				return loss
 
@@ -509,6 +517,25 @@ class Learner(ABC):
 		for epoch in epochs:
 			model_path = checkpoints_dir + "/model"+str(epoch)+".tar"
 			os.remove(model_path)
+
+	def cka(self, X, Y):
+		# Implements linear CKA
+		# X: (N, D1), Y: (N, D2)
+		
+		# Center X and Y
+		X = X - X.mean(dim=0, keepdim=True)
+		Y = Y - Y.mean(dim=0, keepdim=True)
+
+		# Calculate Gram matrices
+		gram_X = torch.mm(X, X.t())
+		gram_Y = torch.mm(Y, Y.t())
+
+		# Calculate CKA
+		scaled_hsic = torch.sum(gram_X * gram_Y)
+		normalization_x = torch.sqrt(torch.sum(gram_X * gram_X))
+		normalization_y = torch.sqrt(torch.sum(gram_Y * gram_Y))
+		
+		return scaled_hsic / (normalization_x * normalization_y)
 
 class STFTLearner(Learner):
 	""" Learner for models which use STFTs of multi-channel microphone singals as input

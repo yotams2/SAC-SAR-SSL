@@ -360,14 +360,27 @@ def GenerateRandomMicSig(
     elif stage == 'pretest':
         src_dir = src_dir + '/et'
     elif stage == 'pretest_vis':
+        src_dir_for_exclusion = src_dir + '/tr'
         src_dir = src_dir + '/et'
     elif 'pretest_ins' in stage:
         src_dir = src_dir + '/et'
+        
+    exclude_spks = None
+    if stage == 'pretest_vis':
+         print(f"DEBUG: Exclusion mode active for {stage}. Scanning {src_dir_for_exclusion} for speakers to exclude...")
+         # We need to get the list of speakers from tr to exclude them
+         # We can use explore_corpus or just list directories
+         # utils_src is imported as * so explore_corpus is available
+         tr_corpus, _ = explore_corpus(src_dir_for_exclusion, 'wav')
+         exclude_spks = list(tr_corpus.keys())
+         print(f"DEBUG: Found {len(exclude_spks)} speakers to exclude.")
+
     srcdataset = WSJ0Dataset(
         path = src_dir,
         T = T,
         fs = fs,
-        num_source = max(num_source_range) 
+        num_source = max(num_source_range),
+        exclude_spk_ids = exclude_spks 
     )
     noidataset = NoiseSignal(
         T = T,
