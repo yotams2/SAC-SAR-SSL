@@ -50,6 +50,8 @@ class opt_pretrain():
         parser.add_argument('--test', action='store_true', default=False, help='change to test stage of downstream tasks (default: False)')
         parser.add_argument('--test-mode', type=str, default='all', metavar='TestMode', help='test mode (default: all)')
 
+        parser.add_argument('--obt', action='store_true', default=False, help='Use Orthogonal Barlow Twins (OBT) loss between spatial and spectral encoders')
+
         parser.add_argument('--contrastive-learning', '--cl', action='store_true', default=False, help='Use contrastive learning batch sampling')
         parser.add_argument('--contrastive-learning-data-aug', '--clda', action='store_true', default=False, help='Use data augmentation in contrastive learning batch sampling')
         parser.add_argument('--data-aug', '--da', action='store_true', default=False, help='Use data augmentation without contrastive learning batch sampling')

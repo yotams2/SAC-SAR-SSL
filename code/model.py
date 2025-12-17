@@ -349,7 +349,7 @@ class EmbedDecoder(nn.Module):
  
 class SARSSL(nn.Module): 
 
-    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False):#vis=False):
+    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, nepoch=30):#vis=False):
         # patch_shape: size of each patch, (nf, nt)
         # patch_shape=(16,16), maskedpatch_mode='TF',
         # patch_shape=(256,1), maskedpatch_mode='T'
@@ -374,6 +374,8 @@ class SARSSL(nn.Module):
         self.num_utterances = num_utterances
         self.device = device
         self.use_cls = use_cls
+        self.obt = obt
+        self.nepoch = nepoch
 
         self.patch_split = at_module.PatchSplit(patch_shape=patch_shape, f_first=f_first)
         self.patch_recover = at_module.PatchRecover(output_shape=(nf, nt), patch_shape=patch_shape, f_first=f_first)
@@ -535,7 +537,7 @@ class SARSSL(nn.Module):
             self.downstream_dlabel = downstream_dlabel
             self.ds_token = downstream_token
 
-    def forward(self, x, indices=None):
+    def forward(self, x, indices=None, epoch=None):
         nbatch, nmic, nf, nt, nreim = x.shape
         
         if self.pretrain:
@@ -609,6 +611,7 @@ class SARSSL(nn.Module):
             pred_patches = torch.sum(vec_patch_pred * (1 - mask_ch_dense_expand), dim=-1)  # (nbatch, npatch, dpatch, 2)
        
             loss, diff = self.gen_loss(pred_patches=pred_patches, tar_patches=tar_ch_patches, mask_idx=mask_patch_idx, tar_unmaskch_patches=tar_anotherch_patches)
+            loss_gen = loss
 
             # Additional visualized data
             mask = mask_dense.clone().detach()
@@ -619,6 +622,10 @@ class SARSSL(nn.Module):
             data_vis['embed_spec'] = embed_spec
             data_vis['embed_spat'] = embed_spat
             
+            loss_cl_spat = torch.tensor(0.0, device=self.device)
+            loss_cl_spec = torch.tensor(0.0, device=self.device)
+            obt_loss = torch.tensor(0.0, device=self.device)
+
             if (self.contrastive_learning or self.contrastive_learning_data_aug) and indices is not None:
                 # Spatial CL
                 z_spat = torch.mean(embed_spat, dim=1) # (nbatch, dembed)
@@ -646,12 +653,39 @@ class SARSSL(nn.Module):
 
                 loss_cl_spec = self.cl_loss(z_proj_spec, label_spec)
                 
-                loss = (loss + loss_cl_spat + loss_cl_spec) / 3.0
-            else:
-                loss_cl_spat = torch.tensor(0.0, device=self.device)
-                loss_cl_spec = torch.tensor(0.0, device=self.device)
+            if self.obt:
+                if epoch is not None and epoch > (self.nepoch / 3):
+                    # OBT Orthogonality Loss
+                    # Push spatial encoder to be orthogonal to spectral encoder
+                    # Minimize cross-covariance
+                    
+                    # Flatten to (N, D)
+                    z_spat_v = torch.mean(embed_spat, dim=1) # (nbatch, dembed)
+                    z_spec_v = torch.mean(embed_spec, dim=1) # (nbatch, dembed)
+                    
+                    # Center
+                    z_spat_v = z_spat_v - z_spat_v.mean(dim=0)
+                    z_spec_v = z_spec_v - z_spec_v.mean(dim=0)
+                    
+                    # Covariance
+                    cov = (z_spat_v.T @ z_spec_v) / (nbatch - 1)
+                    
+                    # Loss = sum of squared elements
+                    obt_loss = cov.pow(2).sum()
+                    
+            # Final Loss Calculation
+            # Organize losses to sum to 1 with equal weights
+            losses = [loss_gen]
+            if (self.contrastive_learning or self.contrastive_learning_data_aug) and indices is not None:
+                losses.append(loss_cl_spat)
+                losses.append(loss_cl_spec)
+            
+            if self.obt and epoch is not None and epoch > (self.nepoch / 3):
+                 losses.append(obt_loss)
+            
+            loss = sum(losses) / len(losses)
 
-            return loss, diff, data_vis, loss_cl_spat, loss_cl_spec
+            return loss, diff, data_vis, loss_cl_spat, loss_cl_spec, obt_loss
 
         elif self.pretrain_frozen_encoder:
             ## Patch (frame) spliting
@@ -718,7 +752,7 @@ class SARSSL(nn.Module):
             
             data_vis['mask'], data_vis['pred'], data_vis['tar'] = self.vis_results(mask_patches=mask, pred_patches=pred, tar_patches=tar)
             
-            return loss, loss*0.0, data_vis, torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device)
+            return loss, loss*0.0, data_vis, torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device)
         else:
             ## Patch (frame) spliting
             data = x.permute(0, 2, 3, 4, 1) # (nbatch, nf, nt, nreim, nmic)

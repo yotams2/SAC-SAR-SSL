@@ -159,7 +159,7 @@ print(f"T: {T:.3f}, nt: {nt}, nf: {nf}")
 
 # Network
 if args.pretrain | args.test:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, nepoch=args.nepoch)
 if args.pretrain_frozen_encoder:
 	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True)
 
@@ -214,6 +214,13 @@ if args.pretrain:
 		else:
 			history['loss_cl_spat_val_real'] = []
 			history['loss_cl_spec_val_real'] = []
+
+	if args.obt:
+		history['loss_obt_train'] = []
+		if args.simu_exp:
+			history['loss_obt_val_sim'] = []
+		else:
+			history['loss_obt_val_real'] = []
 
 	remove_spkoverlap = True
 	prob_mode = ['duration', 'micpair']
@@ -386,18 +393,18 @@ if args.pretrain:
 			lr = 0.0001
 			
 		set_random_seed(seeds['train']+epoch)
-		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
+		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, obt_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		if args.simu_exp:
 			set_random_seed(seeds['val']) # can be fixed when there is one card, where therea are multiple cards, inputs are fix but network are not
-			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _, obt_val_sim = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 			print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 		else:
 			set_random_seed(seeds['val']) 
-			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, _ = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
+			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, _, obt_val_real = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _ = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
+			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _, _ = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _ = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
+			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _, _ = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
 
 			print('Val loss real: {:.4f}'.format(loss_val_real) )
 			print('Test loss locata: {:.4f}'.format(loss_test_locata) )
@@ -442,7 +449,8 @@ if args.pretrain:
 			exist_flag = os.path.exists(data_path)
 			if exist_flag==False:
 				os.makedirs(data_path)
-			vis_train = vis_time_fre_data(data_vis_train, ins_idx=1)
+			data_vis_train_filtered = {k: v for k, v in data_vis_train.items() if k in ['mask', 'pred', 'tar']}
+			vis_train = vis_time_fre_data(data_vis_train_filtered, ins_idx=1)
 			vis_train.savefig(data_path + str(epoch) + '_train')
 		
 		# Update history and plot learning curve
@@ -463,6 +471,13 @@ if args.pretrain:
 			else:
 				history['loss_cl_spat_val_real'].append(loss_cl_spat_val_real)
 				history['loss_cl_spec_val_real'].append(loss_cl_spec_val_real)
+
+		if args.obt:
+			history['loss_obt_train'].append(obt_train)
+			if args.simu_exp:
+				history['loss_obt_val_sim'].append(obt_val_sim)
+			else:
+				history['loss_obt_val_real'].append(obt_val_real)
 
 		plot_learning_curve(history, dirs['log_pretrain'] + '/learning_curve.png')
 
@@ -562,9 +577,9 @@ if (args.pretrain_frozen_encoder):
 		
 		lr = lr_schedule(epoch)
 		set_random_seed(epoch)
-		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
+		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, _ = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		set_random_seed(args.seed+10001)
-		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 		print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 
 		# Update history and plot learning curve
@@ -629,7 +644,7 @@ if (args.test):
 		dataloader_pretest = torch.utils.data.DataLoader(dataset=dataset_pretest, batch_size=args.bs[2], shuffle=False, **kwargs)
 
 		# Test
-		loss_test, diff_test, data_vis_test, _, _, cka_test = learner.pretest_epoch(dataloader_pretest, return_diff=True)
+		loss_test, diff_test, data_vis_test, _, _, cka_test, _ = learner.pretest_epoch(dataloader_pretest, return_diff=True)
 
 		print('Test loss: {:.4f}'.format(loss_test) )
 		print('Test CKA: {:.4f}'.format(cka_test) )
