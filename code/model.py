@@ -349,7 +349,7 @@ class EmbedDecoder(nn.Module):
  
 class SARSSL(nn.Module): 
 
-    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, nepoch=30):#vis=False):
+    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False):#vis=False):
         # patch_shape: size of each patch, (nf, nt)
         # patch_shape=(16,16), maskedpatch_mode='TF',
         # patch_shape=(256,1), maskedpatch_mode='T'
@@ -376,12 +376,15 @@ class SARSSL(nn.Module):
         self.use_cls = use_cls
         self.obt = obt
         self.nepoch = nepoch
+        self.pretrain_mode = pretrain_mode
+        self.spectral_enc_input = spectral_enc_input
+        self.debug = debug
 
         self.patch_split = at_module.PatchSplit(patch_shape=patch_shape, f_first=f_first)
         self.patch_recover = at_module.PatchRecover(output_shape=(nf, nt), patch_shape=patch_shape, f_first=f_first)
 
-        spec_dembed = 256*2
-        spat_dembed = 256
+        # spec_dembed = 256*2
+        # spat_dembed = 256
         self.in_ver = 'separate' # separate mask for spatial and spectral encoders
         # self.in_ver = 'same' # same mask for spatial and spectral encoders
         # self.in_ver = 'single_ch_each_patch' 
@@ -449,7 +452,11 @@ class SARSSL(nn.Module):
         self.embed_use4ds = downstream_embed
 
         if (self.in_ver == 'separate') | (self.in_ver == 'same'):
-            self.spec_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=spec_dembed, model=spec_model, 
+            if self.spectral_enc_input == 'mono':
+                 self.spec_encoder = EmbedEncoder(sig_shape=[nf, nt, nreim, 1], patch_shape=patch_shape, dembed=spec_dembed, model=spec_model, 
+                                            mode='spec', use_cls=use_cls, device=self.device)
+            else:
+                 self.spec_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=spec_dembed, model=spec_model, 
                                             mode='spec', use_cls=use_cls, device=self.device)
             self.spat_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=spat_dembed, model=spat_model, 
                                             mode='spat', use_cls=use_cls, device=self.device)
@@ -546,85 +553,123 @@ class SARSSL(nn.Module):
             vec_patch = self.patch_split(data)  # (nbatch, npatch, dpatch, nreim, nmic)
 
             ## Mask generation
-            mask_dense, mask_patch_dense, mask_ch_dense, mask_patch_idx, _ = self.patch_mask(data_shape=vec_patch.shape)  
-            # mask_dense/mask_patch_dense/mask_ch_dense: (nbatch, npatch, dpatch, nmic), mask_patch_idx: (nbatch, nmasked_patch)
+            if self.pretrain_mode == 'autoenc':
+                npatch = vec_patch.shape[1]
+                # No masking: pass full input to both encoders
+                vec_patch_flat = vec_patch.reshape(nbatch, npatch, -1) # (nbatch, npatch, dpatch*nreim*nmic)
 
-            ## Single-channel masking 
-            npatch = vec_patch.shape[1]
-            mask_dense_expand = mask_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
-            mask_patch_dense_expand = mask_patch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
-            mask_ch_dense_expand = mask_ch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
-            vec_patch_mask = vec_patch * mask_dense_expand  # (nbatch, npatch, dpatch, 2, nmic)
-
-            ## Embedding encoding
-            if self.in_ver=='separate':
-                ## spectral encoder
-                vec_patch_mask_reshape_spec = vec_patch * (1-mask_patch_dense_expand) * mask_ch_dense_expand + vec_patch * mask_patch_dense_expand * (1-mask_ch_dense_expand) # (nbatch, npatch, d_patch, 2, nmic)
-                vec_patch_mask_reshape_spec = vec_patch_mask_reshape_spec.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*2*nmic)
-                embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape_spec)  # (nbatch, npatch, dembed)
+                if self.spectral_enc_input == 'mono':
+                     # Take only the first channel for spectral encoder
+                     dpatch = vec_patch.shape[2]
+                     nch = 2 # nreim
+                     vec_patch_flat_spec = vec_patch[:, :, :, :, 0].reshape(nbatch, npatch, -1) # (nbatch, npatch, dpatch*nreim)
+                     embed_spec = self.spec_encoder.forward(vec_patch_flat_spec)
+                else:
+                     embed_spec = self.spec_encoder.forward(vec_patch_flat)
+                embed_spat = self.spat_encoder.forward(vec_patch_flat, add_same_one=False)
                 
-                ## spatial encoder
-                # decoupling 1 (f-wise random)
-                # random_f_value = torch.rand(nbatch, vec_patch.shape[2]).to(vec_patch.device) # (nb, nf)
-                # random_f_value = random_f_value[:, np.newaxis, :, np.newaxis, np.newaxis].expand_as(vec_patch)
-                # vec_patch_mask_reshape_spat = vec_patch * mask_patch_dense_expand * random_f_value
-
-                # decoupling 2 (tf-wise random)
-                # random_tf_value = torch.rand(nbatch, vec_patch.shape[1], vec_patch.shape[2]).to(vec_patch.device) # (nb, nt, nf)
-                # random_tf_value = random_tf_value[:, :, :, np.newaxis, np.newaxis].expand_as(vec_patch)
-                # vec_patch_mask_reshape_spat = vec_patch * mask_patch_dense_expand * random_tf_value
-
-                # decoupling 3 (local-tf-wise random)
-                # ntf_each_region = [16, 256] # (nt_each_region, nf_each_region)
-                # random_tf_region = torch.rand((nbatch, int(nt/ntf_each_region[0]), int(nf/ntf_each_region[1]))).to(vec_patch.device)
-                # random_tf_value = torch.repeat_interleave(torch.repeat_interleave(random_tf_region, ntf_each_region[0], dim=1), ntf_each_region[1], dim=2) # (nb, nt, nf)
-                # random_tf_value = random_tf_value[:, :, :, np.newaxis, np.newaxis].expand_as(vec_patch)
-                # vec_patch_mask_reshape_spat = vec_patch * mask_patch_dense_expand * random_tf_value
+                # Decoding
+                embed = torch.cat([embed_spec, embed_spat], dim=2)
+                vec_patch_pred = self.decoder.forward(embed)
                 
-                vec_patch_mask_reshape_spat = vec_patch * mask_patch_dense_expand  # (nbatch, npatch, d_patch, 2, nreim)
-                vec_patch_mask_reshape_spat = vec_patch_mask_reshape_spat.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*nch)
-                embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape_spat, add_same_one=False)  # (nbatch, npatch, dembed)
+                # Reshape prediction
+                dpatch = vec_patch.shape[2]
+                vec_patch_pred = vec_patch_pred.reshape(nbatch, npatch, dpatch, 2, nmic)
                 
-            elif self.in_ver == 'single_ch_each_patch': # each patch only has single-channel signal
-                vec_patch_mask_reshape = torch.cat([vec_patch_mask[:,:,:,:,0], vec_patch_mask[:,:,:,:,1]], dim=1) # (nbatch, npatch*nmic, dpatch, nreim)
-                vec_patch_mask_reshape = vec_patch_mask_reshape.reshape(nbatch, npatch*nmic, -1)  # (nbatch, npatch*nmic, dpatch*nreim)
-                embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape)  # (nbatch, npatch*nmic, dembed/nmic)
-                embed_spec = torch.cat([embed_spec[:, 0:npatch, :], embed_spec[:, npatch:npatch*2, :]], dim=2) # (nbatch, npatch, dembed)
-                embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape)  # (nbatch, npatch*nmic, dembed/nmic)
-                embed_spat = torch.cat([embed_spat[:, 0:npatch, :], embed_spat[:, npatch:npatch*2, :]], dim=2) # (nbatch, npatch, dembed)
+                # Reconstruction Loss (MSE on full tensor)
+                loss_gen = torch.mean((vec_patch_pred - vec_patch)**2)
+                diff = torch.tensor(0.0, device=self.device) # No diff metric relevant here yet
+                
+                # Visualization data
+                data_vis = {}
+                data_vis['mask'] = torch.zeros_like(vec_patch) # No mask
+                data_vis['pred'] = self.patch_recover(vec_patch_pred)
+                data_vis['tar'] = self.patch_recover(vec_patch)
+                data_vis['embed_spec'] = embed_spec
+                data_vis['embed_spat'] = embed_spat
 
-            elif self.in_ver == 'same': # without additional spectral/spatial masking operation 
-                vec_patch_mask_reshape = vec_patch_mask.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*nch)
-                embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape)
-                embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape, add_same_one=False)  # (nbatch, npatch, dembed)
-        
-            ## Embedding decoding
-            embed = torch.cat([embed_spec, embed_spat], dim=2)
-            vec_patch_pred = self.decoder.forward(embed)  # (nbatch, npatch, dpatch*nch+dembed) / (nbatch, npatch, 2*dembed)
+            else:
+                mask_dense, mask_patch_dense, mask_ch_dense, mask_patch_idx, _ = self.patch_mask(data_shape=vec_patch.shape)  
+                # mask_dense/mask_patch_dense/mask_ch_dense: (nbatch, npatch, dpatch, nmic), mask_patch_idx: (nbatch, nmasked_patch)
 
-            ## Loss calculation for masked part
-            tar_ch_patches = torch.sum(vec_patch * (1 - mask_ch_dense_expand), dim=-1).clone().detach()  # (nbatch, npatch, d_patch, 2)
-            tar_anotherch_patches = torch.sum(vec_patch * mask_ch_dense_expand, dim=-1).clone().detach()  # (nbatch, npatch, d_patch, 2)
+                ## Single-channel masking 
+                npatch = vec_patch.shape[1]
+                mask_dense_expand = mask_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
+                mask_patch_dense_expand = mask_patch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
+                mask_ch_dense_expand = mask_ch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
+                vec_patch_mask = vec_patch * mask_dense_expand  # (nbatch, npatch, dpatch, 2, nmic)
+
+                ## Embedding encoding
+                if self.in_ver=='separate':
+                    ## spectral encoder
+                    vec_patch_mask_reshape_spec = vec_patch * (1-mask_patch_dense_expand) * mask_ch_dense_expand + vec_patch * mask_patch_dense_expand * (1-mask_ch_dense_expand) # (nbatch, npatch, d_patch, 2, nmic)
+                    vec_patch_mask_reshape_spec = vec_patch_mask_reshape_spec.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*2*nmic)
+                    embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape_spec)  # (nbatch, npatch, dembed)
+                    
+                    ## spatial encoder
+                    # decoupling 1 (f-wise random)
+                    # random_f_value = torch.rand(nbatch, vec_patch.shape[2]).to(vec_patch.device) # (nb, nf)
+                    # random_f_value = random_f_value[:, np.newaxis, :, np.newaxis, np.newaxis].expand_as(vec_patch)
+                    # vec_patch_mask_reshape_spat = vec_patch * mask_patch_dense_expand * random_f_value
+
+                    # decoupling 2 (tf-wise random)
+                    # random_tf_value = torch.rand(nbatch, vec_patch.shape[1], vec_patch.shape[2]).to(vec_patch.device) # (nb, nt, nf)
+                    # random_tf_value = random_tf_value[:, :, :, np.newaxis, np.newaxis].expand_as(vec_patch)
+                    # vec_patch_mask_reshape_spat = vec_patch * mask_patch_dense_expand * random_tf_value
+
+                    # decoupling 3 (local-tf-wise random)
+                    # ntf_each_region = [16, 256] # (nt_each_region, nf_each_region)
+                    # random_tf_region = torch.rand((nbatch, int(nt/ntf_each_region[0]), int(nf/ntf_each_region[1]))).to(vec_patch.device)
+                    # random_tf_value = torch.repeat_interleave(torch.repeat_interleave(random_tf_region, ntf_each_region[0], dim=1), ntf_each_region[1], dim=2) # (nb, nt, nf)
+                    # random_tf_value = random_tf_value[:, :, :, np.newaxis, np.newaxis].expand_as(vec_patch)
+                    # vec_patch_mask_reshape_spat = vec_patch * mask_patch_dense_expand * random_tf_value
+                    
+                    vec_patch_mask_reshape_spat = vec_patch * mask_patch_dense_expand  # (nbatch, npatch, d_patch, 2, nreim)
+                    vec_patch_mask_reshape_spat = vec_patch_mask_reshape_spat.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*nch)
+                    embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape_spat, add_same_one=False)  # (nbatch, npatch, dembed)
+                    
+                elif self.in_ver == 'single_ch_each_patch': # each patch only has single-channel signal
+                    vec_patch_mask_reshape = torch.cat([vec_patch_mask[:,:,:,:,0], vec_patch_mask[:,:,:,:,1]], dim=1) # (nbatch, npatch*nmic, dpatch, nreim)
+                    vec_patch_mask_reshape = vec_patch_mask_reshape.reshape(nbatch, npatch*nmic, -1)  # (nbatch, npatch*nmic, dpatch*nreim)
+                    embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape)  # (nbatch, npatch*nmic, dembed/nmic)
+                    embed_spec = torch.cat([embed_spec[:, 0:npatch, :], embed_spec[:, npatch:npatch*2, :]], dim=2) # (nbatch, npatch, dembed)
+                    embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape)  # (nbatch, npatch*nmic, dembed/nmic)
+                    embed_spat = torch.cat([embed_spat[:, 0:npatch, :], embed_spat[:, npatch:npatch*2, :]], dim=2) # (nbatch, npatch, dembed)
+
+                elif self.in_ver == 'same': # without additional spectral/spatial masking operation 
+                    vec_patch_mask_reshape = vec_patch_mask.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*nch)
+                    embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape)
+                    embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape, add_same_one=False)  # (nbatch, npatch, dembed)
             
-            dpatch = vec_patch.shape[2]
-            vec_patch_pred = vec_patch_pred.reshape(nbatch, npatch, dpatch, 2, nmic)  # (nbatch, npatch, dpatch, 2, nmic)
-            pred_patches = torch.sum(vec_patch_pred * (1 - mask_ch_dense_expand), dim=-1)  # (nbatch, npatch, dpatch, 2)
-       
-            loss, diff = self.gen_loss(pred_patches=pred_patches, tar_patches=tar_ch_patches, mask_idx=mask_patch_idx, tar_unmaskch_patches=tar_anotherch_patches)
-            loss_gen = loss
+                ## Embedding decoding
+                embed = torch.cat([embed_spec, embed_spat], dim=2)
+                vec_patch_pred = self.decoder.forward(embed)  # (nbatch, npatch, dpatch*nch+dembed) / (nbatch, npatch, 2*dembed)
 
-            # Additional visualized data
-            mask = mask_dense.clone().detach()
-            tar = vec_patch.clone().detach()
-            pred = vec_patch_pred.clone().detach()
-            data_vis = {}
-            data_vis['mask'], data_vis['pred'], data_vis['tar'] = self.vis_results(mask_patches=mask, pred_patches=pred, tar_patches=tar)
-            data_vis['embed_spec'] = embed_spec
-            data_vis['embed_spat'] = embed_spat
+                ## Loss calculation for masked part
+                tar_ch_patches = torch.sum(vec_patch * (1 - mask_ch_dense_expand), dim=-1).clone().detach()  # (nbatch, npatch, d_patch, 2)
+                tar_anotherch_patches = torch.sum(vec_patch * mask_ch_dense_expand, dim=-1).clone().detach()  # (nbatch, npatch, d_patch, 2)
+                
+                dpatch = vec_patch.shape[2]
+                vec_patch_pred = vec_patch_pred.reshape(nbatch, npatch, dpatch, 2, nmic)  # (nbatch, npatch, dpatch, 2, nmic)
+                pred_patches = torch.sum(vec_patch_pred * (1 - mask_ch_dense_expand), dim=-1)  # (nbatch, npatch, dpatch, 2)
+        
+                loss, diff = self.gen_loss(pred_patches=pred_patches, tar_patches=tar_ch_patches, mask_idx=mask_patch_idx, tar_unmaskch_patches=tar_anotherch_patches)
+                loss_gen = loss
+
+                # Additional visualized data
+                mask = mask_dense.clone().detach()
+                tar = vec_patch.clone().detach()
+                pred = vec_patch_pred.clone().detach()
+                data_vis = {}
+                data_vis['mask'], data_vis['pred'], data_vis['tar'] = self.vis_results(mask_patches=mask, pred_patches=pred, tar_patches=tar)
+                data_vis['embed_spec'] = embed_spec
+                data_vis['embed_spat'] = embed_spat
             
             loss_cl_spat = torch.tensor(0.0, device=self.device)
             loss_cl_spec = torch.tensor(0.0, device=self.device)
             obt_loss = torch.tensor(0.0, device=self.device)
+            if self.debug:
+                 debug_stats = {} # Initialize early for accumulation
 
             if (self.contrastive_learning or self.contrastive_learning_data_aug) and indices is not None:
                 # Spatial CL
@@ -639,7 +684,10 @@ class SARSSL(nn.Module):
                     mask = offset < 4
                     label_spat = torch.where(mask, indices, base_indices)
                 
-                loss_cl_spat = self.cl_loss(z_proj_spat, label_spat)
+                loss_cl_spat, cl_stats_spat = self.cl_loss(z_proj_spat, label_spat)
+                if self.debug and cl_stats_spat:
+                     for k, v in cl_stats_spat.items():
+                         debug_stats[f'cl_spat_{k}'] = v
                 
                 # Spectral CL
                 z_spec = torch.mean(embed_spec, dim=1) # (nbatch, dembed)
@@ -651,10 +699,13 @@ class SARSSL(nn.Module):
                     # Reuse previously computed base_indices, offset, mask
                     label_spec = torch.where(mask, base_indices, indices)
 
-                loss_cl_spec = self.cl_loss(z_proj_spec, label_spec)
+                loss_cl_spec, cl_stats_spec = self.cl_loss(z_proj_spec, label_spec)
+                if self.debug and cl_stats_spec:
+                     for k, v in cl_stats_spec.items():
+                         debug_stats[f'cl_spec_{k}'] = v
                 
             if self.obt:
-                if epoch is not None and epoch > (self.nepoch / 3):
+                if epoch is not None and epoch > (self.nepoch / 10): # FIXME / 3
                     # OBT Orthogonality Loss
                     # Push spatial encoder to be orthogonal to spectral encoder
                     # Minimize cross-covariance
@@ -685,6 +736,36 @@ class SARSSL(nn.Module):
             
             loss = sum(losses) / len(losses)
 
+            if self.debug:
+                 # debug_stats already exists and has CL info
+                 debug_stats['loss_gen'] = loss_gen.item()
+                 
+                 # Embeddings stats
+                 if 'embed_spat' in locals():
+                     debug_stats['embed_spat_norm'] = torch.norm(embed_spat, dim=-1).mean().item()
+                     debug_stats['embed_spat_var'] = torch.var(embed_spat, dim=-1).mean().item()
+                 
+                 if 'embed_spec' in locals():
+                     debug_stats['embed_spec_norm'] = torch.norm(embed_spec, dim=-1).mean().item()
+                     debug_stats['embed_spec_var'] = torch.var(embed_spec, dim=-1).mean().item()
+
+                 if 'z_spat' in locals():
+                     debug_stats['z_spat_norm'] = torch.norm(z_spat, dim=-1).mean().item()
+                     debug_stats['z_spat_var'] = torch.var(z_spat, dim=-1).mean().item()
+
+                 if 'z_spec' in locals():
+                     debug_stats['z_spec_norm'] = torch.norm(z_spec, dim=-1).mean().item()
+                     debug_stats['z_spec_var'] = torch.var(z_spec, dim=-1).mean().item()
+                     
+                 if (self.contrastive_learning or self.contrastive_learning_data_aug) and indices is not None:
+                     debug_stats['loss_cl_spat'] = loss_cl_spat.item()
+                     debug_stats['loss_cl_spec'] = loss_cl_spec.item()
+                     
+                 if self.obt:
+                     debug_stats['obt_loss'] = obt_loss.item()
+                     
+                 data_vis['debug_stats'] = debug_stats
+            
             return loss, diff, data_vis, loss_cl_spat, loss_cl_spec, obt_loss
 
         elif self.pretrain_frozen_encoder:
@@ -763,7 +844,13 @@ class SARSSL(nn.Module):
  
             if (self.in_ver == 'separate') | (self.in_ver == 'same'):
                 vec_patch_reshape = vec_patch.reshape(nbatch, npatch, -1) # (nbatch, npatch, dpatch*nch) 
-                embed_spec = self.spec_encoder.forward(vec_patch_reshape)  # (nbatch, npatch, dembed)
+                
+                if self.spectral_enc_input == 'mono':
+                    vec_patch_spec = vec_patch[:, :, :, :, 0].reshape(nbatch, npatch, -1)
+                    embed_spec = self.spec_encoder.forward(vec_patch_spec)
+                else:
+                    embed_spec = self.spec_encoder.forward(vec_patch_reshape)  # (nbatch, npatch, dembed)
+                
                 embed_spat = self.spat_encoder.forward(vec_patch_reshape, add_same_one=False)  # (nbatch, npatch, dembed)
 
             elif self.in_ver == 'single_ch_each_patch':
@@ -947,8 +1034,35 @@ class SARSSL(nn.Module):
         
         loss = - (sum_log_prob_pos / p_i).mean()
         
-        # print(f"CL Debug: Loss: {loss.item():.4f}")
-        return loss
+        debug_stats = {}
+        if self.debug:
+             with torch.no_grad():
+                  # Stats
+                  sim_mean = sim_matrix.mean().item()
+                  sim_std = sim_matrix.std().item()
+                  
+                  # Positive similarities (excluding self)
+                  pos_vals = sim_matrix[pos_mask_no_self.bool()]
+                  pos_sim_mean = pos_vals.mean().item() if pos_vals.numel() > 0 else 0.0
+                  
+                  # Negative similarities (excluding self, which is 0 in neg_mask)
+                  # neg_mask excludes diagonal (since pos_mask includes it)
+                  neg_vals = sim_matrix[neg_mask.bool()]
+                  neg_sim_mean = neg_vals.mean().item() if neg_vals.numel() > 0 else 0.0
+                  
+                  denom_mean = denom_sum.mean().item()
+                  avg_num_pos = p_i.mean().item()
+
+                  debug_stats = {
+                      'sim_mean': sim_mean,
+                      'sim_std': sim_std,
+                      'pos_sim_mean': pos_sim_mean,
+                      'neg_sim_mean': neg_sim_mean,
+                      'denom_mean': denom_mean,
+                      'avg_num_pos': avg_num_pos
+                  }
+
+        return loss, debug_stats
 
     def vis_results(self, mask_patches, pred_patches, tar_patches):
         """ Visualized constructed results

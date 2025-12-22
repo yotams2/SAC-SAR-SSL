@@ -16,6 +16,8 @@
 """
 
 import os
+import sys
+import json
 cpu_num = 8
 os.environ["OMP_NUM_THREADS"] = str(cpu_num) # Limit the threads to reduce cpu overloads, will speed up when there are lots of CPU cores on the running machine
 os.environ['OPENBLAS_NUM_THREADS'] = str(cpu_num)
@@ -28,6 +30,28 @@ opts = opt_pretrain()
 args = opts.parse()
 dirs = opts.dir()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
+
+# Load Config from config.json if testing
+if args.test:
+    config_path = os.path.join(dirs['log_pretrain'], 'config.json')
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                config_data = json.load(f)
+                # config_data is a list, first element is args dict
+                if isinstance(config_data, list) and len(config_data) > 0:
+                    args_dict = config_data[0]
+                    args.spec_dembed = args_dict.get('spec_dembed', 512)
+                    args.spat_dembed = args_dict.get('spat_dembed', 256)
+                    args.spectral_enc_input = args_dict.get('spectral_enc_input', 'all')
+                    args.pretrain_mode = args_dict.get('pretrain_mode', 'masked')
+                    print(f"Loaded config from {config_path}: spec_dembed={args.spec_dembed}, spat_dembed={args.spat_dembed}, spectral_enc_input={args.spectral_enc_input}")
+                else:
+                    print(f"Warning: config.json structure unexpected at {config_path}. Using defaults/args.")
+        except Exception as e:
+            print(f"Warning: Failed to load config.json: {e}. Using defaults/args.")
+    else:
+        print(f"Warning: config.json not found in {dirs['log_pretrain']}. Using defaults/args.")
 
 import numpy as np
 from torch.utils.data import Sampler
@@ -86,16 +110,32 @@ class ContrastiveBatchSampler(Sampler):
         return self.num_batches
 
 class ContrastiveAugmentationBatchSampler(Sampler):
-    def __init__(self, total_samples, batch_size, augmentations_per_sample=8):
+    def __init__(self, total_samples, batch_size, augmentations_per_sample=8, n_distinct_samples=0):
         self.total_samples = total_samples
         self.batch_size = batch_size
         self.augmentations_per_sample = augmentations_per_sample
         self.num_base_samples = total_samples // augmentations_per_sample
-        self.samples_per_batch = batch_size // augmentations_per_sample
         
-        assert batch_size % augmentations_per_sample == 0
+        # If n_distinct_samples is not specified or 0, default to using all augmentations (old behavior)
+        # Old behavior: samples_per_batch = batch_size // augmentations_per_sample (e.g. 128 // 8 = 16)
+        if n_distinct_samples <= 0:
+            self.n_distinct_samples = batch_size // augmentations_per_sample
+        else:
+            self.n_distinct_samples = n_distinct_samples
+
+        self.samples_per_batch = self.n_distinct_samples
         
-        self.num_batches = self.total_samples // batch_size
+        # Calculate how many augmentations to pick per distinct sample to fill the batch
+        # e.g., Batch 128, Distinct 64 -> 128 // 64 = 2 augs per sample
+        self.augs_per_batch_item = batch_size // self.samples_per_batch
+        
+        # Verify batch size consistency
+        if self.batch_size != self.samples_per_batch * self.augs_per_batch_item:
+             print(f"Warning: Batch size {batch_size} is not divisible by n_distinct_samples {self.samples_per_batch}. Actual batch size will be {self.samples_per_batch * self.augs_per_batch_item}")
+        
+        assert self.augs_per_batch_item <= augmentations_per_sample, f"Requested {self.augs_per_batch_item} augmentations per sample, but only {augmentations_per_sample} available."
+
+        self.num_batches = self.total_samples // batch_size # Approx number of batches
 
     def __iter__(self):
         for _ in range(self.num_batches):
@@ -104,7 +144,12 @@ class ContrastiveAugmentationBatchSampler(Sampler):
             batch = []
             for base_idx in base_indices:
                 start_idx = base_idx * self.augmentations_per_sample
-                batch.extend(range(start_idx, start_idx + self.augmentations_per_sample))
+                # Available indices for this base sample: [start_idx, start_idx + 8)
+                available_indices = np.arange(start_idx, start_idx + self.augmentations_per_sample)
+                
+                # Select random subset of augmentations
+                selected_indices = np.random.choice(available_indices, self.augs_per_batch_item, replace=False)
+                batch.extend(selected_indices)
             yield batch
 
     def __len__(self):
@@ -133,7 +178,8 @@ set_seed(args.seed)
 if args.pretrain:
 	os.makedirs(dirs['log_pretrain'], exist_ok=True)
 	file_path = os.path.join(dirs['log_pretrain'],"config.json")
-	save_config_to_file([args.__dict__, dirs], file_path)
+	command = 'python ' + ' '.join(sys.argv)
+	save_config_to_file([args.__dict__, dirs, {'command': command}], file_path)
 
 	if args.description is not None:
 		with open(os.path.join(dirs['log_pretrain'], "description.txt"), "w") as f:
@@ -159,9 +205,9 @@ print(f"T: {T:.3f}, nt: {nt}, nf: {nf}")
 
 # Network
 if args.pretrain | args.test:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, nepoch=args.nepoch)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug)
 if args.pretrain_frozen_encoder:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input)
 
 layer_keys = ['spec_encoder', 'spat_encoder', 'decoder', 'mlp_head','spec_encoder.patch_embed','spec_encoder.embed','spat_encoder.patch_embed','spat_encoder.embed']
 nparam, nparam_sum = get_nparams(net, param_key_list=layer_keys)
@@ -331,7 +377,8 @@ if args.pretrain:
 		batch_sampler = ContrastiveAugmentationBatchSampler(
 			total_samples=data_num['train'],
 			batch_size=args.bs[0],
-			augmentations_per_sample=8
+			augmentations_per_sample=8,
+            n_distinct_samples=args.cl_n_distinct
 		)
 		dataloader_pretrain = torch.utils.data.DataLoader(dataset=dataset_pretrain, batch_sampler=batch_sampler, **kwargs)
 	else:
@@ -346,6 +393,10 @@ if args.pretrain:
 
 	# Learner
 	learner = at_learner.STFTLearner(net, win_len=win_len, win_shift_ratio=win_shift_ratio, nfft=nfft, fre_used_ratio=fre_used_ratio, fs=fs, task=None, ch_mode='M')
+	if args.debug:
+		debug_log_path = os.path.join(dirs['log_pretrain'], 'debug.log')
+		learner.set_debug(True, debug_log_path)
+		print(f"Debug mode enabled. Logging to {debug_log_path}")
 	if use_cuda:
 		if len(args.gpu_id)>1:
 			learner.mul_gpu()
@@ -450,8 +501,9 @@ if args.pretrain:
 			if exist_flag==False:
 				os.makedirs(data_path)
 			data_vis_train_filtered = {k: v for k, v in data_vis_train.items() if k in ['mask', 'pred', 'tar']}
-			vis_train = vis_time_fre_data(data_vis_train_filtered, ins_idx=1)
-			vis_train.savefig(data_path + str(epoch) + '_train')
+			if not args.pretrain_mode == 'autoenc':
+				vis_train = vis_time_fre_data(data_vis_train_filtered, ins_idx=1)
+				vis_train.savefig(data_path + str(epoch) + '_train')
 		
 		# Update history and plot learning curve
 		history['loss_train'].append(loss_train)
@@ -648,6 +700,16 @@ if (args.test):
 
 		print('Test loss: {:.4f}'.format(loss_test) )
 		print('Test CKA: {:.4f}'.format(cka_test) )
+		
+		# Save results to json
+		res_file = os.path.join(dirs['log_pretrain'], 'pretext_test_res.json')
+		res_data = {'loss_test': loss_test, 'cka_test': cka_test}
+		try:
+			with open(res_file, 'w') as f:
+				json.dump(res_data, f, indent=4)
+			print(f"Saved test results to {res_file}")
+		except Exception as e:
+			print(f"Failed to save test results: {e}")
 
 	elif args.test_mode == 'ins':
 		for dir_pretest in dirs['micsig_simu_pretest_ins']:

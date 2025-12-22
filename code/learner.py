@@ -137,6 +137,22 @@ class Learner(ABC):
 				loss_cl_spat_avg += loss_cl_spat.item()
 				loss_cl_spec_avg += loss_cl_spec.item()
 				obt_loss_avg += obt_batch.item()
+			
+			if self.debug and self.debug_log_path and epoch is not None:
+				# Log 4 times per epoch: at 25%, 50%, 75%, and 100% (approx)
+				total_batches = len(dataset)
+				log_points = [int(total_batches * 0.25), int(total_batches * 0.5), int(total_batches * 0.75), total_batches - 1]
+				
+				if batch_idx in log_points and 'debug_stats' in vis_batch:
+					try:
+						with open(self.debug_log_path, "a") as f:
+							f.write(f"Epoch {epoch}, Batch {batch_idx}/{total_batches}\n")
+							stats = vis_batch['debug_stats']
+							for k, v in stats.items():
+								f.write(f"  {k}: {v:.6f}\n")
+							f.write("-" * 20 + "\n")
+					except Exception as e:
+						print(f"Failed to write debug log: {e}")
 
 		loss /= len(pbar)
 		if return_diff: 
@@ -581,6 +597,12 @@ class STFTLearner(Learner):
 		self.addbatch = at_module.AddChToBatch(ch_mode=self.ch_mode)
 		# self.removebatch = at_module.RemoveChFromBatch(ch_mode=self.ch_mode)
 		self.task = task
+		self.debug = False
+		self.debug_log_path = None
+
+	def set_debug(self, debug, debug_log_path):
+		self.debug = debug
+		self.debug_log_path = debug_log_path
 
 	def data_preprocess(self, mic_sig_batch=None, gt_batch=None, eps=1e-6):
 		""" Preprocess microphone signals before model training

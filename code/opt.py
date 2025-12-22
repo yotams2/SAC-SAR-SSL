@@ -44,6 +44,7 @@ class opt_pretrain():
 
         parser.add_argument('--pretrain', action='store_true', default=False, help='change to pretrain stage (default: False)')
         parser.add_argument('--pretrain-frozen-encoder', action='store_true', default=False, help='change to pretrain stage (default: False)')
+        parser.add_argument('--pretrain-mode', type=str, default='masked', help='Pretraining mode: masked or autoenc (default: masked)')
         parser.add_argument('--nepoch', type=int, default=30, metavar='Epoch', help='number of epochs to train (default: 30)')
         parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='learning rate (default:0.001)')
         
@@ -53,15 +54,22 @@ class opt_pretrain():
         parser.add_argument('--obt', action='store_true', default=False, help='Use Orthogonal Barlow Twins (OBT) loss between spatial and spectral encoders')
 
         parser.add_argument('--contrastive-learning', '--cl', action='store_true', default=False, help='Use contrastive learning batch sampling')
-        parser.add_argument('--contrastive-learning-data-aug', '--clda', action='store_true', default=False, help='Use data augmentation in contrastive learning batch sampling')
+        parser.add_argument('--contrastive-learning-data-aug', '--clda', action='store_true', default=True, help='Use data augmentation in contrastive learning batch sampling')
+        parser.add_argument('--debug', action='store_true', default=False, help='Enable debug mode with extensive logging (default: False)')
         parser.add_argument('--data-aug', '--da', action='store_true', default=False, help='Use data augmentation without contrastive learning batch sampling')
         parser.add_argument('--num-rooms-cl', type=int, default=300, help='Total number of rooms for CL')
         parser.add_argument('--num-utterances-cl', type=int, default=300, help='Total number of utterances per room for CL')
+        parser.add_argument('--cl-n-distinct', type=int, default=0, help='Number of distinct samples per batch for CL with DA. If 0, uses all augmentations (BS/8).')
+        parser.add_argument('--spec-dembed', type=int, default=512, metavar='SpecDembed', help='spectral embedding dimension (default: 512)')
+        parser.add_argument('--spat-dembed', type=int, default=256, metavar='SpatDembed', help='spatial embedding dimension (default: 256)')
+        parser.add_argument('--spectral-enc-input', type=str, default='all', metavar='SpecEncInput', help="input to spectral encoder: 'all' or 'mono' (default: all)")
         parser.add_argument('--description', '--d', type=str, default=None, help='Description of the experiment to be saved in description.txt')
 
         args = parser.parse_args()
         assert (args.pretrain + args.pretrain_frozen_encoder + args.test)==1, 'Pretraining stage (pretrain or test) is undefined'
         assert args.test_mode in ['all', 'ins'], 'Test mode is undefined'
+        assert args.pretrain_mode in ['masked', 'autoenc'], 'Pretraining mode is undefined'
+        assert args.spectral_enc_input in ['all', 'mono'], 'Spectral encoder input is undefined'
 
         self.time = args.time
         self.work_dir = args.work_dir
@@ -185,6 +193,10 @@ class opt_downstream():
         parser.add_argument('--ds-embed', type=str, default='spat', metavar='DSEmbed', help='downstream embed (default: spat)') # ['spec_spat', 'spec', 'spat']
         parser.add_argument('--ds-nsimroom', type=int, default=0, metavar='DSSimRoom', help='number of simulated room used for downstream training (default: 0)') 
         parser.add_argument('--ds-real-sim-ratio', type=int, nargs='+', default=[1, 1], metavar='DSRealSimRatio', help='downstream number ratio between real data and simulated data (default: [1, 1])')
+        parser.add_argument('--spec-dembed', type=int, default=512, metavar='SpecDembed', help='spectral embedding dimension (default: 512)')
+        parser.add_argument('--spat-dembed', type=int, default=256, metavar='SpatDembed', help='spatial embedding dimension (default: 256)')
+        parser.add_argument('--spectral-enc-input', type=str, default='all', metavar='SpecEncInput', help="input to spectral encoder: 'all' or 'mono' (default: all)")
+        parser.add_argument('--pretrain-mode', type=str, default='masked', help='Pretraining mode: masked or autoenc (default: masked)')
 
         parser.add_argument('--ds-test', action='store_true', default=False, help='change to test stage of downstream tasks (default: False)')
         parser.add_argument('--test-mode', type=str, default='cal_metric_wo_info', metavar='TestMode', help='test mode (default: cal_metric_wo_info)')
@@ -195,6 +207,8 @@ class opt_downstream():
         assert (args.ds_train + args.ds_test)==1, 'Downstream stage (train or test) is not defined'
         assert args.ds_trainmode in ['scratchLOW', 'finetune', 'lineareval'], 'Downstream train mode in not defined' # 'sratchUP'   
         assert args.test_mode in ['cal_metric', 'cal_metric_wo_info', 'vis_embed'], 'Test mode is undefined'
+        assert args.pretrain_mode in ['masked', 'autoenc'], 'Pretraining mode is undefined'
+        assert args.spectral_enc_input in ['all', 'mono'], 'Spectral encoder input is undefined'
         self.simu_exp = args.simu_exp
         self.time = args.time
         self.work_dir = args.work_dir

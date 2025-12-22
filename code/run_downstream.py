@@ -25,6 +25,8 @@
 """
 
 import os
+import shutil
+import json
 cpu_num = 2
 os.environ["OMP_NUM_THREADS"] = str(cpu_num) # Limit the threads to reduce cpu overloads, will speed up when there are lots of CPU cores on the running machine
 os.environ['OPENBLAS_NUM_THREADS'] = str(cpu_num)
@@ -36,6 +38,27 @@ from opt import opt_downstream
 opts = opt_downstream()
 args = opts.parse()
 dirs = opts.dir()
+
+# Load Config from config.json if available
+config_path = os.path.join(dirs['log_pretrain'], 'config.json')
+if os.path.exists(config_path):
+    try:
+        with open(config_path, 'r') as f:
+            config_data = json.load(f)
+            # config_data is a list, first element is args dict
+            if isinstance(config_data, list) and len(config_data) > 0:
+                args_dict = config_data[0]
+                args.spec_dembed = args_dict.get('spec_dembed', 512)
+                args.spat_dembed = args_dict.get('spat_dembed', 256)
+                args.spectral_enc_input = args_dict.get('spectral_enc_input', 'all')
+                print(f"Loaded config from {config_path}: spec_dembed={args.spec_dembed}, spat_dembed={args.spat_dembed}, spectral_enc_input={args.spectral_enc_input}")
+            else:
+                print("Warning: config.json structure unexpected. Using defaults/args.")
+    except Exception as e:
+        print(f"Warning: Failed to load config.json: {e}. Using defaults/args.")
+else:
+    print("Warning: config.json not found in pretrain dir. Using defaults/args.")
+
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
 
 import torch
@@ -87,7 +110,7 @@ print('nt, nf: ', nt, nf)
 # Network
 dlabel = 1
 net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, 
-	downstream_token=args.ds_token, downstream_head=args.ds_head, downstream_embed = args.ds_embed, downstream_dlabel=dlabel)
+	downstream_token=args.ds_token, downstream_head=args.ds_head, downstream_embed = args.ds_embed, downstream_dlabel=dlabel, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input)
 layer_keys = ['spec_encoder', 'spat_encoder', 'decoder', 'mlp_head','spec_encoder.patch_embed','spec_encoder.embed','spat_encoder.patch_embed','spat_encoder.embed']
 nparam, nparam_sum = get_nparams(net, param_key_list=layer_keys)
 print('# Parameters (M):', round(nparam_sum, 2), [key+': '+str(round(nparam[key], 2)) for key in nparam.keys()])
@@ -115,6 +138,14 @@ if (args.ds_train):
 	for task in args.ds_task:
 		set_seed(args.seed)
 		task_time_dir = dirs['log_task'].replace('TASK', task)
+
+		# Copy description.txt from pretrain to downstream
+		pretrain_desc_path = os.path.join(dirs['log_pretrain'], 'description.txt')
+		if os.path.exists(pretrain_desc_path):
+			os.makedirs(task_time_dir, exist_ok=True)
+			shutil.copy(pretrain_desc_path, task_time_dir)
+			print(f'Copied description.txt from {pretrain_desc_path} to {task_time_dir}')
+
 		nepoch = args.ds_setting[task]['nepoch']
 		num = args.ds_setting[task]['num']
 		bs_set = args.ds_setting[task]['bs_set']
@@ -434,6 +465,8 @@ if (args.ds_test):
 			min_data = np.zeros((ntrials))
 			max_data = np.zeros((ntrials))
 
+		downstream_res_list = []
+
 		for trial_idx in range(ntrials):
 			print('trial(or cross_validation_dataset)_idx=', trial_idx, 'ntrial=', ntrials)
 			if 'valsim' in dirs[log_dir]:
@@ -478,6 +511,13 @@ if (args.ds_test):
 				set_random_seed(seeds['test'])
 				loss_test[trial_idx], metric_test[trial_idx] = learner.test_epoch(dataloader_test, return_metric=True, return_vis=False)
 				print('{} estimation, Test loss: {:.4f}, Test metric: {:.4f}'.format(task, loss_test[trial_idx], metric_test[trial_idx]))
+				
+				downstream_res_list.append({
+					'task': task,
+					'trial_idx': trial_idx,
+					'loss_test': loss_test[trial_idx],
+					'metric_test': metric_test[trial_idx]
+				})
 
 			if args.test_mode == 'vis_embed':
 				
@@ -505,6 +545,15 @@ if (args.ds_test):
 			if args.test_mode == 'cal_metric_wo_info':
 				mae_test_data[trial_idx], min_test_data[trial_idx], max_test_data[trial_idx], mae_data[trial_idx], mean_data[trial_idx], min_data[trial_idx], max_data[trial_idx] = learner.mae_wotrain(dataloader_train, dataloader_test)
 				print('Trial: {}, Data MAE: {:.4f}'.format(trial_idx, mae_test_data[trial_idx]))
+
+		if len(downstream_res_list) > 0:
+			res_file = os.path.join(task_time_dir, 'downstream_test_res.json')
+			try:
+				with open(res_file, 'w') as f:
+					json.dump(downstream_res_list, f, indent=4)
+				print(f"Saved downstream test results to {res_file}")
+			except Exception as e:
+				print(f"Failed to save downstream test results: {e}")
 
 		if args.test_mode == 'cal_metric':
 			losses_test += [np.mean(loss_test, axis=-1)]

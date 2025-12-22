@@ -342,8 +342,6 @@ def vis_time_fre_data(data, ins_idx, eps=10e-5):
         elif len(shape)==4:
             show_real = show_data[:,:,0,:]
             show_imag = show_data[:,:,1,:]
-            show_real_log = np.log(np.abs(show_real[:,:,ch_idx])+eps)
-            show_imag_log = np.log(np.abs(show_imag[:,:,ch_idx])+eps)
             show_data_complex = show_real + 1j*show_imag
             show_mag = np.log(np.sqrt(show_real**2 + show_imag** 2)+eps)
             show_phase = np.angle(show_data_complex)

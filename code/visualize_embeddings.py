@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import argparse
+import json
 
 # Add current directory to path to allow imports
 sys.path.append(os.getcwd())
@@ -73,13 +74,40 @@ def run_visualization(exp_dir):
     nf = nfft//2
     nt = int((T * fs - win_len*(1-win_shift_ratio)) / (win_len*win_shift_ratio))
     
-    print(f"Initializing model with shape: nf={nf}, nt={nt}")
+    # Load Config from config.json if available
+    config_path = os.path.join(exp_dir, 'config.json')
+    spec_dembed = 512
+    spat_dembed = 256
+    spectral_enc_input = 'all'
+
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                config_data = json.load(f)
+                # config_data is a list, first element is args dict
+                if isinstance(config_data, list) and len(config_data) > 0:
+                    args_dict = config_data[0]
+                    spec_dembed = args_dict.get('spec_dembed', 512)
+                    spat_dembed = args_dict.get('spat_dembed', 256)
+                    spectral_enc_input = args_dict.get('spectral_enc_input', 'all')
+                    print(f"Loaded config: spec_dembed={spec_dembed}, spat_dembed={spat_dembed}, spectral_enc_input={spectral_enc_input}")
+                else:
+                    print("Warning: config.json structure unexpected. Using defaults.")
+        except Exception as e:
+            print(f"Warning: Failed to load config.json: {e}. Using defaults.")
+    else:
+        print("Warning: config.json not found. Using defaults.")
+
+    print(f"Initializing model with shape: nf={nf}, nt={nt}, spec_dembed={spec_dembed}, spat_dembed={spat_dembed}, spectral_enc_input={spectral_enc_input}")
     
     net = at_model.SARSSL(
         sig_shape=(nf, nt, 2, 2), 
         pretrain=True, 
         device=device,
-        contrastive_learning=False 
+        contrastive_learning=False,
+        spec_dembed=spec_dembed,
+        spat_dembed=spat_dembed,
+        spectral_enc_input=spectral_enc_input
     )
     
     # Load Checkpoint
@@ -179,7 +207,13 @@ def run_visualization(exp_dir):
             npatch = vec_patch.shape[1]
             vec_patch_flat = vec_patch.reshape(nbatch, npatch, -1) 
             
-            emb_spec = net.spec_encoder(vec_patch_flat)
+            if spectral_enc_input == 'mono':
+                 # vec_patch: (nbatch, npatch, dpatch, nreim, nmic)
+                 # Take first channel (mic 0)
+                 vec_patch_flat_spec = vec_patch[:, :, :, :, 0].reshape(nbatch, npatch, -1)
+                 emb_spec = net.spec_encoder(vec_patch_flat_spec)
+            else:
+                 emb_spec = net.spec_encoder(vec_patch_flat)
             emb_spat = net.spat_encoder(vec_patch_flat)
             
             emb_spec_mean = torch.mean(emb_spec, dim=1) 
