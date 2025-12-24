@@ -790,15 +790,23 @@ class MicrophoneSignalOrRIR():
 
         # 3. Delay Ch1 (Positive Delay on Ch1 relative to Ch0)
         elif aug_idx == 2:
-            min_shift = int(1e-3 * fs * 0.1)
-            max_shift = int(5e-3 * fs * aug_coef)
+            min_shift = int(1e-3 * fs * 1.0) # 1ms (was 0.1ms)
+            max_shift = int(30e-3 * fs * aug_coef) # 30ms (was 5ms)
             max_shift = max(min_shift + 1, max_shift)
             
             shift = np.random.randint(min_shift, max_shift)
             
             sig[:, 1] = np.roll(sig[:, 1], shift)
+
             if sig_dp is not None:
                 sig_dp[:, 1] = np.roll(sig_dp[:, 1], shift)
+
+        # 4. Random Channel Gain (Perturbs ILD and Absolute Magnitude)
+        # Apply independent gain to each channel to force robustness
+        gain = np.random.uniform(0.5, 1.5, size=(1, nch))
+        sig = sig * gain
+        if sig_dp is not None:
+            sig_dp = sig_dp * gain
 
                     
         return sig, sig_dp
@@ -863,6 +871,17 @@ class MicrophoneSignalOrRIR():
             sig = scipy.signal.lfilter(b, a, sig, axis=0)
             if sig_dp is not None:
                 sig_dp = scipy.signal.lfilter(b, a, sig_dp, axis=0)
+
+        # Add Independent Gaussian Noise (Perturbs Phase coherence / IPD slightly)
+        # SNR roughly 20-30dB relative to signal
+        noise_level = 0.05 * aug_coef * np.mean(np.abs(sig))
+        noise = np.random.randn(*sig.shape) * noise_level
+        sig = sig + noise
+        # Do not add noise to sig_dp (Direct Path) as we want to preserve the target? 
+        # Actually, for CL, the input is 'sig'. 'sig_dp' is used for targets usually. 
+        # Let's keep sig_dp clean or match? 
+        # Usually augmentations apply to the input.
+
 
         # Normalize
         max_val = np.max(np.abs(sig))

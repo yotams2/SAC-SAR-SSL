@@ -766,7 +766,7 @@ class SARSSL(nn.Module):
                      
                  data_vis['debug_stats'] = debug_stats
             
-            return loss, diff, data_vis, loss_cl_spat, loss_cl_spec, obt_loss
+            return loss, diff, data_vis, loss_cl_spat, loss_cl_spec, obt_loss, loss_gen
 
         elif self.pretrain_frozen_encoder:
             ## Patch (frame) spliting

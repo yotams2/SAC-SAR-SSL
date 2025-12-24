@@ -54,7 +54,9 @@ class opt_pretrain():
         parser.add_argument('--obt', action='store_true', default=False, help='Use Orthogonal Barlow Twins (OBT) loss between spatial and spectral encoders')
 
         parser.add_argument('--contrastive-learning', '--cl', action='store_true', default=False, help='Use contrastive learning batch sampling')
-        parser.add_argument('--contrastive-learning-data-aug', '--clda', action='store_true', default=True, help='Use data augmentation in contrastive learning batch sampling')
+        parser.add_argument('--contrastive-learning-data-aug', '--clda', action='store_true', default=False, help='Use data augmentation in contrastive learning batch sampling')
+        parser.add_argument('--contrastive-learning-data-aug-stronger', '--clda_s', action='store_true', default=False, help='Use strong data augmentation in contrastive learning batch sampling')
+        parser.add_argument('--wandb', action='store_true', default=True, help='Enable Weights & Biases logging (default: True)')
         parser.add_argument('--debug', action='store_true', default=False, help='Enable debug mode with extensive logging (default: False)')
         parser.add_argument('--data-aug', '--da', action='store_true', default=False, help='Use data augmentation without contrastive learning batch sampling')
         parser.add_argument('--num-rooms-cl', type=int, default=300, help='Total number of rooms for CL')
@@ -76,6 +78,7 @@ class opt_pretrain():
         self.cl = args.contrastive_learning
         self.clda = args.contrastive_learning_data_aug
         self.da = args.data_aug
+        self.clda_s = args.contrastive_learning_data_aug_stronger
 
         args.acoustic_setting = self.acoustic_setting
         
@@ -95,7 +98,10 @@ class opt_pretrain():
         if self.cl:
             dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data_cl'
         elif self.clda or self.da:
-            dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data_cl_da'
+            if self.clda_s:
+                dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data_cl_da_stronger'
+            else:
+                dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data_cl_da'
         else:
             dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data'
         dirs['exp'] = work_dir + '/SAR-SSL/exp'

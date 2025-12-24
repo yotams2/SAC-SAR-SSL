@@ -89,9 +89,9 @@ class Learner(ABC):
 		if return_diff:
 			diff = 0
 			loss_cl_spat_avg = 0
-			loss_cl_spat_avg = 0
 			loss_cl_spec_avg = 0
 			obt_loss_avg = 0
+			loss_gen_avg = 0
 
 		optimizer.zero_grad()
 		pbar = tqdm(enumerate(dataset), total=len(dataset), leave=False) 
@@ -107,14 +107,15 @@ class Learner(ABC):
 
 			with torch.cuda.amp.autocast(enabled=self.use_amp):
 				if 'indices' in locals():
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch = self.model(in_batch, indices=indices, epoch=epoch)
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch = self.model(in_batch, indices=indices, epoch=epoch)
 				else:
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch = self.model(in_batch, epoch=epoch)
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch = self.model(in_batch, epoch=epoch)
 			loss_batch = loss_batch.mean() # for multiple gpus
 			diff_batch = diff_batch.mean()
 			loss_cl_spat = loss_cl_spat.mean()
 			loss_cl_spec = loss_cl_spec.mean()
 			obt_batch = obt_batch.mean()
+			loss_gen_batch = loss_gen_batch.mean()
 
 			if self.use_amp:
 				self.scaler.scale(loss_batch).backward()
@@ -127,7 +128,7 @@ class Learner(ABC):
 			optimizer.zero_grad()
 
 			avg_loss = avg_beta * avg_loss + (1 - avg_beta) * loss_batch.item()
-			pbar.set_postfix(loss=avg_loss / (1 - avg_beta ** (batch_idx + 1)), cl_spat=loss_cl_spat.item(), cl_spec=loss_cl_spec.item(), obt=obt_batch.item())
+			pbar.set_postfix(loss=avg_loss / (1 - avg_beta ** (batch_idx + 1)), cl_spat=loss_cl_spat.item(), cl_spec=loss_cl_spec.item(), obt=obt_batch.item(), loss_gen=loss_gen_batch.item())
 			# pbar.set_postfix(loss=loss.item())
 			pbar.update()
 
@@ -137,6 +138,7 @@ class Learner(ABC):
 				loss_cl_spat_avg += loss_cl_spat.item()
 				loss_cl_spec_avg += loss_cl_spec.item()
 				obt_loss_avg += obt_batch.item()
+				loss_gen_avg += loss_gen_batch.item()
 			
 			if self.debug and self.debug_log_path and epoch is not None:
 				# Log 4 times per epoch: at 25%, 50%, 75%, and 100% (approx)
@@ -160,9 +162,10 @@ class Learner(ABC):
 			loss_cl_spat_avg /= len(pbar)
 			loss_cl_spec_avg /= len(pbar)
 			obt_loss_avg /= len(pbar)
+			loss_gen_avg /= len(pbar)
 
 		if return_diff: 
-			return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, obt_loss_avg
+			return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, obt_loss_avg, loss_gen_avg
 		else:
 			return loss
 
@@ -177,6 +180,7 @@ class Learner(ABC):
 				loss_cl_spat_avg = 0
 				loss_cl_spec_avg = 0
 				obt_loss_avg = 0
+				loss_gen_avg = 0
 				cka_avg = 0
 
 			for data in dataset:
@@ -184,7 +188,7 @@ class Learner(ABC):
 				in_batch, = self.data_preprocess(mic_sig_batch, None)
 
 				with torch.cuda.amp.autocast(enabled=self.use_amp):
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch = self.model(in_batch) 
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch = self.model(in_batch) 
 
 				loss_batch = loss_batch.mean() 
 				diff_batch = diff_batch.mean()
@@ -195,6 +199,7 @@ class Learner(ABC):
 					loss_cl_spat_avg += loss_cl_spat.item()
 					loss_cl_spec_avg += loss_cl_spec.item()
 					obt_loss_avg += obt_batch.mean().item()
+					loss_gen_avg += loss_gen_batch.mean().item()
 					
 					if 'embed_spec' in vis_batch and 'embed_spat' in vis_batch:
 						e_spec = vis_batch['embed_spec'].reshape(-1, vis_batch['embed_spec'].shape[-1])
@@ -208,6 +213,7 @@ class Learner(ABC):
 				loss_cl_spat_avg /= len(dataset)
 				loss_cl_spec_avg /= len(dataset)
 				obt_loss_avg /= len(dataset)
+				loss_gen_avg /= len(dataset)
 				cka_avg /= len(dataset)
 
 			if return_diff: 
@@ -215,7 +221,7 @@ class Learner(ABC):
 					result_batch = self.pretrain_evaluate(pred_batch=vis_batch['pred'], gt_batch=vis_batch['tar'], mask_batch=vis_batch['mask'])
 					return loss, diff, vis_batch, result_batch # only return visual data of the last batch
 				else:
-					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, cka_avg, obt_loss_avg
+					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, cka_avg, obt_loss_avg, loss_gen_avg
 			else:
 				return loss
 

@@ -25,6 +25,8 @@ os.environ['MKL_NUM_THREADS'] = str(cpu_num)
 os.environ['VECLIB_MAXIMUM_THREADS'] = str(cpu_num)
 os.environ['NUMEXPR_NUM_THREADS'] = str(cpu_num)
 
+import wandb
+
 from opt import opt_pretrain
 opts = opt_pretrain()
 args = opts.parse()
@@ -184,6 +186,12 @@ if args.pretrain:
 	if args.description is not None:
 		with open(os.path.join(dirs['log_pretrain'], "description.txt"), "w") as f:
 			f.write(args.description)
+
+# WandB
+if args.test:
+	args.wandb = False
+if args.wandb:
+	wandb.init(project='SAR-SSL', config=args, name=args.description)
 
 # Acoustic setting parameters
 assert args.source_state == 'static', 'Source state model unrecognized~'
@@ -444,18 +452,18 @@ if args.pretrain:
 			lr = 0.0001
 			
 		set_random_seed(seeds['train']+epoch)
-		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, obt_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
+		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, obt_train, loss_gen_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		if args.simu_exp:
 			set_random_seed(seeds['val']) # can be fixed when there is one card, where therea are multiple cards, inputs are fix but network are not
-			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _, obt_val_sim = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _, obt_val_sim, loss_gen_val_sim = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 			print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 		else:
 			set_random_seed(seeds['val']) 
-			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, _, obt_val_real = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
+			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, _, obt_val_real, loss_gen_val_real = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _, _ = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
+			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _, _, loss_gen_test_locata = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _, _ = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
+			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _, _, loss_gen_test_ace = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
 
 			print('Val loss real: {:.4f}'.format(loss_val_real) )
 			print('Test loss locata: {:.4f}'.format(loss_test_locata) )
@@ -492,6 +500,44 @@ if args.pretrain:
 
 		if epoch == 1:
 			train_writer.add_scalar('nparam', nparam_sum, epoch)
+
+		if args.wandb:
+			log_dict = {
+				'train/loss': loss_train,
+				'train/loss_recon': loss_gen_train, # Reconstruction loss
+				'train/lr': lr,
+				'train/diff': diff_train,
+				'train/loss_cl_spat': loss_cl_spat_train,
+				'train/loss_cl_spec': loss_cl_spec_train,
+				'train/obt': obt_train
+			}
+			
+			if args.simu_exp:
+				log_dict.update({
+					'val_sim/loss': loss_val_sim,
+					'val_sim/loss_recon': loss_gen_val_sim,
+					'val_sim/diff': diff_val_sim,
+					'val_sim/loss_cl_spat': loss_cl_spat_val_sim,
+					'val_sim/loss_cl_spec': loss_cl_spec_val_sim,
+					'val_sim/obt': obt_val_sim
+				})
+			else:
+				log_dict.update({
+					'val_real/loss': loss_val_real,
+					'val_real/loss_recon': loss_gen_val_real,
+					'val_real/diff': diff_val_real,
+					'val_real/loss_cl_spat': loss_cl_spat_val_real,
+					'val_real/loss_cl_spec': loss_cl_spec_val_real,
+					'val_real/obt': obt_val_real,
+					'test_locata/loss': loss_test_locata,
+					'test_locata/loss_recon': loss_gen_test_locata,
+					'test_locata/diff': diff_test_locata,
+					'test_ace/loss': loss_test_ace,
+					'test_ace/loss_recon': loss_gen_test_ace,
+					'test_ace/diff': diff_test_ace
+				})
+			
+			wandb.log(log_dict, step=epoch)
 
 		# Save 
 		nepoch_save_data = [5, 10, 15, 20, 25, 30, 35, 40]
@@ -629,9 +675,9 @@ if (args.pretrain_frozen_encoder):
 		
 		lr = lr_schedule(epoch)
 		set_random_seed(epoch)
-		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, _ = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
+		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, _, loss_gen_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		set_random_seed(args.seed+10001)
-		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _, _, loss_gen_val_sim = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 		print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 
 		# Update history and plot learning curve
@@ -659,6 +705,22 @@ if (args.pretrain_frozen_encoder):
 
 		val_sim_writer.add_scalar('loss', loss_val_sim, epoch)
 		val_sim_writer.add_scalar('diff', diff_val_sim, epoch)
+
+		if args.wandb:
+			log_dict = {
+				'train/loss': loss_train,
+				'train/loss_recon': loss_gen_train,
+				'train/lr': lr,
+				'train/diff': diff_train,
+				'train/loss_cl_spat': loss_cl_spat_train,
+				'train/loss_cl_spec': loss_cl_spec_train,
+				'val_sim/loss': loss_val_sim,
+				'val_sim/loss_recon': loss_gen_val_sim,
+				'val_sim/diff': diff_val_sim,
+				'val_sim/loss_cl_spat': loss_cl_spat_val_sim,
+				'val_sim/loss_cl_spec': loss_cl_spec_val_sim
+			}
+			wandb.log(log_dict, step=epoch)
 
 	print('\nFrozen Pre-Training finished\n')
 
@@ -696,7 +758,8 @@ if (args.test):
 		dataloader_pretest = torch.utils.data.DataLoader(dataset=dataset_pretest, batch_size=args.bs[2], shuffle=False, **kwargs)
 
 		# Test
-		loss_test, diff_test, data_vis_test, _, _, cka_test, _ = learner.pretest_epoch(dataloader_pretest, return_diff=True)
+		# Test
+		loss_test, diff_test, data_vis_test, _, _, cka_test, _, loss_gen_test = learner.pretest_epoch(dataloader_pretest, return_diff=True)
 
 		print('Test loss: {:.4f}'.format(loss_test) )
 		print('Test CKA: {:.4f}'.format(cka_test) )
@@ -708,6 +771,13 @@ if (args.test):
 			with open(res_file, 'w') as f:
 				json.dump(res_data, f, indent=4)
 			print(f"Saved test results to {res_file}")
+
+			if args.wandb:
+				wandb.log({
+					'test/loss': loss_test,
+					'test/loss_recon': loss_gen_test,
+					'test/cka': cka_test
+				})
 		except Exception as e:
 			print(f"Failed to save test results: {e}")
 

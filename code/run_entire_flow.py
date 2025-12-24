@@ -62,7 +62,7 @@ def main():
 
     # 3. Pretrain Test
     # python run_pretrain.py --test --simu-exp --time <time> --test-mode all --gpu-id 0,
-    cmd_3 = f"python run_pretrain.py --test --simu-exp --time {timestamp} --test-mode all --gpu-id 0,"
+    cmd_3 = f"python run_pretrain.py --test --simu-exp --time {timestamp} --test-mode all --gpu-id 0, {extra_flags_str}"
     run_command(cmd_3, "3. Pretrain Test")
 
     # 4. Downstream Train
