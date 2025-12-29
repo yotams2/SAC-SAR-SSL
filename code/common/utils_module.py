@@ -580,3 +580,225 @@ if __name__ == "__main__":
     aa = doistft(stft)
     print(a.shape, stft.shape, aa.shape)  
 
+
+def hsic(x, y, sigma=None):
+    """
+    Compute Hilbert-Schmidt Independence Criterion (HSIC) with RBF kernel.
+    
+    Args:
+        x (torch.Tensor): Input tensor x (batch_size, dim_x)
+        y (torch.Tensor): Input tensor y (batch_size, dim_y)
+        sigma (float, optional): Kernel bandwidth. If None, median heuristic is used.
+        
+    Returns:
+        torch.Tensor: HSIC value
+    """
+    m = x.shape[0]
+    
+    if m < 2:
+        return torch.tensor(0.0, device=x.device)
+
+    # Normalize inputs for stability (zero mean, unit variance)
+    # This prevents extremely large distances in RBF kernel
+    x = (x - x.mean(dim=0, keepdim=True)) / (x.std(dim=0, keepdim=True) + 1e-6)
+    y = (y - y.mean(dim=0, keepdim=True)) / (y.std(dim=0, keepdim=True) + 1e-6)
+    
+    # RBF Kernel for X
+    K = _rbf_kernel(x, sigma)
+    
+    # RBF Kernel for Y
+    L = _rbf_kernel(y, sigma)
+    
+    # Centering matrix H
+    H = torch.eye(m, device=x.device) - (1.0 / m) * torch.ones((m, m), device=x.device)
+    
+    # HSIC = trace(K * H * L * H) / (m-1)^2  (unbiased estimator form often used varies, here using standard V-statistic form / m^2 or simply unnormalized)
+    # Using the standard empirical HSIC: Tr(KHLH) / (m-1)^2
+    
+    # KH = torch.mm(K, H)
+    # LH = torch.mm(L, H)
+    # hsic_value = torch.trace(torch.mm(KH, LH)) / ((m - 1) ** 2)
+    
+    # More efficient: sum(sum( (K centered) * (L centered) ))
+    # centralized kernel matrices
+    Kc = torch.mm(torch.mm(H, K), H)
+    Lc = torch.mm(torch.mm(H, L), H)
+    
+    hsic_value = torch.sum(Kc * Lc) / ((m - 1) ** 2)
+    
+    return hsic_value
+
+def _rbf_kernel(x, sigma=None):
+    """
+    Compute RBF Kernel Matrix.
+    K(x_i, x_j) = exp(- ||x_i - x_j||^2 / (2 * sigma^2))
+    """
+    # Calculate squared Euclidean distance
+    # ||x_i - x_j||^2 = ||x_i||^2 + ||x_j||^2 - 2 <x_i, x_j>
+    
+    x_norm = (x ** 2).sum(1).view(-1, 1)
+    dist_sq = x_norm + x_norm.t() - 2.0 * torch.mm(x, x.t())
+    dist_sq = torch.clamp(dist_sq, min=0.0) # Numerical stability
+    
+    if sigma is None:
+        # Median heuristic
+        # Use median of the upper triangle of the distance matrix (excluding diagonal)
+        
+        # Flatten and take upper triangle
+        mask = torch.triu(torch.ones_like(dist_sq), diagonal=1).bool()
+        if mask.sum() > 0:
+            distances = torch.sqrt(dist_sq[mask])
+            median_dist = torch.median(distances)
+            sigma = median_dist # use median distance as bandwidth
+        else:
+             sigma = 1.0 # Fallback for very small batch size 
+             
+    # Avoid division by zero or extremely small sigma
+    if isinstance(sigma, torch.Tensor):
+        sigma = torch.clamp(sigma, min=1e-6)
+    elif sigma < 1e-6:
+        sigma = 1e-6
+
+    gamma = 1.0 / (2.0 * sigma ** 2)
+    K = torch.exp(-gamma * dist_sq)
+    return K
+
+
+def spatial_features_from_stft(
+    X: torch.Tensor,
+    sample_rate: float,
+    max_ipd_freq: float = 1500.0,
+    eps: float = 1e-8,
+) -> dict:
+    """
+    Compute spatial features from per-channel STFTs.
+    
+    Args:
+        X: [B, 2, F, T] complex tensor.
+        sample_rate: sampling rate in Hz.
+        max_ipd_freq: max frequency for IPD features.
+        eps: numerical stability.
+        
+    Returns:
+        dict: feature dictionary.
+    """
+    device = X.device
+    B, C, F_bins, T_frames = X.shape
+    assert C == 2, "Expected binaural input"
+
+    X_L = X[:, 0]
+    X_R = X[:, 1]
+    
+    # 1. ILD (Broadband)
+    magL = X_L.abs() + eps
+    magR = X_R.abs() + eps
+    ild = 20.0 * torch.log10(magL / magR)
+    ild_mean = ild.mean(dim=(1, 2)) # [B]
+    
+    # 2. IPD (Low Frequency)
+    phase_L = torch.angle(X_L)
+    phase_R = torch.angle(X_R)
+    ipd = phase_L - phase_R
+    ipd = (ipd + math.pi) % (2 * math.pi) - math.pi
+    
+    freqs = torch.linspace(0, sample_rate / 2, F_bins, device=device)
+    lf_mask = freqs <= max_ipd_freq
+    
+    if lf_mask.sum() > 0:
+        ipd_lf = ipd[:, lf_mask, :]
+        ipd_cos_mean = torch.cos(ipd_lf).mean(dim=(1, 2))
+        ipd_sin_mean = torch.sin(ipd_lf).mean(dim=(1, 2))
+    else:
+        ipd_cos_mean = torch.zeros(B, device=device)
+        ipd_sin_mean = torch.zeros(B, device=device)
+        
+    # 3. Coherence (Time-averaged)
+    cross_spec = X_L * X_R.conj()
+    # E[XY*]
+    cross_spec_mean = cross_spec.mean(dim=2) # [B, F] average over time
+    # E[|X|^2]
+    powL_mean = (magL**2).mean(dim=2) # [B, F]
+    powR_mean = (magR**2).mean(dim=2) # [B, F]
+    
+    coh_freq = cross_spec_mean.abs() / (torch.sqrt(powL_mean * powR_mean) + eps)
+    coherence_mean = coh_freq.mean(dim=1) # [B] average over freq
+    
+    # 4. GCC-PHAT & TDOA
+    # R(f) = X_L(f) * X_R(f)* / |X_L(f) * X_R(f)*|
+    cc = X_L * X_R.conj()
+    cc_phat = cc / (cc.abs() + eps)
+    
+    # GCC = IFFT(R(f))
+    # We need to handle the frequency dimension correctly. 
+    # torch.fft.irfft expects the last dimension to be the frequency dimension of a REAL signal's FFT (size N/2+1).
+    # X matches this since it came from rfft or stft(onesided=True).
+    # We average over time frames to get a robust GCC for the whole clip.
+    cc_phat_mean = cc_phat.mean(dim=2) # [B, F]
+    
+    # The length of the real signal for irfft is 2*(F_bins-1)
+    # This is because F_bins is N/2 + 1, so N = 2*(F_bins-1)
+    gcc_phat = torch.fft.irfft(cc_phat_mean, n=2*(F_bins-1), dim=-1) # [B, 2*(F-1)]
+    
+    # Shift so 0 lag is at center
+    # The zero lag for irfft is at index 0.
+    # To center it, we roll by half the length.
+    # The length is 2*(F_bins-1). So roll by (F_bins-1).
+    gcc_phat = torch.roll(gcc_phat, shifts=F_bins-1, dims=-1)
+    
+    # Find peak
+    gcc_phat_max, max_idx = torch.max(gcc_phat.abs(), dim=1)
+    
+    # Convert index to TDOA
+    # The center (zero lag) is now at index F_bins-1.
+    sample_delay = max_idx.float() - (F_bins - 1)
+    tdoa = sample_delay / sample_rate
+    
+    return {
+        'ipd_cos_mean': ipd_cos_mean,
+        'ipd_sin_mean': ipd_sin_mean,
+        'ild_mean': ild_mean,
+        'coherence_mean': coherence_mean,
+        'tdoa': tdoa,
+        'gcc_phat_max': gcc_phat_max
+    }
+
+def compute_spatial_features(
+    x: torch.Tensor,
+    sample_rate: float,
+    n_fft: int = 512,
+    hop_length: int = 256,
+    max_ipd_freq: float = 1500.0,
+    eps: float = 1e-8,
+) -> dict:
+    """
+    Compute spatial acoustic features from binaural recordings.
+    
+    Args:
+        x: [B, 2, T] binaural waveform (L, R).
+        sample_rate: sampling rate in Hz.
+        n_fft, hop_length: STFT parameters.
+        max_ipd_freq: only use frequencies <= this for IPD summary.
+        eps: numerical stability.
+        
+    Returns:
+        dict: feature dictionary containing 'ipd_cos_mean', 'ipd_sin_mean', 'ild_mean', 'coherence_mean', 'tdoa', 'gcc_phat_max'.
+    """
+    import math
+    device = x.device
+    B, C, T = x.shape
+    assert C == 2, "Expected binaural input [B, 2, T]"
+
+    # STFT: [B*C, F, T_frames]
+    # Use center=True to match standard processing
+    X = torch.stft(
+        x.view(B * C, T),
+        n_fft=n_fft,
+        hop_length=hop_length,
+        window=torch.hann_window(n_fft, device=device),
+        return_complex=True,
+        center=True
+    )
+    F_bins, T_frames = X.shape[-2], X.shape[-1]
+    X = X.view(B, C, F_bins, T_frames) # [B, 2, F, T]
+
+    return spatial_features_from_stft(X, sample_rate, max_ipd_freq, eps)

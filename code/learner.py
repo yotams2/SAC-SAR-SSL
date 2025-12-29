@@ -92,6 +92,7 @@ class Learner(ABC):
 			loss_cl_spec_avg = 0
 			obt_loss_avg = 0
 			loss_gen_avg = 0
+			loss_feat_sim_avg = 0 # Initialize loss_feat_sim_avg
 
 		optimizer.zero_grad()
 		pbar = tqdm(enumerate(dataset), total=len(dataset), leave=False) 
@@ -107,15 +108,16 @@ class Learner(ABC):
 
 			with torch.cuda.amp.autocast(enabled=self.use_amp):
 				if 'indices' in locals():
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch = self.model(in_batch, indices=indices, epoch=epoch)
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch = self.model(in_batch, indices=indices, epoch=epoch) # Unpack loss_feat_sim_batch
 				else:
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch = self.model(in_batch, epoch=epoch)
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch = self.model(in_batch, epoch=epoch) # Unpack loss_feat_sim_batch
 			loss_batch = loss_batch.mean() # for multiple gpus
 			diff_batch = diff_batch.mean()
 			loss_cl_spat = loss_cl_spat.mean()
 			loss_cl_spec = loss_cl_spec.mean()
 			obt_batch = obt_batch.mean()
 			loss_gen_batch = loss_gen_batch.mean()
+			loss_feat_sim_batch = loss_feat_sim_batch.mean() # Ensure it's a scalar
 
 			if self.use_amp:
 				self.scaler.scale(loss_batch).backward()
@@ -128,7 +130,26 @@ class Learner(ABC):
 			optimizer.zero_grad()
 
 			avg_loss = avg_beta * avg_loss + (1 - avg_beta) * loss_batch.item()
-			pbar.set_postfix(loss=avg_loss / (1 - avg_beta ** (batch_idx + 1)), cl_spat=loss_cl_spat.item(), cl_spec=loss_cl_spec.item(), obt=obt_batch.item(), loss_gen=loss_gen_batch.item())
+			
+			# Construct dynamic pbar dict
+			pbar_dict = {'loss': avg_loss / (1 - avg_beta ** (batch_idx + 1))}
+			pbar_dict['loss_gen'] = loss_gen_batch.item()
+			# Unwrap model if wrapped (DataParallel)
+			model_core = getattr(self.model, 'module', self.model)
+			
+			if hasattr(model_core, 'contrastive_learning') and model_core.contrastive_learning or \
+			   (hasattr(model_core, 'contrastive_learning_data_aug') and model_core.contrastive_learning_data_aug):
+				pbar_dict['cl_spat'] = loss_cl_spat.item()
+				pbar_dict['cl_spec'] = loss_cl_spec.item()
+			
+			if hasattr(model_core, 'obt') and model_core.obt or \
+			   (hasattr(model_core, 'hsic') and model_core.hsic):
+				pbar_dict['obt'] = obt_batch.item()
+				
+			if hasattr(model_core, 'feature_sim_loss') and model_core.feature_sim_loss:
+				pbar_dict['feat_sim'] = loss_feat_sim_batch.item()
+			
+			pbar.set_postfix(**pbar_dict)
 			# pbar.set_postfix(loss=loss.item())
 			pbar.update()
 
@@ -139,6 +160,7 @@ class Learner(ABC):
 				loss_cl_spec_avg += loss_cl_spec.item()
 				obt_loss_avg += obt_batch.item()
 				loss_gen_avg += loss_gen_batch.item()
+				loss_feat_sim_avg += loss_feat_sim_batch.item() # Accumulate loss_feat_sim_avg
 			
 			if self.debug and self.debug_log_path and epoch is not None:
 				# Log 4 times per epoch: at 25%, 50%, 75%, and 100% (approx)
@@ -163,13 +185,14 @@ class Learner(ABC):
 			loss_cl_spec_avg /= len(pbar)
 			obt_loss_avg /= len(pbar)
 			loss_gen_avg /= len(pbar)
+			loss_feat_sim_avg /= len(pbar) # Average loss_feat_sim_avg
 
 		if return_diff: 
-			return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, obt_loss_avg, loss_gen_avg
+			return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, obt_loss_avg, loss_gen_avg, loss_feat_sim_avg # Return loss_feat_sim_avg
 		else:
 			return loss
 
-	def pretest_epoch(self, dataset, return_diff=True, return_eval=False):
+	def pretest_epoch(self, dataset, return_diff=True, return_eval=False, analyze_rank=False):
 		""" Test the model with an epoch of the dataset
 		"""
 		self.model.eval()  
@@ -181,14 +204,29 @@ class Learner(ABC):
 				loss_cl_spec_avg = 0
 				obt_loss_avg = 0
 				loss_gen_avg = 0
+				loss_feat_sim_avg = 0
 				cka_avg = 0
+
+				if analyze_rank:
+					rank_analysis = None
+
+				# Initialize accumulators for streaming covariance
+				# Using Welford's online algorithm or simple sum accumulation for Cov = E[XX^T] - E[X]E[X]^T
+				# Here we simply accumulate sums and sum of outer products.
+				# We cannot know dimensions purely ahead of time easily without a forward pass, 
+				# but we can initialize on the first batch.
+				sum_x_spec = None
+				sum_xxT_spec = None
+				sum_x_spat = None
+				sum_xxT_spat = None
+				total_samples = 0
 
 			for data in dataset:
 				mic_sig_batch = data[0]
 				in_batch, = self.data_preprocess(mic_sig_batch, None)
 
 				with torch.cuda.amp.autocast(enabled=self.use_amp):
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch = self.model(in_batch) 
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch = self.model(in_batch) 
 
 				loss_batch = loss_batch.mean() 
 				diff_batch = diff_batch.mean()
@@ -196,16 +234,44 @@ class Learner(ABC):
 				loss += loss_batch.item()
 				if return_diff: 
 					diff += diff_batch.item()
-					loss_cl_spat_avg += loss_cl_spat.item()
-					loss_cl_spec_avg += loss_cl_spec.item()
+					loss_cl_spat_avg += loss_cl_spat.mean().item()
+					loss_cl_spec_avg += loss_cl_spec.mean().item()
 					obt_loss_avg += obt_batch.mean().item()
 					loss_gen_avg += loss_gen_batch.mean().item()
+					loss_feat_sim_avg += loss_feat_sim_batch.mean().item() # Accumulate
 					
 					if 'embed_spec' in vis_batch and 'embed_spat' in vis_batch:
 						e_spec = vis_batch['embed_spec'].reshape(-1, vis_batch['embed_spec'].shape[-1])
 						e_spat = vis_batch['embed_spat'].reshape(-1, vis_batch['embed_spat'].shape[-1])
 						cka_val = self.cka(e_spec, e_spat)
 						cka_avg += cka_val.item()
+
+					if analyze_rank and 'embed_spec' in vis_batch and 'embed_spat' in vis_batch:
+						# Assuming shape (nbatch, npatch, dembed)
+						# Calculate mean embedding per utterance (nbatch, dembed)
+						z_spec = vis_batch['embed_spec'].mean(dim=1) 
+						z_spat = vis_batch['embed_spat'].mean(dim=1)
+						
+						batch_size = z_spec.shape[0]
+						dembed_spec = z_spec.shape[1]
+						dembed_spat = z_spat.shape[1]
+
+						# Initialize on first batch
+						if sum_x_spec is None:
+							sum_x_spec = torch.zeros(dembed_spec, device=self.device)
+							sum_xxT_spec = torch.zeros(dembed_spec, dembed_spec, device=self.device)
+							sum_x_spat = torch.zeros(dembed_spat, device=self.device)
+							sum_xxT_spat = torch.zeros(dembed_spat, dembed_spat, device=self.device)
+
+						# Accumulate Spec
+						sum_x_spec += z_spec.sum(dim=0)
+						sum_xxT_spec += z_spec.T @ z_spec
+						
+						# Accumulate Spat
+						sum_x_spat += z_spat.sum(dim=0)
+						sum_xxT_spat += z_spat.T @ z_spat
+						
+						total_samples += batch_size
 
 			loss /= len(dataset)
 			if return_diff: 
@@ -214,14 +280,46 @@ class Learner(ABC):
 				loss_cl_spec_avg /= len(dataset)
 				obt_loss_avg /= len(dataset)
 				loss_gen_avg /= len(dataset)
+				loss_feat_sim_avg /= len(dataset)
 				cka_avg /= len(dataset)
 
 			if return_diff: 
+				rank_analysis = {}
+				if analyze_rank and total_samples > 1:
+					# Calculate Covariance and Effective Rank
+					def get_spectrum(sum_x, sum_xxT, N):
+						mean = sum_x / N
+						# Cov = E[XX^T] - E[X]E[X]^T
+						# Cov = (sum_xxT / N) - (mean.unsqueeze(1) @ mean.unsqueeze(0))
+						# However, we usually center data before SVD.
+						# Centered Covariance matrix C = 1/(N-1) * sum((x-mean)(x-mean)^T)
+						# = 1/(N-1) * (sum(xx^T) - N * mean * mean^T)
+						
+						cov = (sum_xxT - N * torch.outer(mean, mean)) / (N - 1)
+						
+						# SVD 
+						# For symmetric positive semi-definite matrix, SVD singular values are eigenvalues
+						try:
+							# _, S, _ = torch.svd(cov) 
+							# Using torch.linalg.svd is preferred in newer pytorch but torch.svd is used elsewhere
+							_, S, _ = torch.svd(cov)
+						except:
+							print("SVD failed, skipping rank analysis")
+							return None
+
+						explained_variance_ratio = S / S.sum()
+						cumulative_variance = torch.cumsum(explained_variance_ratio, dim=0)
+						return cumulative_variance.cpu().numpy()
+
+					rank_analysis['cumulative_variance_spec'] = get_spectrum(sum_x_spec, sum_xxT_spec, total_samples)
+					rank_analysis['cumulative_variance_spat'] = get_spectrum(sum_x_spat, sum_xxT_spat, total_samples)
+
 				if return_eval:
 					result_batch = self.pretrain_evaluate(pred_batch=vis_batch['pred'], gt_batch=vis_batch['tar'], mask_batch=vis_batch['mask'])
 					return loss, diff, vis_batch, result_batch # only return visual data of the last batch
 				else:
-					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, cka_avg, obt_loss_avg, loss_gen_avg
+					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, cka_avg, obt_loss_avg, loss_gen_avg, loss_feat_sim_avg, rank_analysis
+
 			else:
 				return loss
 

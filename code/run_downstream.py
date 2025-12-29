@@ -413,8 +413,7 @@ if (args.ds_test):
 	print('Downstream test stage!', args.ds_trainmode)
 	assert args.simu_exp == True, 'Test mode only for simulated data'
 	########################
-	bs_idx = 0
-	lr_idx = 1
+	# bs_idx and lr_idx will be loaded from the result file
 	########################
 
 	test_bs = 16
@@ -446,6 +445,28 @@ if (args.ds_test):
 			data_num = {'train':num, 'test':4000} 
 		elif (args.test_mode == 'vis_embed'):
 			data_num = {'train':8000, 'test':8000} 
+
+		# Load best model configuration
+		atts = dirs[log_dir].replace('TASK', task).replace('NUM', str(num)).replace(task_time_dir,'').split('-')
+		result_name = atts[0] + '-' + atts[1] + '-' + atts[2] + '-' + atts[3] +'-' + atts[-2] +'-' + atts[-1] +  '-lr_bs_tri_result.mat'
+		if result_name.startswith('/'):
+			result_name = result_name[1:]
+		result_path = os.path.join(task_time_dir, result_name)
+		
+		if os.path.exists(result_path):
+			try:
+				data = scipy.io.loadmat(result_path)
+				lr_idx = int(data['best_lr_idx'][0][0])
+				bs_idx = int(data['best_bs_idx'][0][0])
+				print(f"Loaded best hyperparameters for {task}: lr_idx={lr_idx}, bs_idx={bs_idx} from {result_name}")
+			except Exception as e:
+				print(f"Error loading {result_path}: {e}. Using default lr_idx=1, bs_idx=0.")
+				bs_idx = 0
+				lr_idx = 1
+		else:
+			print(f"Result file {result_path} not found. Using default lr_idx=1, bs_idx=0.")
+			bs_idx = 0
+			lr_idx = 1
 
 		lr_init = lr_set[lr_idx]
 		bs = bs_set[bs_idx]
@@ -515,6 +536,8 @@ if (args.ds_test):
 				downstream_res_list.append({
 					'task': task,
 					'trial_idx': trial_idx,
+					'lr_idx': lr_idx,
+					'bs_idx': bs_idx,
 					'loss_test': loss_test[trial_idx],
 					'metric_test': metric_test[trial_idx]
 				})

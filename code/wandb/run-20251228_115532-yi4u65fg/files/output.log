@@ -1,0 +1,22 @@
+T: 4.112, nt: 256, nf: 256
+# Parameters (M): 17.63 ['spec_encoder: 6.92', 'spat_encoder: 5.1', 'decoder: 5.51', 'mlp_head: 0', 'spec_encoder.patch_embed: 0.6', 'spec_encoder.embed: 6.32', 'spat_encoder.patch_embed: 0.34', 'spat_encoder.embed: 4.77']
+/storage/yotam/SAR-SSL/SAR-SSL/code/common/utils.py:100: UserWarning: mods argument is not needed anymore, you can stop passing it
+  with FlopCounterMode(model, display=False) as fcm:
+/storage/yotam/SAR-SSL/SAR-SSL/code/model.py:1126: UserWarning: std(): degrees of freedom is <= 0. Correction should be strictly less than the reduction factor (input numel divided by output numel). (Triggered internally at ../aten/src/ATen/native/ReduceOps.cpp:1808.)
+  std = val.std() + 1e-6
+FLOPs_forward: 7.01G/s
+Pre-Training stage!
+Using provided num_train_samples: 50000
+Dynamic Data Counts - Train: 50000, Val: 4000, Test: 4000
+
+Epoch 1/30:
+Epoch 1:   0%|                                                                                 | 0/391 [00:11<?, ?it/s]/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py:109: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_amp):
+/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py:225: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_amp):
+Traceback (most recent call last):
+  File "run_pretrain.py", line 463, in <module>
+    loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _, obt_val_sim, loss_gen_val_sim = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+  File "/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py", line 226, in pretest_epoch
+    loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch = self.model(in_batch)
+ValueError: too many values to unpack (expected 7)

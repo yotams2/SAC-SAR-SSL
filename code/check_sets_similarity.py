@@ -16,7 +16,7 @@ except ImportError:
     sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data_generation'))
     from utils_src import WSJ0Dataset, explore_corpus
 
-def load_data_info(data_dir):
+def load_data_info(data_dir, override_src_dir=None):
     """
     Load all_info.npz and reconstruct the utterance/speaker info 
     by replicating the RNG logic from gen_simu.py.
@@ -41,7 +41,37 @@ def load_data_info(data_dir):
     src_dir = args.get('src_dir', '')
     stage = args.get('stage', 'pretrain')
     data_num = args.get('data_num', 1024)
-    seed_base = int(args.get('seed', 1)) # This might rely on the stage logic in gen_simu.py if not saved explicitly correctly, but usually args captures locals() after assignments.
+    seed_base = int(args.get('seed', 1)) 
+    
+    if override_src_dir:
+        src_dir = override_src_dir
+        print(f"Using overridden source directory: {src_dir}")
+    else:
+        # Try to resolve relative to SAR-SSL/code if the stored path was relative
+        # The stored path might be relative to where gen_simu.py was run.
+        # Common pattern in this repo seems to be ../../../data or ../../data
+        
+        # Check if the stored path exists as is
+        if not os.path.exists(src_dir):
+             # Try resolving relative to CWD
+             potential_path = os.path.abspath(os.path.join(os.getcwd(), src_dir))
+             if os.path.exists(potential_path):
+                 src_dir = potential_path
+             else:
+                 # Try common fallback: ../../data/SrcSig/wsj0 (relative to code/)
+                 fallback_path = os.path.abspath(os.path.join(os.getcwd(), '../../data/SrcSig/wsj0'))
+                 if os.path.exists(fallback_path):
+                     print(f"Warning: Stored src_dir {src_dir} not found. Found fallback at {fallback_path}")
+                     src_dir = fallback_path
+                 else:
+                     # Attempt to find SrcSig in nearby directories
+                     # This is specific to the user's observed path failure
+                     fallback_path_2 = os.path.abspath(os.path.join(os.getcwd(), '../../../data/SrcSig/wsj0'))
+                     if os.path.exists(fallback_path_2):
+                         src_dir = fallback_path_2
+                     
+    
+    # Re-construct seed based on stage if it wasn't captured correctly in args (args usually captures the passed arguments, but gen_simu modifies 'seed' variable locally).
     
     # Re-construct seed based on stage if it wasn't captured correctly in args (args usually captures the passed arguments, but gen_simu modifies 'seed' variable locally).
     # Inspecting gen_simu.py: 'args = locals().copy()' is called AFTER seed is set based on stage. So args['seed'] should be the correct base seed.
@@ -94,9 +124,10 @@ def load_data_info(data_dir):
             real_src_dir = potential_path
             # Also update exclusion path if needed
             if src_dir_for_exclusion:
-                src_dir_for_exclusion = os.path.abspath(os.path.join(os.getcwd(), src_dir_for_exclusion))
+                src_dir_for_exclusion = os.path.join(potential_path, 'tr') # Assuming exclusion is from tr
         else:
              print(f"Warning: Source directory {real_src_dir} (derived from args) not found. Utterance reconstruction might fail.")
+             print(f"Consider providing --src-dir argument.")
 
     exclude_spks = None
     if src_dir_for_exclusion and os.path.exists(src_dir_for_exclusion):
@@ -214,14 +245,15 @@ def main():
     parser = argparse.ArgumentParser(description="Check similarity between two SAR-SSL datasets")
     parser.add_argument("dir1", type=str, help="First dataset directory (e.g. .../pretrain)")
     parser.add_argument("dir2", type=str, help="Second dataset directory (e.g. .../pretest)")
+    parser.add_argument("--src-dir", type=str, default=None, help="Override source directory (e.g. ../../data/SrcSig/wsj0)")
     args = parser.parse_args()
 
     print(f"Analyzing {args.dir1}...")
-    info1 = load_data_info(args.dir1)
+    info1 = load_data_info(args.dir1, override_src_dir=args.src_dir)
     if info1 is None: return
 
     print(f"Analyzing {args.dir2}...")
-    info2 = load_data_info(args.dir2)
+    info2 = load_data_info(args.dir2, override_src_dir=args.src_dir)
     if info2 is None: return
 
     print("\n" + "="*40)

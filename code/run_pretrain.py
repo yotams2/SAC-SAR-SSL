@@ -158,6 +158,7 @@ class ContrastiveAugmentationBatchSampler(Sampler):
         return self.num_batches
 
 import torch
+import matplotlib.pyplot as plt
 torch.backends.cuda.matmul.allow_tf32 = True  # The flag below controls whether to allow TF32 on matmul. This flag defaults to False in PyTorch 1.12 and later.
 torch.backends.cudnn.allow_tf32 = True  # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
 # torch.set_float32_matmul_precision('medium')
@@ -213,7 +214,7 @@ print(f"T: {T:.3f}, nt: {nt}, nf: {nf}")
 
 # Network
 if args.pretrain | args.test:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug)
 if args.pretrain_frozen_encoder:
 	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input)
 
@@ -234,7 +235,11 @@ if args.pretrain:
 	# Dataset
 	# Dataset
 	if args.simu_exp:
-		train_count = count_wav_files(dirs['micsig_simu_pretrain'])
+		if args.num_train_samples is not None:
+			train_count = args.num_train_samples
+			print(f"Using provided num_train_samples: {train_count}")
+		else:
+			train_count = count_wav_files(dirs['micsig_simu_pretrain'])
 		val_count = count_wav_files(dirs['micsig_simu_preval'])
 		# For test, we might use pretest_ins or just pretest dir. 
 		# dataset.py uses pretest dir for 'all' mode and pretest_ins list for 'ins' mode.
@@ -275,6 +280,13 @@ if args.pretrain:
 			history['loss_obt_val_sim'] = []
 		else:
 			history['loss_obt_val_real'] = []
+
+	if args.feature_sim_loss:
+		history['loss_feat_sim_train'] = []
+		if args.simu_exp:
+			history['loss_feat_sim_val_sim'] = []
+		else:
+			history['loss_feat_sim_val_real'] = []
 
 	remove_spkoverlap = True
 	prob_mode = ['duration', 'micpair']
@@ -452,18 +464,18 @@ if args.pretrain:
 			lr = 0.0001
 			
 		set_random_seed(seeds['train']+epoch)
-		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, obt_train, loss_gen_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
+		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, obt_train, loss_gen_train, loss_feat_sim_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		if args.simu_exp:
 			set_random_seed(seeds['val']) # can be fixed when there is one card, where therea are multiple cards, inputs are fix but network are not
-			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _, obt_val_sim, loss_gen_val_sim = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, cka_val_sim, obt_val_sim, loss_gen_val_sim, loss_feat_sim_val_sim, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 			print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 		else:
 			set_random_seed(seeds['val']) 
-			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, _, obt_val_real, loss_gen_val_real = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
+			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, cka_val_real, obt_val_real, loss_gen_val_real, loss_feat_sim_val_real, _ = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _, _, loss_gen_test_locata = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
+			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _, _, loss_gen_test_locata, _, _ = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _, _, loss_gen_test_ace = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
+			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _, _, loss_gen_test_ace, _, _ = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
 
 			print('Val loss real: {:.4f}'.format(loss_val_real) )
 			print('Test loss locata: {:.4f}'.format(loss_test_locata) )
@@ -509,8 +521,12 @@ if args.pretrain:
 				'train/diff': diff_train,
 				'train/loss_cl_spat': loss_cl_spat_train,
 				'train/loss_cl_spec': loss_cl_spec_train,
-				'train/obt': obt_train
 			}
+			if args.obt:
+				log_dict['train/obt'] = obt_train
+			
+			if args.feature_sim_loss:
+				log_dict['train/loss_feat_sim'] = loss_feat_sim_train
 			
 			if args.simu_exp:
 				log_dict.update({
@@ -519,8 +535,9 @@ if args.pretrain:
 					'val_sim/diff': diff_val_sim,
 					'val_sim/loss_cl_spat': loss_cl_spat_val_sim,
 					'val_sim/loss_cl_spec': loss_cl_spec_val_sim,
-					'val_sim/obt': obt_val_sim
 				})
+				if args.obt:
+					log_dict['val_sim/obt'] = obt_val_sim
 			else:
 				log_dict.update({
 					'val_real/loss': loss_val_real,
@@ -528,7 +545,11 @@ if args.pretrain:
 					'val_real/diff': diff_val_real,
 					'val_real/loss_cl_spat': loss_cl_spat_val_real,
 					'val_real/loss_cl_spec': loss_cl_spec_val_real,
-					'val_real/obt': obt_val_real,
+				})
+				if args.obt:
+					log_dict['val_real/obt'] = obt_val_sim
+				
+				log_dict.update({
 					'test_locata/loss': loss_test_locata,
 					'test_locata/loss_recon': loss_gen_test_locata,
 					'test_locata/diff': diff_test_locata,
@@ -576,6 +597,9 @@ if args.pretrain:
 				history['loss_obt_val_sim'].append(obt_val_sim)
 			else:
 				history['loss_obt_val_real'].append(obt_val_real)
+		
+		if args.feature_sim_loss:
+			history['loss_feat_sim_train'].append(loss_feat_sim_train)
 
 		plot_learning_curve(history, dirs['log_pretrain'] + '/learning_curve.png')
 
@@ -675,9 +699,9 @@ if (args.pretrain_frozen_encoder):
 		
 		lr = lr_schedule(epoch)
 		set_random_seed(epoch)
-		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, _, loss_gen_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
+		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, _, loss_gen_train, _ = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		set_random_seed(args.seed+10001)
-		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, _, _, loss_gen_val_sim = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, cka_val_sim, _, loss_gen_val_sim, _, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 		print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 
 		# Update history and plot learning curve
@@ -758,15 +782,31 @@ if (args.test):
 		dataloader_pretest = torch.utils.data.DataLoader(dataset=dataset_pretest, batch_size=args.bs[2], shuffle=False, **kwargs)
 
 		# Test
-		# Test
-		loss_test, diff_test, data_vis_test, _, _, cka_test, _, loss_gen_test = learner.pretest_epoch(dataloader_pretest, return_diff=True)
+		loss_test, diff_test, data_vis_test, _, _, cka_test, _, loss_gen_test, _, rank_analysis = learner.pretest_epoch(dataloader_pretest, return_diff=True, analyze_rank=True)
+
+        # Plot Effective Rank Analysis
+		if rank_analysis:
+			plt.figure(figsize=(10, 6))
+			if rank_analysis['cumulative_variance_spat'] is not None:
+				plt.plot(rank_analysis['cumulative_variance_spat'], label='Spatial (Room)')
+			if rank_analysis['cumulative_variance_spec'] is not None:
+				plt.plot(rank_analysis['cumulative_variance_spec'], label='Spectral (Source)')
+			plt.ylabel('Cumulative Explained Variance')
+			plt.xlabel('Number of Dimensions')
+			plt.legend()
+			plt.grid(True)
+			plt.title('Effective Rank Analysis')
+			plot_path = os.path.join(dirs['log_pretrain'], 'effective_rank_test.png')
+			plt.savefig(plot_path)
+			plt.close()
+			print(f"Saved effective rank plot to {plot_path}")
 
 		print('Test loss: {:.4f}'.format(loss_test) )
 		print('Test CKA: {:.4f}'.format(cka_test) )
 		
 		# Save results to json
 		res_file = os.path.join(dirs['log_pretrain'], 'pretext_test_res.json')
-		res_data = {'loss_test': loss_test, 'cka_test': cka_test}
+		res_data = {'loss_test': loss_test, 'cka_test': cka_test, 'n_params': nparam_sum}
 		try:
 			with open(res_file, 'w') as f:
 				json.dump(res_data, f, indent=4)
@@ -797,6 +837,7 @@ if (args.test):
 
 			# Test
 			loss_test, diff_test, data_vis_test, results_test = learner.pretest_epoch(dataloader_pretest, return_diff=True, return_eval=True)
+			# Only doing rank analysis for 'all' mode to average over enough samples
 
 			name_pretest = dir_pretest.split('/')[-1]
 			print(name_pretest, 'Test loss: {:.4f}'.format(loss_test) )

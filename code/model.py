@@ -349,7 +349,7 @@ class EmbedDecoder(nn.Module):
  
 class SARSSL(nn.Module): 
 
-    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False):#vis=False):
+    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False):#vis=False):
         # patch_shape: size of each patch, (nf, nt)
         # patch_shape=(16,16), maskedpatch_mode='TF',
         # patch_shape=(256,1), maskedpatch_mode='T'
@@ -375,10 +375,12 @@ class SARSSL(nn.Module):
         self.device = device
         self.use_cls = use_cls
         self.obt = obt
+        self.hsic = hsic
         self.nepoch = nepoch
         self.pretrain_mode = pretrain_mode
         self.spectral_enc_input = spectral_enc_input
         self.debug = debug
+        self.feature_sim_loss = feature_sim_loss
 
         self.patch_split = at_module.PatchSplit(patch_shape=patch_shape, f_first=f_first)
         self.patch_recover = at_module.PatchRecover(output_shape=(nf, nt), patch_shape=patch_shape, f_first=f_first)
@@ -494,6 +496,16 @@ class SARSSL(nn.Module):
                     nn.ReLU(),
                     nn.Linear(spec_dembed, spec_dembed)
                 )
+
+            if self.feature_sim_loss:
+                # Projection head for Feature Similarity Loss
+                # Projects spatial embedding to a latent space for similarity comparison
+                self.feat_sim_proj = nn.Sequential(
+                    nn.Linear(spat_dembed, spat_dembed),
+                    nn.ReLU(),
+                    nn.Linear(spat_dembed, 128) # Smaller dim for similarity
+                )
+
         
         elif pretrain_frozen_encoder:
             self.patch_mask = at_module.PatchMask(patch_mode=patch_mode, nmasked_patch=nmasked_patch, npatch_shape=npatch_shape, device=self.device)
@@ -704,25 +716,29 @@ class SARSSL(nn.Module):
                      for k, v in cl_stats_spec.items():
                          debug_stats[f'cl_spec_{k}'] = v
                 
-            if self.obt:
-                if epoch is not None and epoch > (self.nepoch / 10): # FIXME / 3
+            if self.obt or self.hsic:
+                if epoch is not None and epoch > (self.nepoch / 3):
                     # OBT Orthogonality Loss
                     # Push spatial encoder to be orthogonal to spectral encoder
                     # Minimize cross-covariance
-                    
                     # Flatten to (N, D)
                     z_spat_v = torch.mean(embed_spat, dim=1) # (nbatch, dembed)
                     z_spec_v = torch.mean(embed_spec, dim=1) # (nbatch, dembed)
                     
-                    # Center
-                    z_spat_v = z_spat_v - z_spat_v.mean(dim=0)
-                    z_spec_v = z_spec_v - z_spec_v.mean(dim=0)
-                    
-                    # Covariance
-                    cov = (z_spat_v.T @ z_spec_v) / (nbatch - 1)
-                    
-                    # Loss = sum of squared elements
-                    obt_loss = cov.pow(2).sum()
+                    if self.hsic:
+                        # Minimize HSIC (independence)
+                        obt_loss = at_module.hsic(z_spat_v, z_spec_v)
+                        
+                    else:
+                        # Center
+                        z_spat_v = z_spat_v - z_spat_v.mean(dim=0)
+                        z_spec_v = z_spec_v - z_spec_v.mean(dim=0)
+                        
+                        # Covariance
+                        cov = (z_spat_v.T @ z_spec_v) / (nbatch - 1)
+                        
+                        # Loss = sum of squared elements
+                        obt_loss = cov.pow(2).sum()
                     
             # Final Loss Calculation
             # Organize losses to sum to 1 with equal weights
@@ -731,8 +747,23 @@ class SARSSL(nn.Module):
                 losses.append(loss_cl_spat)
                 losses.append(loss_cl_spec)
             
-            if self.obt and epoch is not None and epoch > (self.nepoch / 3):
+            if (self.obt or self.hsic) and epoch is not None and epoch > (self.nepoch / 3):
                  losses.append(obt_loss)
+            
+            
+            if self.feature_sim_loss:
+                # x is [nbatch, nmic, nf, nt, nreim]
+                # spatial_features_from_stft expects [B, 2, F, T] complex
+                # Assuming nmic=2. 
+                x_complex = torch.view_as_complex(x) # [B, nmic, nf, nt]
+
+                feats = at_module.spatial_features_from_stft(x_complex, sample_rate=16000)
+                
+                loss_feat_sim = self.feature_similarity_loss(embed_spat, feats)
+                losses.append(loss_feat_sim)
+                
+                if self.debug:
+                    debug_stats['loss_feat_sim'] = loss_feat_sim.item()
             
             loss = sum(losses) / len(losses)
 
@@ -766,7 +797,11 @@ class SARSSL(nn.Module):
                      
                  data_vis['debug_stats'] = debug_stats
             
-            return loss, diff, data_vis, loss_cl_spat, loss_cl_spec, obt_loss, loss_gen
+            if 'loss_feat_sim' not in locals():
+                loss_feat_sim = torch.tensor(0.0, device=self.device)
+
+            return loss, diff, data_vis, loss_cl_spat, loss_cl_spec, obt_loss, loss_gen, loss_feat_sim
+
 
         elif self.pretrain_frozen_encoder:
             ## Patch (frame) spliting
@@ -1063,6 +1098,80 @@ class SARSSL(nn.Module):
                   }
 
         return loss, debug_stats
+
+    def feature_similarity_loss(self, embed_spat, spatial_features, temperature=0.07, sigma=1.0, eps=1e-8):
+        """
+        Calculate Feature Similarity Loss using a cue-weighted contrastive approach.
+        
+        Args:
+            embed_spat: [B, npatch, dembed] or [B, dembed]
+            spatial_features: dict of raw features
+        """
+        # 1. Aggregate embeddings: Mean over patches if necessary
+        if embed_spat.dim() == 3:
+            z = embed_spat.mean(dim=1) # [B, dembed]
+        else:
+            z = embed_spat
+            
+        z_proj = self.feat_sim_proj(z) # [B, 128]
+        
+        # 2. Construct Feature Vector (Cues)
+        # Features: ipd_cos, ipd_sin, ild, coherence, tdoa
+        # Normalize each feature across batch (Z-score)
+        kv_pairs = []
+        for k in ['ild_mean', 'coherence_mean', 'tdoa']: # ['ipd_cos_mean', 'ipd_sin_mean', 'ild_mean', 'coherence_mean', 'tdoa']:
+             val = spatial_features[k] # [B]
+             # safe z-score
+             mean = val.mean()
+             std = val.std(unbiased=False) + 1e-6
+             val_norm = (val - mean) / std
+             kv_pairs.append(val_norm.unsqueeze(1))
+        
+        cues = torch.cat(kv_pairs, dim=1) # [B, 5]
+        
+        # 3. Calculate Loss (Cue-Weighted InfoNCE)
+        device = z_proj.device
+        B = z_proj.shape[0]
+
+        # Normalize embeddings
+        z_norm = F.normalize(z_proj, dim=-1) # [B, 128]
+
+        # Pairwise cosine similarity
+        sim = torch.matmul(z_norm, z_norm.T) / temperature   # [B, B]
+
+        # Pairwise distances in cue space (L2)
+        cue_dist = torch.cdist(cues, cues, p=2)    # [B, B]
+
+        # Gaussian kernel -> weights in [0,1]
+        w = torch.exp(- (cue_dist / sigma) ** 2)   # [B, B]
+
+        # Remove self-contributions
+        diag = torch.eye(B, device=device, dtype=torch.bool)
+        mask = ~diag
+
+        # For numerical stability, subtract row-wise max
+        # Detach max to avoid gradients flowing through it if unnecessary, though usually fine.
+        sim_max = sim.max(dim=1, keepdim=True).values.detach()
+        sim = sim - sim_max
+
+        exp_sim = torch.exp(sim) * mask          # [B, B], zero on diag
+
+        # Numerator: weighted sum over others, using cue-based weights
+        # We want to pull together samples with high w (small cue distance)
+        # Standard InfoNCE Numerator is exp(sim_pos). Here we sum exp(sim_k) * w_ik.
+        # This implies: Loss_i = - log ( Sum_k (w_ik * exp(sim_ik)) / Sum_k (exp(sim_ik)) )
+        # This form encourages exp(sim_ik) to be large meaningful when w_ik is large.
+        
+        num = (exp_sim * w).sum(dim=1)    # [B]
+
+        # Denominator: sum over all others (unweighted)
+        den = exp_sim.sum(dim=1) + eps           # [B]
+
+        num = num + eps
+        loss_per_sample = -torch.log(num / den)  # [B]
+        loss = loss_per_sample.mean()
+        
+        return loss
 
     def vis_results(self, mask_patches, pred_patches, tar_patches):
         """ Visualized constructed results

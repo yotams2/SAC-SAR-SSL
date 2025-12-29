@@ -1,0 +1,159 @@
+
+import argparse
+import json
+import os
+import numpy as np
+from datetime import datetime
+
+def main():
+    parser = argparse.ArgumentParser(description="Generate summary tables for downstream tasks.")
+    parser.add_argument('--m', '--models', nargs='+', required=True, help="List of model timestamps (e.g., 12281023 12281234)")
+    parser.add_argument('--t', '--tasks', nargs='+', default=['TDOA', 'T60', 'ABS', 'DRR'], help="List of tasks (e.g., TDOA DRR)")
+    
+    args = parser.parse_args()
+    
+    # Predefined names for specific timestamps
+    model_name_map = {
+        "12281023": "Original",
+        "12281234": "Original + Feat Sim",
+        "12281809": "Autoenc + Feat Sim"
+    }
+    
+    models = args.m
+    tasks = args.t
+    
+    base_path = "/storage/yotam/SAR-SSL/SAR-SSL/exp"
+    output_dir = os.path.join(base_path, "summary_tables")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Data collection
+    # results[model][task] = [list of metrics]
+    results = {m: {t: [] for t in tasks} for m in models}
+    
+    for task in tasks:
+        for model_id in models:
+            file_path = os.path.join(base_path, task, model_id, "downstream_test_res.json")
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, 'r') as f:
+                        data = json.load(f)
+                        metrics = [entry['metric_test'] for entry in data]
+                        results[model_id][task] = metrics
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
+            else:
+                pass # Sent warning previously, keeping it clean for now
+
+    # Helper to find best values per column
+    # For min table: best = min(min(metrics))
+    # For avg table: best = min(mean(metrics))
+    
+    best_results_min = {} # {task: min_value}
+    best_results_avg = {} # {task: min_mean_value}
+
+    for task in tasks:
+        # Check all models for this task
+        task_min_vals = []
+        task_mean_vals = []
+        for model_id in models:
+            metrics = results[model_id][task]
+            if metrics:
+                task_min_vals.append(np.min(metrics))
+                task_mean_vals.append(np.mean(metrics))
+        
+        if task_min_vals:
+            best_results_min[task] = min(task_min_vals)
+        if task_mean_vals:
+            best_results_avg[task] = min(task_mean_vals)
+
+    # Generate Output Content
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"summary_table_{timestamp}.md"
+    output_path = os.path.join(output_dir, output_filename)
+    
+    lines = []
+    lines.append(f"# Summary Results - {timestamp}")
+    lines.append("")
+    
+    def format_val(val, best_val):
+        # Format string, bold if matches best
+        s = f"{val:.4f}"
+        if best_val is not None and np.isclose(val, best_val, atol=1e-6):
+            return f"**{s}**"
+        return s
+
+    def generate_aligned_table(title, results_dict, best_results):
+        table_lines = []
+        table_lines.append(f"## {title}")
+        
+        # 1. Collect all rows including header to determine widths
+        headers = ["Model"] + tasks
+        rows = [headers]
+        
+        for model_id in models:
+            display_name = model_name_map.get(model_id, f"Model {model_id}")
+            row_data = [display_name]
+            for task in tasks:
+                metrics = results_dict[model_id][task]
+                if metrics:
+                    val = np.min(metrics) if "Lowest" in title else np.mean(metrics)
+                    best = best_results.get(task)
+                    row_data.append(format_val(val, best))
+                else:
+                    row_data.append("N/A")
+            rows.append(row_data)
+            
+        # 2. Calculate max width for each column
+        # Transpose rows to iterate by column
+        num_cols = len(headers)
+        col_widths = []
+        for i in range(num_cols):
+            # +2 for padding (space before and after)
+            max_len = max(len(row[i]) for row in rows) 
+            col_widths.append(max_len + 2) 
+
+        # 3. Format lines
+        def format_row(row_items):
+            # | item | item |
+            line = "|"
+            for i, item in enumerate(row_items):
+                # Padding: space + item + space, then fill rest
+                # Actually, standard is " item ".ljust(width)
+                content = f" {item} "
+                line += content.ljust(col_widths[i]) + "|"
+            return line
+
+        # Header
+        table_lines.append(format_row(rows[0]))
+        
+        # Separator
+        # | :--- | :--- | ...
+        sep_line = "|"
+        for width in col_widths:
+            # width includes the 2 spaces padding from calculation
+            # standard md col: " :----- " (space, colon, dashes, space) = width chars
+            # so 1 + 1 + dashes + 1 = width => dashes = width - 3
+            dashes = "-" * (width - 3)
+            sep = f" :{dashes} |"
+            sep_line += sep
+        table_lines.append(sep_line)
+        
+        # Data rows
+        for row_data in rows[1:]:
+             table_lines.append(format_row(row_data))
+             
+        table_lines.append("")
+        table_lines.append("")
+        return table_lines
+
+    lines.extend(generate_aligned_table("Table 1: Best Result (Lowest Metric)", results, best_results_min))
+    lines.extend(generate_aligned_table("Table 2: Average Performance (Mean)", results, best_results_avg))
+    
+    # Write to file
+    with open(output_path, 'w') as f:
+        f.write("\n".join(lines))
+        
+    print(f"Summary tables saved to: {output_path}")
+
+if __name__ == "__main__":
+    main()

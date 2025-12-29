@@ -52,6 +52,7 @@ class opt_pretrain():
         parser.add_argument('--test-mode', type=str, default='all', metavar='TestMode', help='test mode (default: all)')
 
         parser.add_argument('--obt', action='store_true', default=False, help='Use Orthogonal Barlow Twins (OBT) loss between spatial and spectral encoders')
+        parser.add_argument('--hsic', action='store_true', default=False, help='Use HSIC instead of cross-covariance for OBT loss')
 
         parser.add_argument('--contrastive-learning', '--cl', action='store_true', default=False, help='Use contrastive learning batch sampling')
         parser.add_argument('--contrastive-learning-data-aug', '--clda', action='store_true', default=False, help='Use data augmentation in contrastive learning batch sampling')
@@ -66,6 +67,8 @@ class opt_pretrain():
         parser.add_argument('--spat-dembed', type=int, default=256, metavar='SpatDembed', help='spatial embedding dimension (default: 256)')
         parser.add_argument('--spectral-enc-input', type=str, default='all', metavar='SpecEncInput', help="input to spectral encoder: 'all' or 'mono' (default: all)")
         parser.add_argument('--description', '--d', type=str, default=None, help='Description of the experiment to be saved in description.txt')
+        parser.add_argument('--num-train-samples', type=int, default=None, help='Number of training samples to override directory counting')
+        parser.add_argument('--feature-sim-loss', action='store_true', default=False, help='Enable Feature Similarity Loss')
 
         args = parser.parse_args()
         assert (args.pretrain + args.pretrain_frozen_encoder + args.test)==1, 'Pretraining stage (pretrain or test) is undefined'
