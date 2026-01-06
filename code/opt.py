@@ -69,6 +69,8 @@ class opt_pretrain():
         parser.add_argument('--description', '--d', type=str, default=None, help='Description of the experiment to be saved in description.txt')
         parser.add_argument('--num-train-samples', type=int, default=None, help='Number of training samples to override directory counting')
         parser.add_argument('--feature-sim-loss', action='store_true', default=False, help='Enable Feature Similarity Loss')
+        parser.add_argument('--feature-sim-loss-weight', type=float, default=1.0, help='Weight for Feature Similarity Loss (default: 1.0)')
+        parser.add_argument('--gen-metrics', action='store_true', default=False, help='Generate metrics histograms (default: False)')
 
         args = parser.parse_args()
         assert (args.pretrain + args.pretrain_frozen_encoder + args.test)==1, 'Pretraining stage (pretrain or test) is undefined'

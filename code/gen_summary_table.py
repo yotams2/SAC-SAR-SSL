@@ -16,7 +16,13 @@ def main():
     model_name_map = {
         "12281023": "Original",
         "12281234": "Original + Feat Sim",
-        "12281809": "Autoenc + Feat Sim"
+        "12281809": "Autoenc + Feat Sim",
+        "12291627": "Autoenc + Feat Sim w. New Normalization",
+        "12291841": "Autoenc + Feat Sim w. New Normalization * 4",
+        "01041159": "Autoenc + Feat Sim w. Percentile Normalization",
+        "01041536": "Autoenc + Feat Sim w. Mean+STD+Clip Normalization",
+        "01051314": "Autoenc + Feat Sim w. New Features, sigma 0.07",
+        "01051625": "Autoenc + Feat Sim w. New Features, sigma 0.1"
     }
     
     models = args.m

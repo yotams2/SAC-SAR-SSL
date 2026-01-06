@@ -67,13 +67,14 @@ def main():
 
     # 4. Downstream Train
     # python run_downstream.py --ds-train --ds-trainmode finetune --simu-exp --ds-nsimroom 8 --ds-task TDOA --time <time> --gpu-id 0,
-    cmd_4 = f"python run_downstream.py --ds-train --ds-trainmode finetune --simu-exp --ds-nsimroom 8 --ds-task TDOA --time {timestamp} --gpu-id 0,"
-    run_command(cmd_4, "4. Downstream Train")
+    for task in ["TDOA", "T60", "DRR", "ABS"]:
+        cmd_4 = f"python run_downstream.py --ds-train --ds-trainmode finetune --simu-exp --ds-nsimroom 8 --ds-task {task} --time {timestamp} --gpu-id 0,"
+        run_command(cmd_4, "4. Downstream Train")
 
-    # 5. Downstream Test
-    # python run_downstream.py --ds-test --test-mode cal_metric --ds-trainmode finetune --simu-exp --ds-nsimroom 8 --ds-task TDOA --time <time> --gpu-id 0,
-    cmd_5 = f"python run_downstream.py --ds-test --test-mode cal_metric --ds-trainmode finetune --simu-exp --ds-nsimroom 8 --ds-task TDOA --time {timestamp} --gpu-id 0,"
-    run_command(cmd_5, "5. Downstream Test")
+        # 5. Downstream Test
+        # python run_downstream.py --ds-test --test-mode cal_metric --ds-trainmode finetune --simu-exp --ds-nsimroom 8 --ds-task TDOA --time <time> --gpu-id 0,
+        cmd_5 = f"python run_downstream.py --ds-test --test-mode cal_metric --ds-trainmode finetune --simu-exp --ds-nsimroom 8 --ds-task {task} --time {timestamp} --gpu-id 0,"
+        run_command(cmd_5, "5. Downstream Test")
 
     print(f"\n{'='*20}")
     print(f"Entire flow completed successfully for Experiment Time: {timestamp}")

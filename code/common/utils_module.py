@@ -715,13 +715,51 @@ def spatial_features_from_stft(
     # 3. Coherence (Time-averaged)
     cross_spec = X_L * X_R.conj()
     # E[XY*]
-    cross_spec_mean = cross_spec.mean(dim=2) # [B, F] average over time
+    cross_spec_mean = cross_spec.mean(dim=2)  # [B, F] average over time
     # E[|X|^2]
-    powL_mean = (magL**2).mean(dim=2) # [B, F]
-    powR_mean = (magR**2).mean(dim=2) # [B, F]
-    
+    powL_mean = (magL**2).mean(dim=2)  # [B, F]
+    powR_mean = (magR**2).mean(dim=2)  # [B, F]
+
     coh_freq = cross_spec_mean.abs() / (torch.sqrt(powL_mean * powR_mean) + eps)
-    coherence_mean = coh_freq.mean(dim=1) # [B] average over freq
+    coherence_mean = coh_freq.mean(dim=1)  # [B] average over freq
+
+    # Split coherence into frequency bands for feature-similarity losses
+    # Bands: low < 500 Hz, mid 500-2500 Hz, high > 2500 Hz
+    freqs = torch.linspace(0, sample_rate / 2, F_bins, device=device)
+    low_mask = freqs < 500.0
+    mid_mask = (freqs >= 500.0) & (freqs <= 2500.0)
+    high_mask = freqs > 2500.0
+
+    # Handle cases where a mask might select zero bins
+    if low_mask.sum() > 0:
+        coherence_low = coh_freq[:, low_mask].mean(dim=1)
+    else:
+        coherence_low = torch.zeros(B, device=device)
+
+    if mid_mask.sum() > 0:
+        coherence_mid = coh_freq[:, mid_mask].mean(dim=1)
+    else:
+        coherence_mid = torch.zeros(B, device=device)
+
+    if high_mask.sum() > 0:
+        coherence_high = coh_freq[:, high_mask].mean(dim=1)
+    else:
+        coherence_high = torch.zeros(B, device=device)
+
+    # --- HF/LF spectral energy ratio (spectral tilt) ---
+    # Use average binaural magnitude as monaural proxy
+    mag_mean = 0.5 * (magL + magR)  # [B, F, T]
+    mag_mean_freq = mag_mean.mean(dim=2)  # [B, F]
+    if low_mask.sum() > 0:
+        E_low = (mag_mean_freq[:, low_mask] ** 2).sum(dim=1)
+    else:
+        E_low = torch.zeros(B, device=device)
+    if high_mask.sum() > 0:
+        E_high = (mag_mean_freq[:, high_mask] ** 2).sum(dim=1)
+    else:
+        E_high = torch.zeros(B, device=device)
+
+    hf_lf_ratio = torch.log10((E_high + eps) / (E_low + eps))
     
     # 4. GCC-PHAT & TDOA
     # R(f) = X_L(f) * X_R(f)* / |X_L(f) * X_R(f)*|
@@ -758,6 +796,10 @@ def spatial_features_from_stft(
         'ipd_sin_mean': ipd_sin_mean,
         'ild_mean': ild_mean,
         'coherence_mean': coherence_mean,
+        'coherence_low': coherence_low,
+        'coherence_mid': coherence_mid,
+        'coherence_high': coherence_high,
+        'hf_lf_ratio': hf_lf_ratio,
         'tdoa': tdoa,
         'gcc_phat_max': gcc_phat_max
     }
@@ -780,8 +822,10 @@ def compute_spatial_features(
         max_ipd_freq: only use frequencies <= this for IPD summary.
         eps: numerical stability.
         
-    Returns:
-        dict: feature dictionary containing 'ipd_cos_mean', 'ipd_sin_mean', 'ild_mean', 'coherence_mean', 'tdoa', 'gcc_phat_max'.
+      Returns:
+      dict: feature dictionary containing 'ipd_cos_mean', 'ipd_sin_mean', 'ild_mean',
+          'coherence_mean', 'coherence_low', 'coherence_mid', 'coherence_high',
+          'tdoa', 'gcc_phat_max'.
     """
     import math
     device = x.device

@@ -1,0 +1,12 @@
+{"time":"2025-12-30T12:19:49.396737025+02:00","level":"INFO","msg":"stream: starting","core version":"0.23.1"}
+{"time":"2025-12-30T12:19:49.893846336+02:00","level":"INFO","msg":"stream: created new stream","id":"60qtsjkg"}
+{"time":"2025-12-30T12:19:49.894038191+02:00","level":"INFO","msg":"handler: started","stream_id":"60qtsjkg"}
+{"time":"2025-12-30T12:19:49.894889952+02:00","level":"INFO","msg":"stream: started","id":"60qtsjkg"}
+{"time":"2025-12-30T12:19:49.89492514+02:00","level":"INFO","msg":"writer: started","stream_id":"60qtsjkg"}
+{"time":"2025-12-30T12:19:49.894937443+02:00","level":"INFO","msg":"sender: started","stream_id":"60qtsjkg"}
+{"time":"2025-12-30T15:10:23.47242621+02:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/yotams2-tel-aviv-university/SAR-SSL/60qtsjkg/file_stream\": dial tcp: lookup api.wandb.ai on 169.254.25.10:53: read udp 10.244.9.207:53684->169.254.25.10:53: i/o timeout"}
+{"time":"2025-12-30T18:02:08.402806803+02:00","level":"INFO","msg":"stream: closing","id":"60qtsjkg"}
+{"time":"2025-12-30T18:02:10.001109993+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-12-30T18:02:10.510629336+02:00","level":"INFO","msg":"handler: closed","stream_id":"60qtsjkg"}
+{"time":"2025-12-30T18:02:10.513232916+02:00","level":"INFO","msg":"sender: closed","stream_id":"60qtsjkg"}
+{"time":"2025-12-30T18:02:10.559938456+02:00","level":"INFO","msg":"stream: closed","id":"60qtsjkg"}

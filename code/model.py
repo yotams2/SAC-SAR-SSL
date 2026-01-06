@@ -349,7 +349,7 @@ class EmbedDecoder(nn.Module):
  
 class SARSSL(nn.Module): 
 
-    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False):#vis=False):
+    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, feature_sim_loss_weight=1.0, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False, feature_stats=None, **kwargs):#vis=False):
         # patch_shape: size of each patch, (nf, nt)
         # patch_shape=(16,16), maskedpatch_mode='TF',
         # patch_shape=(256,1), maskedpatch_mode='T'
@@ -381,6 +381,10 @@ class SARSSL(nn.Module):
         self.spectral_enc_input = spectral_enc_input
         self.debug = debug
         self.feature_sim_loss = feature_sim_loss
+        self.feature_sim_loss_weight = feature_sim_loss_weight
+        
+        # Fixed normalization parameters
+        self.feature_stats = feature_stats if feature_stats is not None else {} # Dictionary containing 'p1' and 'p99' for each feature
 
         self.patch_split = at_module.PatchSplit(patch_shape=patch_shape, f_first=f_first)
         self.patch_recover = at_module.PatchRecover(output_shape=(nf, nt), patch_shape=patch_shape, f_first=f_first)
@@ -556,7 +560,7 @@ class SARSSL(nn.Module):
             self.downstream_dlabel = downstream_dlabel
             self.ds_token = downstream_token
 
-    def forward(self, x, indices=None, epoch=None):
+    def forward(self, x, indices=None, epoch=None, gen_metrics=False):
         nbatch, nmic, nf, nt, nreim = x.shape
         
         if self.pretrain:
@@ -759,9 +763,15 @@ class SARSSL(nn.Module):
 
                 feats = at_module.spatial_features_from_stft(x_complex, sample_rate=16000)
                 
-                loss_feat_sim = self.feature_similarity_loss(embed_spat, feats)
-                losses.append(loss_feat_sim)
+                loss_feat_sim, feat_sim_metrics = self.feature_similarity_loss(embed_spat, feats, return_metrics=gen_metrics)
+                loss_feat_sim = loss_feat_sim * self.feature_sim_loss_weight
                 
+                if self.feature_sim_loss:
+                    losses.append(loss_feat_sim)
+                
+                if gen_metrics:
+                    data_vis['metrics'] = feat_sim_metrics
+
                 if self.debug:
                     debug_stats['loss_feat_sim'] = loss_feat_sim.item()
             
@@ -1099,7 +1109,7 @@ class SARSSL(nn.Module):
 
         return loss, debug_stats
 
-    def feature_similarity_loss(self, embed_spat, spatial_features, temperature=0.07, sigma=1.0, eps=1e-8):
+    def feature_similarity_loss(self, embed_spat, spatial_features, temperature=0.1, sigma=1.0, eps=1e-8, return_metrics=False):
         """
         Calculate Feature Similarity Loss using a cue-weighted contrastive approach.
         
@@ -1119,13 +1129,28 @@ class SARSSL(nn.Module):
         # Features: ipd_cos, ipd_sin, ild, coherence, tdoa
         # Normalize each feature across batch (Z-score)
         kv_pairs = []
-        for k in ['ild_mean', 'coherence_mean', 'tdoa']: # ['ipd_cos_mean', 'ipd_sin_mean', 'ild_mean', 'coherence_mean', 'tdoa']:
+        raw_values = {}
+        norm_values = {}
+        
+        for k in ['ild_mean', 'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio', 'tdoa']: # ['ipd_cos_mean', 'ipd_sin_mean', 'ild_mean', 'coherence_mean', 'tdoa']:
              val = spatial_features[k] # [B]
-             # safe z-score
-             mean = val.mean()
-             std = val.std(unbiased=False) + 1e-6
-             val_norm = (val - mean) / std
+             if return_metrics:
+                raw_values[k] = val.detach()
+             
+             if k in self.feature_stats:
+                 stats = self.feature_stats[k]
+                 mean = stats['mean']
+                 std = stats['std']
+                 # Normalize by dividing by 3*std
+                 val_norm = (val - mean) / (3 * std + 1e-6)
+                 val_norm = torch.clamp(val_norm, -1.0, 1.0)
+             else:
+                 val_norm = val
+                 
              kv_pairs.append(val_norm.unsqueeze(1))
+             
+             if return_metrics:
+                norm_values[k] = val_norm.detach()
         
         cues = torch.cat(kv_pairs, dim=1) # [B, 5]
         
@@ -1171,7 +1196,16 @@ class SARSSL(nn.Module):
         loss_per_sample = -torch.log(num / den)  # [B]
         loss = loss_per_sample.mean()
         
-        return loss
+        if return_metrics:
+            metrics = {
+                'raw': raw_values,
+                'norm': norm_values,
+                'sim_weights': w.detach(), # This is w from (w * exp(sim))
+                'cue_dist': cue_dist.detach()
+            }
+            return loss, metrics
+
+        return loss, None
 
     def vis_results(self, mask_patches, pred_patches, tar_patches):
         """ Visualized constructed results

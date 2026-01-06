@@ -192,7 +192,7 @@ class Learner(ABC):
 		else:
 			return loss
 
-	def pretest_epoch(self, dataset, return_diff=True, return_eval=False, analyze_rank=False):
+	def pretest_epoch(self, dataset, return_diff=True, return_eval=False, analyze_rank=False, gen_metrics=False):
 		""" Test the model with an epoch of the dataset
 		"""
 		self.model.eval()  
@@ -221,12 +221,20 @@ class Learner(ABC):
 				sum_xxT_spat = None
 				total_samples = 0
 
+				if gen_metrics:
+					metrics_collection = {
+						'raw': {'ild_mean': [], 'coherence_low': [], 'coherence_mid': [], 'coherence_high': [], 'gcc_phat_max': [], 'hf_lf_ratio': [], 'tdoa': []},
+						'norm': {'ild_mean': [], 'coherence_low': [], 'coherence_mid': [], 'coherence_high': [], 'gcc_phat_max': [], 'hf_lf_ratio': [], 'tdoa': []},
+						'sim_weights': [],
+						'cue_dist': []
+					}
+
 			for data in dataset:
 				mic_sig_batch = data[0]
 				in_batch, = self.data_preprocess(mic_sig_batch, None)
 
 				with torch.cuda.amp.autocast(enabled=self.use_amp):
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch = self.model(in_batch) 
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch = self.model(in_batch, gen_metrics=gen_metrics) 
 
 				loss_batch = loss_batch.mean() 
 				diff_batch = diff_batch.mean()
@@ -273,6 +281,14 @@ class Learner(ABC):
 						
 						total_samples += batch_size
 
+					if gen_metrics and 'metrics' in vis_batch:
+						m = vis_batch['metrics']
+						for k in ['ild_mean', 'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio', 'tdoa']:
+							metrics_collection['raw'][k].append(m['raw'][k].cpu())
+							metrics_collection['norm'][k].append(m['norm'][k].cpu())
+						metrics_collection['sim_weights'].append(m['sim_weights'].cpu())
+						metrics_collection['cue_dist'].append(m['cue_dist'].cpu())
+
 			loss /= len(dataset)
 			if return_diff: 
 				diff /= len(dataset)
@@ -318,7 +334,7 @@ class Learner(ABC):
 					result_batch = self.pretrain_evaluate(pred_batch=vis_batch['pred'], gt_batch=vis_batch['tar'], mask_batch=vis_batch['mask'])
 					return loss, diff, vis_batch, result_batch # only return visual data of the last batch
 				else:
-					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, cka_avg, obt_loss_avg, loss_gen_avg, loss_feat_sim_avg, rank_analysis
+					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, cka_avg, obt_loss_avg, loss_gen_avg, loss_feat_sim_avg, rank_analysis, metrics_collection if gen_metrics else None
 
 			else:
 				return loss

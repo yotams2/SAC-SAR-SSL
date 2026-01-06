@@ -170,7 +170,90 @@ from tensorboardX import SummaryWriter
 import dataset as at_dataset
 import learner as at_learner
 import model as at_model
-from common.utils import set_seed, set_random_seed, create_learning_rate_schedule, get_nparams, get_FLOPs, save_config_to_file, vis_time_fre_data, plot_learning_curve
+from common.utils import set_seed, set_random_seed, create_learning_rate_schedule, get_nparams, get_FLOPs, save_config_to_file, vis_time_fre_data, plot_learning_curve, vis_TSNE, cross_validation_datadir
+from common.utils_module import spatial_features_from_stft
+
+def calculate_feature_stats(dataloader, device, learner, fs):
+	print("Calculating global feature statistics...")
+	ild_values = []
+	tdoa_values = []
+	coherence_values = []
+	coherence_low_values = []
+	coherence_mid_values = []
+	coherence_high_values = []
+	gcc_values = []
+	hf_lf_values = []
+	num_batches_for_std = 50
+	
+	# Helper for stats
+	def get_stats(tensor_list):
+		all_vals = torch.cat(tensor_list)
+		mean = torch.mean(all_vals).item()
+		std = torch.std(all_vals).item()
+		return mean, std
+
+	with torch.no_grad():
+		for i, data in enumerate(dataloader):
+			if i >= num_batches_for_std:
+				break
+			mic_sig_batch = data[0].to(device)
+			# Calculate STFT using learner's stft module
+			# learner.stft returns [B, F, T, C]
+			stft = learner.stft(mic_sig_batch) 
+			stft = stft.permute(0, 3, 1, 2) # [B, C, F, T]
+			feats = spatial_features_from_stft(stft, fs, max_ipd_freq=1500.0)
+			ild_values.append(feats['ild_mean'])
+			tdoa_values.append(feats['tdoa'])
+			# collect banded coherence features
+			coherence_values.append(feats['coherence_mean'])
+			coherence_low_values.append(feats['coherence_low'])
+			coherence_mid_values.append(feats['coherence_mid'])
+			coherence_high_values.append(feats['coherence_high'])
+			# collect GCC-PHAT peak and HF/LF ratio
+			gcc_values.append(feats['gcc_phat_max'])
+			hf_lf_values.append(feats['hf_lf_ratio'])
+
+	feature_stats = {}
+	if len(ild_values) > 0:
+		# ILD
+		mean_ild, std_ild = get_stats(ild_values)
+		feature_stats['ild_mean'] = {'mean': mean_ild, 'std': std_ild}
+		print(f"ILD Mean: {mean_ild:.4f}, STD: {std_ild:.4f}")
+
+		# TDOA
+		mean_tdoa, std_tdoa = get_stats(tdoa_values)
+		feature_stats['tdoa'] = {'mean': mean_tdoa, 'std': std_tdoa}
+		print(f"TDOA Mean: {mean_tdoa:.6f}, STD: {std_tdoa:.6f}")
+
+		# Coherence
+		mean_coh, std_coh = get_stats(coherence_values)
+		feature_stats['coherence_mean'] = {'mean': mean_coh, 'std': std_coh}
+		print(f"Coherence Mean: {mean_coh:.4f}, STD: {std_coh:.4f}")
+
+		mean_coh_low, std_coh_low = get_stats(coherence_low_values)
+		feature_stats['coherence_low'] = {'mean': mean_coh_low, 'std': std_coh_low}
+		print(f"Coherence Low (<500Hz) Mean: {mean_coh_low:.4f}, STD: {std_coh_low:.4f}")
+
+		mean_coh_mid, std_coh_mid = get_stats(coherence_mid_values)
+		feature_stats['coherence_mid'] = {'mean': mean_coh_mid, 'std': std_coh_mid}
+		print(f"Coherence Mid (500-2500Hz) Mean: {mean_coh_mid:.4f}, STD: {std_coh_mid:.4f}")
+
+		mean_coh_high, std_coh_high = get_stats(coherence_high_values)
+		feature_stats['coherence_high'] = {'mean': mean_coh_high, 'std': std_coh_high}
+		print(f"Coherence High (>2500Hz) Mean: {mean_coh_high:.4f}, STD: {std_coh_high:.4f}")
+
+		mean_gcc, std_gcc = get_stats(gcc_values)
+		feature_stats['gcc_phat_max'] = {'mean': mean_gcc, 'std': std_gcc}
+		print(f"GCC-PHAT Max Mean: {mean_gcc:.4f}, STD: {std_gcc:.4f}")
+
+		mean_hf_lf, std_hf_lf = get_stats(hf_lf_values)
+		feature_stats['hf_lf_ratio'] = {'mean': mean_hf_lf, 'std': std_hf_lf}
+		print(f"HF/LF Ratio (log10) Mean: {mean_hf_lf:.4f}, STD: {std_hf_lf:.4f}")
+	else:
+		print("Warning: Could not calculate feature statistics.")
+		
+	return feature_stats
+
 
 use_cuda = not args.no_cuda and torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
@@ -214,7 +297,7 @@ print(f"T: {T:.3f}, nt: {nt}, nf: {nf}")
 
 # Network
 if args.pretrain | args.test:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, feature_sim_loss_weight=args.feature_sim_loss_weight, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug)
 if args.pretrain_frozen_encoder:
 	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input)
 
@@ -451,7 +534,12 @@ if args.pretrain:
 		test_locata_writer = SummaryWriter(dirs['log_pretrain'] + '/test_locata/', 'test')
 		test_ace_writer = SummaryWriter(dirs['log_pretrain'] + '/test_ace/', 'test')
 
-	
+	# Calculate global feature statistics
+	feature_stats = calculate_feature_stats(dataloader_pretrain, device, learner, fs)
+	model_core = getattr(learner.model, 'module', learner.model)
+	model_core.feature_stats = feature_stats
+	print("Updated model with feature stats.")
+
 	# Network training
 	for epoch in range(learner.start_epoch, nepoch+1, 1):
 
@@ -467,15 +555,15 @@ if args.pretrain:
 		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, obt_train, loss_gen_train, loss_feat_sim_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		if args.simu_exp:
 			set_random_seed(seeds['val']) # can be fixed when there is one card, where therea are multiple cards, inputs are fix but network are not
-			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, cka_val_sim, obt_val_sim, loss_gen_val_sim, loss_feat_sim_val_sim, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, cka_val_sim, obt_val_sim, loss_gen_val_sim, loss_feat_sim_val_sim, _, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 			print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 		else:
 			set_random_seed(seeds['val']) 
-			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, cka_val_real, obt_val_real, loss_gen_val_real, loss_feat_sim_val_real, _ = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
+			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, cka_val_real, obt_val_real, loss_gen_val_real, loss_feat_sim_val_real, _, _ = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _, _, loss_gen_test_locata, _, _ = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
+			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _, _, loss_gen_test_locata, _, _, _ = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _, _, loss_gen_test_ace, _, _ = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
+			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _, _, loss_gen_test_ace, _, _, _ = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
 
 			print('Val loss real: {:.4f}'.format(loss_val_real) )
 			print('Test loss locata: {:.4f}'.format(loss_test_locata) )
@@ -701,7 +789,7 @@ if (args.pretrain_frozen_encoder):
 		set_random_seed(epoch)
 		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, _, loss_gen_train, _ = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		set_random_seed(args.seed+10001)
-		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, cka_val_sim, _, loss_gen_val_sim, _, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, cka_val_sim, _, loss_gen_val_sim, _, _, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 		print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 
 		# Update history and plot learning curve
@@ -781,25 +869,116 @@ if (args.test):
 			)
 		dataloader_pretest = torch.utils.data.DataLoader(dataset=dataset_pretest, batch_size=args.bs[2], shuffle=False, **kwargs)
 
+		# Update model with test data stats for visualization purposes
+		feature_stats = calculate_feature_stats(dataloader_pretest, device, learner, fs)
+		model_core = getattr(learner.model, 'module', learner.model)
+		model_core.feature_stats = feature_stats
+		print("Updated model with feature stats from Test Data.")
+
 		# Test
-		loss_test, diff_test, data_vis_test, _, _, cka_test, _, loss_gen_test, _, rank_analysis = learner.pretest_epoch(dataloader_pretest, return_diff=True, analyze_rank=True)
+		loss_test, diff_test, data_vis_test, _, _, cka_test, _, loss_gen_test, _, rank_analysis, metrics_data = learner.pretest_epoch(dataloader_pretest, return_diff=True, analyze_rank=True, gen_metrics=args.gen_metrics)
+
+		# Gen Metrics Histograms
+		if args.gen_metrics and metrics_data:
+			metrics_dir = os.path.join(dirs['log_pretrain'], 'metrics')
+			os.makedirs(metrics_dir, exist_ok=True)
+			
+			# 1. Raw features
+			for k, v_list in metrics_data['raw'].items():
+				data_cat = torch.cat(v_list).numpy()
+				plt.figure()
+				plt.hist(data_cat, bins=50)
+				plt.title(f'Raw {k}')
+				plt.savefig(os.path.join(metrics_dir, f'raw_{k}.png'))
+				plt.close()
+				
+			# 2. Normalized features
+			for k, v_list in metrics_data['norm'].items():
+				data_cat = torch.cat(v_list).numpy()
+				plt.figure()
+				plt.hist(data_cat, bins=50)
+				plt.title(f'Normalized {k}')
+				plt.savefig(os.path.join(metrics_dir, f'norm_{k}.png'))
+				plt.close()
+
+			# 3. Similarity Weights
+			# learner returns list of [B, B] tensors
+			w_list = metrics_data['sim_weights']
+			w_all = torch.cat([x.flatten() for x in w_list]).numpy()
+			plt.figure()
+			plt.hist(w_all, bins=50)
+			plt.title('Similarity Weights (w) - Global')
+			plt.savefig(os.path.join(metrics_dir, 'sim_weights_global.png'))
+			plt.close()
+			
+			# Anchor Sim Weights (First batch, first sample)
+			if len(w_list) > 0:
+				w_anchor = w_list[0][0, :].numpy() # [B]
+				plt.figure()
+				plt.hist(w_anchor, bins=50)
+				plt.title('Similarity Weights (w) - Anchor')
+				plt.savefig(os.path.join(metrics_dir, 'sim_weights_anchor.png'))
+				plt.close()
+
+			# 4. Cue Dist
+			cd_list = metrics_data['cue_dist']
+			cd_all = torch.cat([x.flatten() for x in cd_list]).numpy()
+			plt.figure()
+			plt.hist(cd_all, bins=50)
+			plt.title('Cue Distance - Global')
+			plt.savefig(os.path.join(metrics_dir, 'cue_dist_global.png'))
+			plt.close()
+			
+			# Anchor Cue Dist
+			if len(cd_list) > 0:
+				cd_anchor = cd_list[0][0, :].numpy() # [B]
+				plt.figure()
+				plt.hist(cd_anchor, bins=50)
+				plt.title('Cue Distance - Anchor')
+				plt.savefig(os.path.join(metrics_dir, 'cue_dist_anchor.png'))
+				plt.close()
+			
+			print(f"Saved metric histograms to {metrics_dir}")
 
         # Plot Effective Rank Analysis
 		if rank_analysis:
 			plt.figure(figsize=(10, 6))
+			thresholds = [0.7, 0.9, 0.99]
+			stats_text = []
+
 			if rank_analysis['cumulative_variance_spat'] is not None:
-				plt.plot(rank_analysis['cumulative_variance_spat'], label='Spatial (Room)')
+				spat_var = np.array(rank_analysis['cumulative_variance_spat'])
+				plt.plot(spat_var, label='Spatial (Room)')
+				spat_dims = []
+				for t in thresholds:
+					idx = np.where(spat_var >= t)[0]
+					dim = idx[0] + 1 if len(idx) > 0 else len(spat_var)
+					spat_dims.append(dim)
+				stats_text.append(f"Spat: 70%@{spat_dims[0]}, 90%@{spat_dims[1]}, 99%@{spat_dims[2]}")
+
 			if rank_analysis['cumulative_variance_spec'] is not None:
-				plt.plot(rank_analysis['cumulative_variance_spec'], label='Spectral (Source)')
+				spec_var = np.array(rank_analysis['cumulative_variance_spec'])
+				plt.plot(spec_var, label='Spectral (Source)')
+				spec_dims = []
+				for t in thresholds:
+					idx = np.where(spec_var >= t)[0]
+					dim = idx[0] + 1 if len(idx) > 0 else len(spec_var)
+					spec_dims.append(dim)
+				stats_text.append(f"Spec: 70%@{spec_dims[0]}, 90%@{spec_dims[1]}, 99%@{spec_dims[2]}")
+
+			for t in thresholds:
+				plt.axhline(y=t, color='gray', linestyle='--', alpha=0.3)
+
 			plt.ylabel('Cumulative Explained Variance')
 			plt.xlabel('Number of Dimensions')
 			plt.legend()
 			plt.grid(True)
-			plt.title('Effective Rank Analysis')
+			plt.title('Effective Rank Analysis\n' + ' | '.join(stats_text))
+			plt.tight_layout()
 			plot_path = os.path.join(dirs['log_pretrain'], 'effective_rank_test.png')
 			plt.savefig(plot_path)
 			plt.close()
-			print(f"Saved effective rank plot to {plot_path}")
+			# print(f"Saved effective rank plot to {plot_path}")
 
 		print('Test loss: {:.4f}'.format(loss_test) )
 		print('Test CKA: {:.4f}'.format(cka_test) )
