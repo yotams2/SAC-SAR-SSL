@@ -37,6 +37,10 @@ class VisDataset(at_dataset.FixMicSigDataset):
 
     def __getitem__(self, idx):
         # reuse parent logic to get data
+        # parent __getitem__ returns: [mic_sig] or [mic_sig, annos] or [mic_sig, dp_sig] etc + [idx] always at end?
+        # Let's check FixMicSigDataset.__getitem__
+        # It returns [mic_sig, (optional annos), (optional dp_sig), idx]
+        
         data = super().__getitem__(idx)
         
         # Extract file index from filename
@@ -47,17 +51,33 @@ class VisDataset(at_dataset.FixMicSigDataset):
         except ValueError:
             file_idx = idx 
             
+        # Check if we have annotations (data length > 2 usually, since min is [sig, idx])
+        # If load_anno=True, returns [sig, annos, idx] (length 3)
+        # If load_dp=True, returns [sig, dp, idx] (length 3)
+        # If both, returns [sig, annos, dp, idx] (length 4)
+        
+        # We need to return annotations if present. 
+        # The original code assumed only [0] (sig) and file_idx was needed.
+        # Now we might need data[1] if it's annos.
+        
+        if len(data) > 2 and isinstance(data[1], dict):
+             return data[0], data[1], file_idx
+            
         return data[0], file_idx
 
 
-def run_visualization(exp_dir):
+def run_visualization(exp_dir, regressive=False):
     print(f"Using experiment directory: {exp_dir}")
     
     # Configuration
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
     
-    data_dir = '../data_cl/MicSig/simu/pretest_vis'
+    if regressive:
+        data_dir = '../data_cl/MicSig/simu/pretest'
+    else:
+        data_dir = '../data_cl/MicSig/simu/pretest_vis'
+
     batch_size = 32
     
     # Model parameters
@@ -139,24 +159,31 @@ def run_visualization(exp_dir):
     dataset = VisDataset(
         data_dir=data_dir,
         fs=fs,
-        load_anno=False,
+        load_anno=regressive, # Load annotations if regressive mode
         dataset_sz=None, # Load all found files so we can pick indices freely
         sort=False
     )
     
     # Define specific indices to visualize
-    # "different permutations of 10 rooms and 10 utterances"
-    # Logic: Samples 0-9 (Room 0), 300-309 (Room 1), ..., 2700-2709 (Room 9)
-    # Assumes idx maps to Room = idx // 300, Utt = idx % 300
     target_indices = []
-    num_rooms = 10
-    num_utts = 10
-    samples_per_room = 10 
     
-    for r in range(num_rooms):
-        for u in range(num_utts):
-            idx = r * samples_per_room + u
-            target_indices.append(idx)
+    if regressive:
+        # Use 1000 random samples
+        np.random.seed(42) # For reproducibility
+        target_indices = np.random.choice(len(dataset), 1000, replace=False).tolist()
+        target_indices.sort()
+    else:
+        # "different permutations of 10 rooms and 10 utterances"
+        # Logic: Samples 0-9 (Room 0), 300-309 (Room 1), ..., 2700-2709 (Room 9)
+        # Assumes idx maps to Room = idx // 300, Utt = idx % 300
+        num_rooms = 10
+        num_utts = 10
+        samples_per_room = 10 
+        
+        for r in range(num_rooms):
+            for u in range(num_utts):
+                idx = r * samples_per_room + u
+                target_indices.append(idx)
             
     print(f"Selected {len(target_indices)} samples for visualization.")
     
@@ -176,13 +203,22 @@ def run_visualization(exp_dir):
     rir_indices = []
     utt_indices = []
     
+    # Store regression labels
+    reg_labels = {k: [] for k in ['TDOA', 'T60', 'C50', 'ABS', 'DRR']}
+
+    
     import common.utils_module as at_module
     stft_module = at_module.STFT(win_len=win_len, win_shift_ratio=win_shift_ratio, nfft=nfft).to(device)
     addbatch = at_module.AddChToBatch(ch_mode='M')
     
     print("Extracting embeddings...")
     with torch.no_grad():
-        for i, (mic_sig_batch, file_indices) in enumerate(data_loader):
+        for i, batch_data in enumerate(data_loader):
+            if regressive:
+                 mic_sig_batch, annos, file_indices = batch_data
+            else:
+                 mic_sig_batch, file_indices = batch_data
+            
             mic_sig_batch = mic_sig_batch.to(device)
             # Preprocessing 
             stft = stft_module(signal=mic_sig_batch) 
@@ -223,13 +259,20 @@ def run_visualization(exp_dir):
             embeddings_spat.append(emb_spat_mean.cpu().numpy())
             
             indices = file_indices.numpy()
-            rir_indices.extend(indices // samples_per_room)
-            utt_indices.extend(indices % samples_per_room)
+            if not regressive: 
+                rir_indices.extend(indices // samples_per_room)
+                utt_indices.extend(indices % samples_per_room)
+            else:
+                for k in reg_labels.keys():
+                    reg_labels[k].extend(annos[k].numpy())
+
             
     embeddings_spec = np.concatenate(embeddings_spec, axis=0)
     embeddings_spat = np.concatenate(embeddings_spat, axis=0)
-    rir_indices = np.array(rir_indices)
-    utt_indices = np.array(utt_indices)
+    if not regressive:
+        rir_indices = np.array(rir_indices)
+        utt_indices = np.array(utt_indices)
+
     
     print(f"Collected embeddings: Spec {embeddings_spec.shape}, Spat {embeddings_spat.shape}")
     
@@ -243,24 +286,43 @@ def run_visualization(exp_dir):
     
     # Plotting
     os.makedirs(exp_dir, exist_ok=True)
-    save_path = os.path.join(exp_dir, 'embedding_vis.png')
+    if regressive:
+        os.makedirs(os.path.join(exp_dir, 'metrics'), exist_ok=True)
+        save_path = os.path.join(exp_dir, 'metrics', 'embedding_vis.png')
+    else:
+        save_path = os.path.join(exp_dir, 'embedding_vis.png')
     
-    plt.figure(figsize=(14, 6))
+    plt.figure(figsize=(18, 10) if regressive else (14, 6))
     
-    # Spectral Plot - Color by Utterance Index
-    # Use discrete colormap (tab10)
-    plt.subplot(1, 2, 1)
-    scatter_spec = plt.scatter(vis_spec[:, 0], vis_spec[:, 1], alpha=0.8, s=30, c=utt_indices, cmap='tab10')
-    plt.title('Spectral Encoder Embeddings\n(Color: Utterance Index 0-9)')
-    plt.colorbar(scatter_spec, ticks=range(10), label='Utterance Index')
-    plt.grid(True, alpha=0.3)
-    
-    # Spatial Plot - Color by RIR Index
-    plt.subplot(1, 2, 2)
-    scatter_spat = plt.scatter(vis_spat[:, 0], vis_spat[:, 1], alpha=0.8, s=30, c=rir_indices, cmap='tab10')
-    plt.title('Spatial Encoder Embeddings\n(Color: Room/RIR Index 0-9)')
-    plt.colorbar(scatter_spat, ticks=range(10), label='Room Index')
-    plt.grid(True, alpha=0.3)
+    if regressive:
+        # 5 plots for ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
+        # Only spatial embeddings
+        metrics = ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
+        for i, metric in enumerate(metrics):
+            plt.subplot(2, 3, i+1)
+            vals = np.array(reg_labels[metric])
+            
+            # Scatter plot with continuous color
+            scatter = plt.scatter(vis_spat[:, 0], vis_spat[:, 1], alpha=0.8, s=30, c=vals, cmap='viridis')
+            plt.title(f'Spatial Encoder - {metric}')
+            plt.colorbar(scatter, label=metric)
+            plt.grid(True, alpha=0.3)
+            
+    else:
+        # Spectral Plot - Color by Utterance Index
+        # Use discrete colormap (tab10)
+        plt.subplot(1, 2, 1)
+        scatter_spec = plt.scatter(vis_spec[:, 0], vis_spec[:, 1], alpha=0.8, s=30, c=utt_indices, cmap='tab10')
+        plt.title('Spectral Encoder Embeddings\n(Color: Utterance Index 0-9)')
+        plt.colorbar(scatter_spec, ticks=range(10), label='Utterance Index')
+        plt.grid(True, alpha=0.3)
+        
+        # Spatial Plot - Color by RIR Index
+        plt.subplot(1, 2, 2)
+        scatter_spat = plt.scatter(vis_spat[:, 0], vis_spat[:, 1], alpha=0.8, s=30, c=rir_indices, cmap='tab10')
+        plt.title('Spatial Encoder Embeddings\n(Color: Room/RIR Index 0-9)')
+        plt.colorbar(scatter_spat, ticks=range(10), label='Room Index')
+        plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
     plt.savefig(save_path)
@@ -269,6 +331,7 @@ def run_visualization(exp_dir):
 def visualize_embeddings():
     parser = argparse.ArgumentParser(description='Visualize Embeddings')
     parser.add_argument('-t', '--time', nargs='+', default=None, help='List of timestamps of the models to use. If None, uses latest.')
+    parser.add_argument('--regressive', action='store_true', default=False, help='Use regressive visualization mode')
     args = parser.parse_args()
 
     base_exp_dir = '../exp/pretrain'
@@ -291,7 +354,7 @@ def visualize_embeddings():
             continue
             
         print(f"\nProcessing experiment: {t}")
-        run_visualization(exp_dir)
+        run_visualization(exp_dir, regressive=args.regressive)
 
 if __name__ == '__main__':
     visualize_embeddings()

@@ -222,12 +222,7 @@ class Learner(ABC):
 				total_samples = 0
 
 				if gen_metrics:
-					metrics_collection = {
-						'raw': {'ild_mean': [], 'coherence_low': [], 'coherence_mid': [], 'coherence_high': [], 'gcc_phat_max': [], 'hf_lf_ratio': [], 'tdoa': []},
-						'norm': {'ild_mean': [], 'coherence_low': [], 'coherence_mid': [], 'coherence_high': [], 'gcc_phat_max': [], 'hf_lf_ratio': [], 'tdoa': []},
-						'sim_weights': [],
-						'cue_dist': []
-					}
+					metrics_collection = None
 
 			for data in dataset:
 				mic_sig_batch = data[0]
@@ -283,11 +278,25 @@ class Learner(ABC):
 
 					if gen_metrics and 'metrics' in vis_batch:
 						m = vis_batch['metrics']
-						for k in ['ild_mean', 'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio', 'tdoa']:
-							metrics_collection['raw'][k].append(m['raw'][k].cpu())
-							metrics_collection['norm'][k].append(m['norm'][k].cpu())
-						metrics_collection['sim_weights'].append(m['sim_weights'].cpu())
-						metrics_collection['cue_dist'].append(m['cue_dist'].cpu())
+						
+						if metrics_collection is None:
+							# Initialize recursively
+							def init_collection(structure):
+								if isinstance(structure, dict):
+									return {k: init_collection(v) for k, v in structure.items()}
+								else:
+									return [] # List for accumulation
+							metrics_collection = init_collection(m)
+
+						def update_collection(collection, data):
+							if isinstance(data, dict):
+								for k, v in data.items():
+									if k in collection:
+										update_collection(collection[k], v)
+							else:
+								collection.append(data.cpu())
+						
+						update_collection(metrics_collection, m)
 
 			loss /= len(dataset)
 			if return_diff: 

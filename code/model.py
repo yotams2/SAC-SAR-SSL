@@ -349,7 +349,7 @@ class EmbedDecoder(nn.Module):
  
 class SARSSL(nn.Module): 
 
-    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, feature_sim_loss_weight=1.0, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False, feature_stats=None, **kwargs):#vis=False):
+    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, feature_sim_loss_weight=1.0, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False, feature_stats=None, hierarchical=False, **kwargs):#vis=False):
         # patch_shape: size of each patch, (nf, nt)
         # patch_shape=(16,16), maskedpatch_mode='TF',
         # patch_shape=(256,1), maskedpatch_mode='T'
@@ -382,6 +382,7 @@ class SARSSL(nn.Module):
         self.debug = debug
         self.feature_sim_loss = feature_sim_loss
         self.feature_sim_loss_weight = feature_sim_loss_weight
+        self.hierarchical = hierarchical
         
         # Fixed normalization parameters
         self.feature_stats = feature_stats if feature_stats is not None else {} # Dictionary containing 'p1' and 'p99' for each feature
@@ -504,11 +505,25 @@ class SARSSL(nn.Module):
             if self.feature_sim_loss:
                 # Projection head for Feature Similarity Loss
                 # Projects spatial embedding to a latent space for similarity comparison
-                self.feat_sim_proj = nn.Sequential(
-                    nn.Linear(spat_dembed, spat_dembed),
-                    nn.ReLU(),
-                    nn.Linear(spat_dembed, 128) # Smaller dim for similarity
-                )
+                if self.hierarchical:
+                    # Two projection heads, each taking half the embedding dimension
+                    split_dim = spat_dembed // 2
+                    self.feat_sim_proj_doa = nn.Sequential(
+                        nn.Linear(split_dim, split_dim),
+                        nn.ReLU(),
+                        nn.Linear(split_dim, 128)
+                    )
+                    self.feat_sim_proj_room = nn.Sequential(
+                        nn.Linear(split_dim, split_dim),
+                        nn.ReLU(),
+                        nn.Linear(split_dim, 128)
+                    )
+                else:
+                    self.feat_sim_proj = nn.Sequential(
+                        nn.Linear(spat_dembed, spat_dembed),
+                        nn.ReLU(),
+                        nn.Linear(spat_dembed, 128) # Smaller dim for similarity
+                    )
 
         
         elif pretrain_frozen_encoder:
@@ -763,7 +778,7 @@ class SARSSL(nn.Module):
 
                 feats = at_module.spatial_features_from_stft(x_complex, sample_rate=16000)
                 
-                loss_feat_sim, feat_sim_metrics = self.feature_similarity_loss(embed_spat, feats, return_metrics=gen_metrics)
+                loss_feat_sim, feat_sim_metrics = self.feature_similarity_loss_hierarchical(embed_spat, feats, return_metrics=gen_metrics) if self.hierarchical else self.feature_similarity_loss(embed_spat, feats, return_metrics=gen_metrics)
                 loss_feat_sim = loss_feat_sim * self.feature_sim_loss_weight
                 
                 if self.feature_sim_loss:
@@ -1125,87 +1140,123 @@ class SARSSL(nn.Module):
             
         z_proj = self.feat_sim_proj(z) # [B, 128]
         
-        # 2. Construct Feature Vector (Cues)
+        # 2. & 3. Calculate Loss using helper
         # Features: ipd_cos, ipd_sin, ild, coherence, tdoa
-        # Normalize each feature across batch (Z-score)
+        #feature_keys = ['ild_mean', 'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio', 'tdoa']
+        feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa']
+        
+        loss, metrics = self._calc_single_feat_sim_loss(z_proj, spatial_features, feature_keys, temperature, sigma, eps, return_metrics)
+
+        return loss, metrics
+
+    def feature_similarity_loss_hierarchical(self, embed_spat, spatial_features, doa_temperature=0.3, room_temperature=0.07, sigma=1.0, eps=1e-8, return_metrics=False):
+        """
+        Hierarchical Feature Similarity Loss.
+        Splits embedding into DOA and Room halves and calculates separate losses.
+        
+        DOA features: ['ild_mean', 'coherence_mean', 'tdoa']
+        Room features: ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio']
+        """
+        # doa_features = ['ild_mean', 'coherence_mean', 'tdoa']
+        # room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio']
+        doa_features = ['tdoa']
+        room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max']
+        
+        # 1. Aggregate and split embeddings
+        if embed_spat.dim() == 3:
+            z = embed_spat.mean(dim=1) # [B, dembed]
+        else:
+            z = embed_spat
+            
+        dim = z.shape[-1]
+        z_doa = z[:, :dim//2]   # First half for DOA
+        z_room = z[:, dim//2:]  # Second half for Room
+        
+        # 2. Project
+        z_proj_doa = self.feat_sim_proj_doa(z_doa)   # [B, 128]
+        z_proj_room = self.feat_sim_proj_room(z_room) # [B, 128]
+        
+        # 3. Calculate Loss for DOA
+        loss_doa, metrics_doa = self._calc_single_feat_sim_loss(
+            z_proj_doa, spatial_features, doa_features, doa_temperature, sigma, eps, return_metrics)
+        
+        # 4. Calculate Loss for Room
+        loss_room, metrics_room = self._calc_single_feat_sim_loss(
+            z_proj_room, spatial_features, room_features, room_temperature, sigma, eps, return_metrics)
+        
+        loss = (loss_doa + loss_room) / 2.0
+        
+        metrics = None
+        if return_metrics:
+            metrics = {
+                'doa': metrics_doa,
+                'room': metrics_room
+            }
+            
+        return loss, metrics
+
+    def _calc_single_feat_sim_loss(self, z_proj, spatial_features, feature_keys, temperature, sigma, eps, return_metrics):
+        """Helper to calculate cue-weighted contrastive loss for a single set of features."""
+        
         kv_pairs = []
         raw_values = {}
         norm_values = {}
         
-        for k in ['ild_mean', 'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio', 'tdoa']: # ['ipd_cos_mean', 'ipd_sin_mean', 'ild_mean', 'coherence_mean', 'tdoa']:
-             val = spatial_features[k] # [B]
-             if return_metrics:
+        for k in feature_keys:
+            val = spatial_features[k] # [B]
+            if return_metrics:
                 raw_values[k] = val.detach()
              
-             if k in self.feature_stats:
-                 stats = self.feature_stats[k]
-                 mean = stats['mean']
-                 std = stats['std']
-                 # Normalize by dividing by 3*std
-                 val_norm = (val - mean) / (3 * std + 1e-6)
-                 val_norm = torch.clamp(val_norm, -1.0, 1.0)
-             else:
-                 val_norm = val
+            if k in self.feature_stats:
+                stats = self.feature_stats[k]
+                mean = stats['mean']
+                std = stats['std']
+                val_norm = (val - mean) / (3 * std + 1e-6)
+                val_norm = torch.clamp(val_norm, -1.0, 1.0)
+            else:
+                val_norm = val
                  
-             kv_pairs.append(val_norm.unsqueeze(1))
+            kv_pairs.append(val_norm.unsqueeze(1))
              
-             if return_metrics:
+            if return_metrics:
                 norm_values[k] = val_norm.detach()
         
-        cues = torch.cat(kv_pairs, dim=1) # [B, 5]
+        cues = torch.cat(kv_pairs, dim=1) # [B, num_features]
         
-        # 3. Calculate Loss (Cue-Weighted InfoNCE)
         device = z_proj.device
         B = z_proj.shape[0]
 
-        # Normalize embeddings
-        z_norm = F.normalize(z_proj, dim=-1) # [B, 128]
+        z_norm = F.normalize(z_proj, dim=-1)
+        sim = torch.matmul(z_norm, z_norm.T) / temperature
+        cue_dist = torch.cdist(cues, cues, p=2)
+        w = torch.exp(- (cue_dist / sigma) ** 2)
 
-        # Pairwise cosine similarity
-        sim = torch.matmul(z_norm, z_norm.T) / temperature   # [B, B]
-
-        # Pairwise distances in cue space (L2)
-        cue_dist = torch.cdist(cues, cues, p=2)    # [B, B]
-
-        # Gaussian kernel -> weights in [0,1]
-        w = torch.exp(- (cue_dist / sigma) ** 2)   # [B, B]
-
-        # Remove self-contributions
         diag = torch.eye(B, device=device, dtype=torch.bool)
         mask = ~diag
 
-        # For numerical stability, subtract row-wise max
-        # Detach max to avoid gradients flowing through it if unnecessary, though usually fine.
         sim_max = sim.max(dim=1, keepdim=True).values.detach()
         sim = sim - sim_max
 
-        exp_sim = torch.exp(sim) * mask          # [B, B], zero on diag
-
-        # Numerator: weighted sum over others, using cue-based weights
-        # We want to pull together samples with high w (small cue distance)
-        # Standard InfoNCE Numerator is exp(sim_pos). Here we sum exp(sim_k) * w_ik.
-        # This implies: Loss_i = - log ( Sum_k (w_ik * exp(sim_ik)) / Sum_k (exp(sim_ik)) )
-        # This form encourages exp(sim_ik) to be large meaningful when w_ik is large.
+        exp_sim = torch.exp(sim) * mask
         
-        num = (exp_sim * w).sum(dim=1)    # [B]
-
-        # Denominator: sum over all others (unweighted)
-        den = exp_sim.sum(dim=1) + eps           # [B]
+        num = (exp_sim * w).sum(dim=1)
+        den = exp_sim.sum(dim=1) + eps
 
         num = num + eps
-        loss_per_sample = -torch.log(num / den)  # [B]
+        loss_per_sample = -torch.log(num / den)
         loss = loss_per_sample.mean()
         
+        metrics = None
         if return_metrics:
             metrics = {
                 'raw': raw_values,
                 'norm': norm_values,
-                'sim_weights': w.detach(), # This is w from (w * exp(sim))
-                'cue_dist': cue_dist.detach()
+                'sim_weights': w.detach(),
+                'cue_dist': cue_dist.detach(),
+                'sim': sim.detach()
             }
-            return loss, metrics
-
-        return loss, None
+            
+        return loss, metrics
 
     def vis_results(self, mask_patches, pred_patches, tar_patches):
         """ Visualized constructed results

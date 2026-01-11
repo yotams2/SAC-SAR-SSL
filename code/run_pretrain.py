@@ -297,7 +297,7 @@ print(f"T: {T:.3f}, nt: {nt}, nf: {nf}")
 
 # Network
 if args.pretrain | args.test:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, feature_sim_loss_weight=args.feature_sim_loss_weight, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, feature_sim_loss_weight=args.feature_sim_loss_weight, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug, hierarchical=args.hierarchical)
 if args.pretrain_frozen_encoder:
 	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input)
 
@@ -883,60 +883,98 @@ if (args.test):
 			metrics_dir = os.path.join(dirs['log_pretrain'], 'metrics')
 			os.makedirs(metrics_dir, exist_ok=True)
 			
-			# 1. Raw features
-			for k, v_list in metrics_data['raw'].items():
-				data_cat = torch.cat(v_list).numpy()
-				plt.figure()
-				plt.hist(data_cat, bins=50)
-				plt.title(f'Raw {k}')
-				plt.savefig(os.path.join(metrics_dir, f'raw_{k}.png'))
-				plt.close()
-				
-			# 2. Normalized features
-			for k, v_list in metrics_data['norm'].items():
-				data_cat = torch.cat(v_list).numpy()
-				plt.figure()
-				plt.hist(data_cat, bins=50)
-				plt.title(f'Normalized {k}')
-				plt.savefig(os.path.join(metrics_dir, f'norm_{k}.png'))
-				plt.close()
+			def plot_metrics(m_data, prefix=''):
+				# Helper to plot raw, norm, sim_weights, cue_dist
+				# 1. Raw features
+				if 'raw' in m_data:
+					for k, v_list in m_data['raw'].items():
+						data_cat = torch.cat(v_list).numpy()
+						plt.figure()
+						plt.hist(data_cat, bins=50)
+						plt.title(f'{prefix}Raw {k}')
+						plt.savefig(os.path.join(metrics_dir, f'{prefix}raw_{k}.png'))
+						plt.close()
+					
+				# 2. Normalized features
+				if 'norm' in m_data:
+					for k, v_list in m_data['norm'].items():
+						data_cat = torch.cat(v_list).numpy()
+						plt.figure()
+						plt.hist(data_cat, bins=50)
+						plt.title(f'{prefix}Normalized {k}')
+						plt.savefig(os.path.join(metrics_dir, f'{prefix}norm_{k}.png'))
+						plt.close()
 
-			# 3. Similarity Weights
-			# learner returns list of [B, B] tensors
-			w_list = metrics_data['sim_weights']
-			w_all = torch.cat([x.flatten() for x in w_list]).numpy()
-			plt.figure()
-			plt.hist(w_all, bins=50)
-			plt.title('Similarity Weights (w) - Global')
-			plt.savefig(os.path.join(metrics_dir, 'sim_weights_global.png'))
-			plt.close()
-			
-			# Anchor Sim Weights (First batch, first sample)
-			if len(w_list) > 0:
-				w_anchor = w_list[0][0, :].numpy() # [B]
-				plt.figure()
-				plt.hist(w_anchor, bins=50)
-				plt.title('Similarity Weights (w) - Anchor')
-				plt.savefig(os.path.join(metrics_dir, 'sim_weights_anchor.png'))
-				plt.close()
+				# 3. Similarity Weights
+				if 'sim_weights' in m_data:
+					w_list = m_data['sim_weights']
+					w_all = torch.cat([x.flatten() for x in w_list]).numpy()
+					plt.figure()
+					plt.hist(w_all, bins=50)
+					plt.title(f'{prefix}Similarity Weights (w) - Global')
+					plt.savefig(os.path.join(metrics_dir, f'{prefix}sim_weights_global.png'))
+					plt.close()
+					
+					# Anchor Sim Weights
+					if len(w_list) > 0:
+						w_anchor = w_list[0][0, :].numpy() # [B]
+						plt.figure()
+						plt.hist(w_anchor, bins=50)
+						plt.title(f'{prefix}Similarity Weights (w) - Anchor')
+						plt.savefig(os.path.join(metrics_dir, f'{prefix}sim_weights_anchor.png'))
+						plt.close()
 
-			# 4. Cue Dist
-			cd_list = metrics_data['cue_dist']
-			cd_all = torch.cat([x.flatten() for x in cd_list]).numpy()
-			plt.figure()
-			plt.hist(cd_all, bins=50)
-			plt.title('Cue Distance - Global')
-			plt.savefig(os.path.join(metrics_dir, 'cue_dist_global.png'))
-			plt.close()
+				# 4. Cue Dist
+				if 'cue_dist' in m_data:
+					cd_list = m_data['cue_dist']
+					cd_all = torch.cat([x.flatten() for x in cd_list]).numpy()
+					plt.figure()
+					plt.hist(cd_all, bins=50)
+					plt.title(f'{prefix}Cue Distance - Global')
+					plt.savefig(os.path.join(metrics_dir, f'{prefix}cue_dist_global.png'))
+					plt.close()
+					
+					# Anchor Cue Dist
+					if len(cd_list) > 0:
+						cd_anchor = cd_list[0][0, :].numpy() # [B]
+						plt.figure()
+						plt.hist(cd_anchor, bins=50)
+						plt.title(f'{prefix}Cue Distance - Anchor')
+						plt.savefig(os.path.join(metrics_dir, f'{prefix}cue_dist_anchor.png'))
+						plt.close()
+
+				# 5. Sim
+				if 'sim' in m_data:
+					sim_list = m_data['sim']
+					sim_all = torch.cat([x.flatten() for x in sim_list]).numpy()
+					plt.figure()
+					plt.hist(sim_all, bins=50)
+					plt.title(f'{prefix}Similarity (sim) - Global')
+					plt.savefig(os.path.join(metrics_dir, f'{prefix}sim_global.png'))
+					plt.close()
+					
+					# Anchor Sim
+					if len(sim_list) > 0:
+						sim_anchor = sim_list[0][0, :].numpy() # [B]
+						plt.figure()
+						plt.hist(sim_anchor, bins=50)
+						plt.title(f'{prefix}Similarity (sim) - Anchor')
+						plt.savefig(os.path.join(metrics_dir, f'{prefix}sim_anchor.png'))
+						plt.close()
+
+			# Check if hierarchical (keys like 'doa', 'room') or flat
+			# We assume if 'raw' is not in top level, it might be nested
+			# Generic hierarchical handling
+			def handle_metrics_recursive(data, prefix=''):
+				if 'raw' in data:
+					plot_metrics(data, prefix)
+				else:
+					# This is a branch
+					for sub_key, sub_data in data.items():
+						if isinstance(sub_data, dict):
+							handle_metrics_recursive(sub_data, prefix=f"{prefix}{sub_key}_")
 			
-			# Anchor Cue Dist
-			if len(cd_list) > 0:
-				cd_anchor = cd_list[0][0, :].numpy() # [B]
-				plt.figure()
-				plt.hist(cd_anchor, bins=50)
-				plt.title('Cue Distance - Anchor')
-				plt.savefig(os.path.join(metrics_dir, 'cue_dist_anchor.png'))
-				plt.close()
+			handle_metrics_recursive(metrics_data)
 			
 			print(f"Saved metric histograms to {metrics_dir}")
 

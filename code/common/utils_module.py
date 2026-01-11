@@ -723,6 +723,8 @@ def spatial_features_from_stft(
     coh_freq = cross_spec_mean.abs() / (torch.sqrt(powL_mean * powR_mean) + eps)
     coherence_mean = coh_freq.mean(dim=1)  # [B] average over freq
 
+    coh_var = coh_freq.var(dim=1) # [B]
+    
     # Split coherence into frequency bands for feature-similarity losses
     # Bands: low < 500 Hz, mid 500-2500 Hz, high > 2500 Hz
     freqs = torch.linspace(0, sample_rate / 2, F_bins, device=device)
@@ -796,6 +798,7 @@ def spatial_features_from_stft(
         'ipd_sin_mean': ipd_sin_mean,
         'ild_mean': ild_mean,
         'coherence_mean': coherence_mean,
+        'coherence_var': coh_var,
         'coherence_low': coherence_low,
         'coherence_mid': coherence_mid,
         'coherence_high': coherence_high,

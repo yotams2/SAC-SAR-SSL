@@ -67,7 +67,7 @@ def main():
 
     # 4. Downstream Train
     # python run_downstream.py --ds-train --ds-trainmode finetune --simu-exp --ds-nsimroom 8 --ds-task TDOA --time <time> --gpu-id 0,
-    for task in ["TDOA", "T60", "DRR", "ABS"]:
+    for task in ["TDOA", "T60", "DRR", "ABS", "C50"]:
         cmd_4 = f"python run_downstream.py --ds-train --ds-trainmode finetune --simu-exp --ds-nsimroom 8 --ds-task {task} --time {timestamp} --gpu-id 0,"
         run_command(cmd_4, "4. Downstream Train")
 
