@@ -24,6 +24,14 @@ def calculate_feature_stats(dataloader, device, fs, max_samples=200):
     gcc_phat_max_values = []
     hf_lf_ratio_values = []
     tdoa_values = []
+    iacc_max_values = []
+    # New features
+    decay_slope_median_values = []
+    decay_slope_p10_values = []
+    decay_slope_p90_values = []
+    mod_low_high_ratio_values = []
+    early_late_ratio_mean_values = []
+    early_late_ratio_median_values = []
 
     stft_module = STFT(win_len=512, win_shift_ratio=0.5, nfft=512).to(device)
 
@@ -43,7 +51,8 @@ def calculate_feature_stats(dataloader, device, fs, max_samples=200):
             stft_out = stft_out.permute(0, 3, 1, 2)
             
             # Extract features
-            features = spatial_features_from_stft(stft_out, sample_rate=fs)
+            # Pass hop_length=256 matching STFT params above (win_len=512, win_shift_ratio=0.5 -> hop=256)
+            features = spatial_features_from_stft(stft_out, sample_rate=fs, hop_length=256)
             
             # Accumulate
             # Features are typically (B, T_frames) or similar, we flatten them
@@ -58,6 +67,13 @@ def calculate_feature_stats(dataloader, device, fs, max_samples=200):
             gcc_phat_max_values.append(features['gcc_phat_max'].cpu().numpy().flatten())
             hf_lf_ratio_values.append(features['hf_lf_ratio'].cpu().numpy().flatten())
             tdoa_values.append(features['tdoa'].cpu().numpy().flatten())
+            iacc_max_values.append(features['iacc_max'].cpu().numpy().flatten())
+            decay_slope_median_values.append(features['decay_slope_median'].cpu().numpy().flatten())
+            decay_slope_p10_values.append(features['decay_slope_p10'].cpu().numpy().flatten())
+            decay_slope_p90_values.append(features['decay_slope_p90'].cpu().numpy().flatten())
+            mod_low_high_ratio_values.append(features['mod_low_high_ratio'].cpu().numpy().flatten())
+            early_late_ratio_mean_values.append(features['early_late_ratio_mean'].cpu().numpy().flatten())
+            early_late_ratio_median_values.append(features['early_late_ratio_median'].cpu().numpy().flatten())
             
             count += 1
 
@@ -80,10 +96,17 @@ def calculate_feature_stats(dataloader, device, fs, max_samples=200):
     add_stat('gcc_phat_max', gcc_phat_max_values)
     add_stat('hf_lf_ratio', hf_lf_ratio_values)
     add_stat('tdoa', tdoa_values)
+    add_stat('iacc_max', iacc_max_values)
+    add_stat('decay_slope_median', decay_slope_median_values)
+    add_stat('decay_slope_p10', decay_slope_p10_values)
+    add_stat('decay_slope_p90', decay_slope_p90_values)
+    add_stat('mod_low_high_ratio', mod_low_high_ratio_values)
+    add_stat('early_late_ratio_mean', early_late_ratio_mean_values)
+    add_stat('early_late_ratio_median', early_late_ratio_median_values)
     
     return feature_stats
 
-def calculate_weights(features_batch, feature_stats, sigma=1.0):
+def calculate_weights(features_batch, feature_stats, keys, sigma=1.0):
     """
     Replicates the weight calculation logic from SARSSL model.
     W = exp( - (dist / sigma)^2 )
@@ -93,24 +116,23 @@ def calculate_weights(features_batch, feature_stats, sigma=1.0):
     # Corresponding to 'cues' in model.py
     # We need to stack selected features and normalize them
     
-    # List of keys to use (order matters if mimicking model exactly, 
-    # but for pairwise distance, as long as consistent, it's fine)
-    # Based on standard usage in similar models:
-    # Keys matching model.py line 1145
-    keys = [
-        'ild_mean', 
-        'coherence_low', 'coherence_mid', 'coherence_high',
-        'gcc_phat_max', 
-        'hf_lf_ratio',
-        'tdoa'
-    ]
-    
     vecs = []
     for k in keys:
         if k in features_batch and k in feature_stats:
             val = features_batch[k] # Shape (B, ...)
             mu = feature_stats[k]['mean']
             std = feature_stats[k]['std']
+            
+            # Debug NaNs
+            mu_isnan = np.isnan(mu).any() if not isinstance(mu, torch.Tensor) else torch.isnan(mu).any()
+            std_isnan = np.isnan(std).any() if not isinstance(std, torch.Tensor) else torch.isnan(std).any()
+            val_isnan = torch.isnan(val).any()
+
+            if mu_isnan or std_isnan:
+                 print(f"WARNING: Feature stats for '{k}' contain NaNs! Mean: {mu_isnan}, Std: {std_isnan}")
+            if val_isnan:
+                 print(f"WARNING: Feature '{k}' contains NaNs in the batch!")
+            
             # Match model.py normalization: (val - mean) / (3 * std + 1e-6)
             norm_val = (val - mu) / (3 * std + 1e-6)
             # Match model.py clamping
@@ -118,7 +140,7 @@ def calculate_weights(features_batch, feature_stats, sigma=1.0):
             vecs.append(norm_val)
             
     if not vecs:
-        return None
+        return None, None
 
     # Stack features: Shape (B, N_features, ...)
     # Flatten spatial/temporal dims for simpler distance calc if needed, 
@@ -139,6 +161,73 @@ def calculate_weights(features_batch, feature_stats, sigma=1.0):
     weights = torch.exp(- (dist / sigma) ** 2)
     
     return weights, dist
+
+def plot_histograms(m_data, output_dir, prefix=''):
+    """
+    Plot histograms for sim_weights and cue_dist.
+    Adapted from run_pretrain.py
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # 1. Similarity Weights
+    if 'sim_weights' in m_data:
+        w_list = m_data['sim_weights']
+        if len(w_list) > 0:
+            # Exclude diagonal (self-weights) for global histogram
+            w_all_list = []
+            for x in w_list:
+                # x is (B, B)
+                B = x.shape[0]
+                if B > 1:
+                    mask = ~torch.eye(B, dtype=torch.bool, device=x.device)
+                    w_all_list.append(torch.masked_select(x, mask))
+            
+            if w_all_list:
+                w_all = torch.cat(w_all_list).cpu().numpy()
+                plt.figure()
+                plt.hist(w_all, bins=50)
+                plt.title(f'{prefix}Similarity Weights (w) - Global (No Diag)')
+                plt.savefig(os.path.join(output_dir, f'{prefix}_sim_weights_global.png'))
+                plt.close()
+            
+            # Anchor Sim Weights: Exclude self (index 0)
+            if w_list[0].shape[0] > 1:
+                w_anchor = w_list[0][0, 1:].cpu().numpy() # [B-1]
+                plt.figure()
+                plt.hist(w_anchor, bins=50)
+                plt.title(f'{prefix}Similarity Weights (w) - Anchor (No Self)')
+                plt.savefig(os.path.join(output_dir, f'{prefix}_sim_weights_anchor.png'))
+                plt.close()
+
+    # 2. Cue Dist
+    if 'cue_dist' in m_data:
+        cd_list = m_data['cue_dist']
+        if len(cd_list) > 0:
+            # Exclude diagonal (self-dist) for global histogram
+            cd_all_list = []
+            for x in cd_list:
+                # x is (B, B)
+                B = x.shape[0]
+                if B > 1:
+                    mask = ~torch.eye(B, dtype=torch.bool, device=x.device)
+                    cd_all_list.append(torch.masked_select(x, mask))
+            
+            if cd_all_list:
+                cd_all = torch.cat(cd_all_list).cpu().numpy()
+                plt.figure()
+                plt.hist(cd_all, bins=50)
+                plt.title(f'{prefix}Cue Distance - Global (No Diag)')
+                plt.savefig(os.path.join(output_dir, f'{prefix}_cue_dist_global.png'))
+                plt.close()
+            
+            # Anchor Cue Dist: Exclude self (index 0)
+            if cd_list[0].shape[0] > 1:
+                cd_anchor = cd_list[0][0, 1:].cpu().numpy() # [B-1]
+                plt.figure()
+                plt.hist(cd_anchor, bins=50)
+                plt.title(f'{prefix}Cue Distance - Anchor (No Self)')
+                plt.savefig(os.path.join(output_dir, f'{prefix}_cue_dist_anchor.png'))
+                plt.close()
 
 def analyze(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')   
@@ -162,7 +251,43 @@ def analyze(args):
     # 3. Collect Weights and Diffs
     stft_module = STFT(win_len=512, win_shift_ratio=0.5, nfft=512).to(device)
     
-    all_weights = []
+    # Define Feature Sets
+    # Original keys
+    combined_keys = [
+        # 'ild_mean', 
+        'coherence_low', 'coherence_mid', 'coherence_high',
+        'gcc_phat_max', 
+        # 'hf_lf_ratio',
+        'tdoa',
+        'iacc_max',
+        'decay_slope_median',
+        'decay_slope_p10',
+        'decay_slope_p90',
+        # 'mod_low_high_ratio',
+        # 'early_late_ratio_mean',
+        # 'early_late_ratio_median'
+    ]
+    
+    # Hierarchical keys (from model.py)
+    doa_keys = ['tdoa']
+    room_keys = [
+        'coherence_low', 'coherence_mid', 'coherence_high', 
+        'gcc_phat_max', 
+        'iacc_max', 
+        'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90', 
+        # 'mod_low_high_ratio', 
+        # 'early_late_ratio_mean', 'early_late_ratio_median'
+    ]
+    
+    analysis_sets = {
+        'weight': combined_keys,
+        'hierarchical_weight_doa': doa_keys,
+        'hierarchical_weight_room': room_keys
+    }
+    
+    all_weights = {k: [] for k in analysis_sets.keys()}
+    hist_data = {k: {'sim_weights': [], 'cue_dist': []} for k in analysis_sets.keys()}
+    
     acoustic_diffs = {
         'tdoa': [],
         't60': [],
@@ -172,15 +297,23 @@ def analyze(args):
     }
     
     # Storage for correlation analysis
-    feature_keys_corr = [
+    all_feature_keys = [
         'ild_mean', 
         'ipd_cos_mean', 'ipd_sin_mean',
-        'coherence_mean', 'coherence_low', 'coherence_mid', 'coherence_high',
-        'coherence_var',
+        'coherence_mean', 'coherence_var',
+        'coherence_low', 'coherence_mid', 'coherence_high',
         'gcc_phat_max', 
         'hf_lf_ratio',
-        'tdoa'
+        'tdoa',
+        'iacc_max',
+        'decay_slope_median',
+        'decay_slope_p10',
+        'decay_slope_p90',
+        'mod_low_high_ratio',
+        'early_late_ratio_mean',
+        'early_late_ratio_median'
     ]
+    feature_keys_corr = all_feature_keys
     gt_keys_corr = ['TDOA', 'T60', 'DRR', 'C50', 'ABS']
     
     collected_features = {k: [] for k in feature_keys_corr}
@@ -199,10 +332,49 @@ def analyze(args):
             # Compute Weights
             stft_out = stft_module(sig)
             stft_out = stft_out.permute(0, 3, 1, 2)
-            features = spatial_features_from_stft(stft_out, sample_rate=16000)
+            features = spatial_features_from_stft(stft_out, sample_rate=16000, hop_length=256)
             
-            weights, dists = calculate_weights(features, feature_stats, sigma=1.0)
-            weights = weights.cpu().numpy() # (B, B)
+            # Calculate weights for each set
+            for set_name, keys in analysis_sets.items():
+                if set_name == 'hierarchical_weight_doa':
+                    sigma = 0.4
+                else:
+                    sigma = 0.5 * np.sqrt(len(keys))
+                if count == 0:
+                    print(f"Set: {set_name}, Sigma: {sigma}")
+                weights, dist = calculate_weights(features, feature_stats, keys=keys, sigma=sigma)
+                
+                # Store for histogram
+                hist_data[set_name]['sim_weights'].append(weights.cpu())
+                hist_data[set_name]['cue_dist'].append(dist.cpu())
+
+                # For the weight vs diff plot, we essentially want to see if High Weight => Low Diff
+                # We can store the weights and the GT diffs
+                # We need the pairwise weights. 
+                # This could be large: B*B pairs. 
+                # Let's sample or just flatten everything? 
+                # Doing B*B for every batch might be too much memory if we keep it all.
+                # Let's keep it restricted.
+                
+                # Flatten weights and keep them only if we are also keeping the diffs?
+                # Actually, we can just compute the correlation/scatter on the fly or accumulate 
+                # a subset. 
+                
+                # For simplicity, let's accumulate a flattened sampling
+                # We take the upper triangle to avoid duplicates and self-loops (dist 0)
+                # But self-loops are important for "same sample" logic? 
+                # Usually we care about positive vs negative pairs.
+                
+                # Use upper triangle indices to match acoustic diff pairs
+                batch_size = weights.shape[0]
+                indices = np.triu_indices(batch_size, k=1)
+                w_flat = weights.cpu().numpy()[indices]
+                
+                # Check for NaNs and replace
+                if np.isnan(w_flat).any():
+                   w_flat = np.nan_to_num(w_flat, nan=0.0)
+                    
+                all_weights[set_name].append(w_flat)
             
             # Collect features for correlation
             for k in feature_keys_corr:
@@ -218,24 +390,15 @@ def analyze(args):
                     collected_gt[k].extend(np.reshape(val, -1))
             
             # Compute Acoustic Diffs
-            # info is a dict of batched tensors/arrays
-            # info keys example: 'TDOA', 'T60', 'DRR', etc.
-            
-            # Check keys
             available_keys = []
             if 'TDOA' in info: available_keys.append(('TDOA', 'tdoa'))
             if 'T60' in info: available_keys.append(('T60', 't60'))
             if 'C50' in info: available_keys.append(('C50', 'c50'))
             if 'DRR' in info: available_keys.append(('DRR', 'drr'))
             if 'ABS' in info: available_keys.append(('ABS', 'abs'))
-            # Abs might be complex, check dataset.py for key name if needed
             
-            batch_size = weights.shape[0]
-            
-            # Flatten upper triangle (excluding diagonal) to get pairwise comparisons
+            batch_size = sig.shape[0] # Re-use batch size from input
             indices = np.triu_indices(batch_size, k=1)
-            
-            all_weights.extend(weights[indices])
             
             for info_key, store_key in available_keys:
                 vals = info[info_key] # (B, ...)
@@ -257,22 +420,32 @@ def analyze(args):
     print("Generating plots...")
     os.makedirs(args.output_dir, exist_ok=True)
     
-    all_weights = np.array(all_weights)
+    # Plot Histograms
+    print("Plotting histograms...")
+    for set_name, data in hist_data.items():
+        plot_histograms(data, args.output_dir, prefix=set_name)
     
-    for key, diffs in acoustic_diffs.items():
-        if len(diffs) == 0:
+    # Plot weights vs acoustic diffs for each set
+    for weight_name, weights_list in all_weights.items():
+        if len(weights_list) == 0:
             continue
-            
-        diffs = np.array(diffs)
+        weights_arr = np.array(weights_list)
         
-        plt.figure(figsize=(10, 6))
-        plt.scatter(diffs, all_weights, alpha=0.3, s=1)
-        plt.xlabel(f"Difference in {key.upper()}")
-        plt.ylabel("Model Weight")
-        plt.title(f"Weight vs {key.upper()} Difference")
-        plt.grid(True, alpha=0.3)
-        plt.savefig(os.path.join(args.output_dir, f"weight_vs_{key}.png"))
-        plt.close()
+        for key, diffs in acoustic_diffs.items():
+            if len(diffs) == 0:
+                continue
+                
+            diffs_arr = np.array(diffs)
+            
+            plt.figure(figsize=(10, 6))
+            plt.scatter(diffs_arr, weights_arr, alpha=0.3, s=1)
+            plt.xlabel(f"Difference in {key.upper()}")
+            plt.ylabel("Model Weight")
+            title_prefix = weight_name.replace('_', ' ').title()
+            plt.title(f"{title_prefix} vs {key.upper()} Difference")
+            plt.grid(True, alpha=0.3)
+            plt.savefig(os.path.join(args.output_dir, f"{weight_name}_vs_{key}.png"))
+            plt.close()
         
     # 4. Correlation Analysis
     print("Calculating Pearson Correlation Coefficient matrix...")
@@ -334,7 +507,6 @@ def analyze(args):
         print("Skipping correlation analysis due to missing data.")
 
     print(f"Analysis complete. Plots saved to {args.output_dir}")
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, default="/storage/yotam/SAR-SSL/SAR-SSL/data/MicSig/simu/pretrain/", help="Path to dataset")

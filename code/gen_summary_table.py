@@ -3,6 +3,8 @@ import argparse
 import json
 import os
 import numpy as np
+import sys
+import shlex
 from datetime import datetime
 
 def main():
@@ -24,8 +26,13 @@ def main():
         "01051314": "Autoenc + Feat Sim w. New Features, temp 0.07",
         "01051625": "Autoenc + Feat Sim w. New Features, temp 0.1",
         "01061055": "Autoenc + Feat Sim w. New Features, temp 0.3",
-        "01061410": "Autoenc + Hierarchical Feat Sim",
-        "01081544": "Autoenc + Feat Sim wo. ILD and HF_LF, temp 0.1"
+        "01061410": "Autoenc + Pseudo-Hierarchical Feat Sim",
+        "01081544": "Autoenc + Feat Sim wo. ILD and HF_LF, temp 0.1",
+        "01111059": "Autoenc + Pseudo-Hierarchical Feat Sim wo. ILD and HF_LF, doa_temp 0.3, room_temp 0.07",
+        "01111117": "Autoenc + Pseudo-Hierarchical Feat Sim, mono spectral,  wo. ILD and HF_LF, doa_temp 0.3, room_temp 0.07",
+        "01122345": "Autoenc + Feat Sim w. Newest Features (decay slope etc), temp 0.1",
+        "01131440": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 1/1, temp 0.3/0.07",
+        "01141100": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 0.4/1.6, temp 0.3/0.07"
     }
     
     models = args.m
@@ -82,6 +89,12 @@ def main():
     
     lines = []
     lines.append(f"# Summary Results - {timestamp}")
+    lines.append("")
+
+    # Record the command used
+    command_used = f"python {sys.argv[0]} " + " ".join(shlex.quote(arg) for arg in sys.argv[1:])
+    lines.append("## Command Used")
+    lines.append(f"```bash\n{command_used}\n```")
     lines.append("")
     
     def format_val(val, best_val):

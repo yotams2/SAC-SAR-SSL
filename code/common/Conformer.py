@@ -131,13 +131,21 @@ class ConformerEncoder(nn.Module):
         conv_dropout_p: float = 0.1,
         conv_kernel_size: int = 31,
         half_step_residual: bool = True,
+        hierarchical: bool = False,
     ):
         super(ConformerEncoder, self).__init__()
+        self.hierarchical = hierarchical
         # self.conv_subsample = Conv2dSubampling(in_channels=1, out_channels=encoder_dim)
         # self.input_projection = nn.Sequential(
         # Linear0(encoder_dim * (((input_dim - 1) // 2 - 1) // 2), encoder_dim),
         # nn.Dropout(p=input_dropout_p),
         # )
+        
+        if self.hierarchical:
+            num_shared_layers = num_layers - 1
+        else:
+            num_shared_layers = num_layers
+
         self.layers = nn.ModuleList([
             ConformerBlock(
                 encoder_dim=encoder_dim,
@@ -149,8 +157,33 @@ class ConformerEncoder(nn.Module):
                 conv_dropout_p=conv_dropout_p,
                 conv_kernel_size=conv_kernel_size,
                 half_step_residual=half_step_residual,
-            ) for _ in range(num_layers)
+            ) for _ in range(num_shared_layers)
         ])
+
+        if self.hierarchical:
+            self.last_layer_doa = ConformerBlock(
+                    encoder_dim=encoder_dim,
+                    num_attention_heads=num_attention_heads,
+                    feed_forward_expansion_factor=feed_forward_expansion_factor,
+                    conv_expansion_factor=conv_expansion_factor,
+                    feed_forward_dropout_p=feed_forward_dropout_p,
+                    attention_dropout_p=attention_dropout_p,
+                    conv_dropout_p=conv_dropout_p,
+                    conv_kernel_size=conv_kernel_size,
+                    half_step_residual=half_step_residual,
+                )
+
+            self.last_layer_room = ConformerBlock(
+                encoder_dim=encoder_dim,
+                num_attention_heads=num_attention_heads,
+                feed_forward_expansion_factor=feed_forward_expansion_factor,
+                conv_expansion_factor=conv_expansion_factor,
+                feed_forward_dropout_p=feed_forward_dropout_p,
+                attention_dropout_p=attention_dropout_p,
+                conv_dropout_p=conv_dropout_p,
+                conv_kernel_size=conv_kernel_size,
+                half_step_residual=half_step_residual,
+            )  
  
     def count_parameters(self) -> int:
         """ Count parameters of encoder """
@@ -192,7 +225,20 @@ class ConformerEncoder(nn.Module):
                 outputs_one = outputs_one[:, np.newaxis, :].expand(outputs.shape[0], outputs.shape[1], outputs.shape[-1])
                 outputs = outputs + outputs_one
 
-        return outputs
+        if self.hierarchical:
+            outputs_doa = self.last_layer_doa(outputs)
+            outputs_room = self.last_layer_room(outputs)
+            if add_same_one:
+                outputs_one = torch.mean(outputs_doa, dim=1)
+                outputs_one = outputs_one[:, np.newaxis, :].expand(outputs_doa.shape[0], outputs_doa.shape[1], outputs_doa.shape[-1])
+                outputs_doa = outputs_doa + outputs_one
+
+                outputs_one = torch.mean(outputs_room, dim=1)
+                outputs_one = outputs_one[:, np.newaxis, :].expand(outputs_room.shape[0], outputs_room.shape[1], outputs_room.shape[-1])
+                outputs_room = outputs_room + outputs_one
+            return outputs_doa, outputs_room
+        else:
+            return outputs
 
 
 # class Conformer(nn.Module):

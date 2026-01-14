@@ -99,6 +99,7 @@ def run_visualization(exp_dir, regressive=False):
     spec_dembed = 512
     spat_dembed = 256
     spectral_enc_input = 'all'
+    hierarchical = False
 
     if os.path.exists(config_path):
         try:
@@ -110,7 +111,8 @@ def run_visualization(exp_dir, regressive=False):
                     spec_dembed = args_dict.get('spec_dembed', 512)
                     spat_dembed = args_dict.get('spat_dembed', 256)
                     spectral_enc_input = args_dict.get('spectral_enc_input', 'all')
-                    print(f"Loaded config: spec_dembed={spec_dembed}, spat_dembed={spat_dembed}, spectral_enc_input={spectral_enc_input}")
+                    hierarchical = args_dict.get('hierarchical', False)
+                    print(f"Loaded config: spec_dembed={spec_dembed}, spat_dembed={spat_dembed}, spectral_enc_input={spectral_enc_input}, hierarchical={hierarchical}")
                 else:
                     print("Warning: config.json structure unexpected. Using defaults.")
         except Exception as e:
@@ -127,7 +129,8 @@ def run_visualization(exp_dir, regressive=False):
         contrastive_learning=False,
         spec_dembed=spec_dembed,
         spat_dembed=spat_dembed,
-        spectral_enc_input=spectral_enc_input
+        spectral_enc_input=spectral_enc_input,
+        hierarchical=hierarchical
     )
     
     # Load Checkpoint
@@ -282,7 +285,22 @@ def run_visualization(exp_dir, regressive=False):
     tsne = TSNE(n_components=2, perplexity=5, n_iter=1000, random_state=42)
     
     vis_spec = tsne.fit_transform(embeddings_spec)
-    vis_spat = tsne.fit_transform(embeddings_spat)
+    
+    if hierarchical and embeddings_spat.shape[1] == spat_dembed * 2:
+        print("Handling Hierarchical Embeddings...")
+        # Split Spat into DOA and Room
+        dim = spat_dembed
+        embeddings_doa = embeddings_spat[:, :dim]
+        embeddings_room = embeddings_spat[:, dim:]
+        
+        vis_doa = tsne.fit_transform(embeddings_doa)
+        vis_room = tsne.fit_transform(embeddings_room)
+        vis_spat = None # Not used
+        
+    else:
+        vis_spat = tsne.fit_transform(embeddings_spat)
+        vis_doa = None
+        vis_room = None
     
     # Plotting
     os.makedirs(exp_dir, exist_ok=True)
@@ -292,37 +310,91 @@ def run_visualization(exp_dir, regressive=False):
     else:
         save_path = os.path.join(exp_dir, 'embedding_vis.png')
     
-    plt.figure(figsize=(18, 10) if regressive else (14, 6))
-    
-    if regressive:
-        # 5 plots for ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
-        # Only spatial embeddings
-        metrics = ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
-        for i, metric in enumerate(metrics):
-            plt.subplot(2, 3, i+1)
-            vals = np.array(reg_labels[metric])
-            
-            # Scatter plot with continuous color
-            scatter = plt.scatter(vis_spat[:, 0], vis_spat[:, 1], alpha=0.8, s=30, c=vals, cmap='viridis')
-            plt.title(f'Spatial Encoder - {metric}')
-            plt.colorbar(scatter, label=metric)
+    if hierarchical and vis_doa is not None:
+         # Plot layout for hierarchical: Spec, DOA, Room
+         
+         if regressive:
+             # 2x5 grid. Top row: DOA, Bottom row: Room
+             plt.figure(figsize=(25, 10))
+             metrics = ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
+             
+             for i, metric in enumerate(metrics):
+                 vals = np.array(reg_labels[metric])
+                 
+                 # DOA Row (Top)
+                 plt.subplot(2, 5, i+1)
+                 scatter_doa = plt.scatter(vis_doa[:, 0], vis_doa[:, 1], alpha=0.8, s=20, c=vals, cmap='viridis')
+                 plt.title(f'DOA Encoder - {metric}')
+                 plt.colorbar(scatter_doa, label=metric)
+                 plt.grid(True, alpha=0.3)
+                 
+                 # Room Row (Bottom)
+                 plt.subplot(2, 5, i+6)
+                 scatter_room = plt.scatter(vis_room[:, 0], vis_room[:, 1], alpha=0.8, s=20, c=vals, cmap='viridis')
+                 plt.title(f'Room Encoder - {metric}')
+                 plt.colorbar(scatter_room, label=metric)
+                 plt.grid(True, alpha=0.3)
+         
+         else:
+             plt.figure(figsize=(18, 6))
+             
+             # 1. Spec
+             plt.subplot(1, 3, 1)
+             scatter_spec = plt.scatter(vis_spec[:, 0], vis_spec[:, 1], alpha=0.8, s=30, c=utt_indices, cmap='tab10')
+             plt.title('Spectral Encoder Embeddings\n(Color: Utterance Index)')
+             plt.colorbar(scatter_spec, ticks=range(10), label='Utterance Index')
+             plt.grid(True, alpha=0.3)
+             
+             # 2. DOA
+             plt.subplot(1, 3, 2)
+             # In ideal hierarchical, DOA embeds primarily capture TDOA/Loc (RIR Index partly, but maybe better correlated with TDOA metric if regressive)
+             # For classification viz (RIR index), DOA might cluster by room (since room determines mic pos/src pos somewhat) or just be confused if positions vary.
+             # Let's stick to Room Index for color for now as per original.
+             scatter_doa = plt.scatter(vis_doa[:, 0], vis_doa[:, 1], alpha=0.8, s=30, c=rir_indices, cmap='tab10')
+             plt.title('Spatial Encoder (DOA)\n(Color: Room/RIR Index)')
+             plt.colorbar(scatter_doa, ticks=range(10), label='Room Index')
+             plt.grid(True, alpha=0.3)
+             
+             # 3. Room
+             plt.subplot(1, 3, 3)
+             scatter_room = plt.scatter(vis_room[:, 0], vis_room[:, 1], alpha=0.8, s=30, c=rir_indices, cmap='tab10')
+             plt.title('Spatial Encoder (Room)\n(Color: Room/RIR Index)')
+             plt.colorbar(scatter_room, ticks=range(10), label='Room Index')
+             plt.grid(True, alpha=0.3)
+
+    else:
+        # Original Plotting Logic
+        plt.figure(figsize=(18, 10) if regressive else (14, 6))
+        
+        if regressive:
+            # 5 plots for ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
+            # Only spatial embeddings
+            metrics = ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
+            for i, metric in enumerate(metrics):
+                plt.subplot(2, 3, i+1)
+                vals = np.array(reg_labels[metric])
+                
+                # Scatter plot with continuous color
+                scatter = plt.scatter(vis_spat[:, 0], vis_spat[:, 1], alpha=0.8, s=30, c=vals, cmap='viridis')
+                plt.title(f'Spatial Encoder - {metric}')
+                plt.colorbar(scatter, label=metric)
+                plt.grid(True, alpha=0.3)
+                
+        else:
+            # Spectral Plot - Color by Utterance Index
+            # Use discrete colormap (tab10)
+            plt.subplot(1, 2, 1)
+            scatter_spec = plt.scatter(vis_spec[:, 0], vis_spec[:, 1], alpha=0.8, s=30, c=utt_indices, cmap='tab10')
+            plt.title('Spectral Encoder Embeddings\n(Color: Utterance Index 0-9)')
+            plt.colorbar(scatter_spec, ticks=range(10), label='Utterance Index')
             plt.grid(True, alpha=0.3)
             
-    else:
-        # Spectral Plot - Color by Utterance Index
-        # Use discrete colormap (tab10)
-        plt.subplot(1, 2, 1)
-        scatter_spec = plt.scatter(vis_spec[:, 0], vis_spec[:, 1], alpha=0.8, s=30, c=utt_indices, cmap='tab10')
-        plt.title('Spectral Encoder Embeddings\n(Color: Utterance Index 0-9)')
-        plt.colorbar(scatter_spec, ticks=range(10), label='Utterance Index')
-        plt.grid(True, alpha=0.3)
-        
-        # Spatial Plot - Color by RIR Index
-        plt.subplot(1, 2, 2)
-        scatter_spat = plt.scatter(vis_spat[:, 0], vis_spat[:, 1], alpha=0.8, s=30, c=rir_indices, cmap='tab10')
-        plt.title('Spatial Encoder Embeddings\n(Color: Room/RIR Index 0-9)')
-        plt.colorbar(scatter_spat, ticks=range(10), label='Room Index')
-        plt.grid(True, alpha=0.3)
+            # Spatial Plot - Color by RIR Index
+            plt.subplot(1, 2, 2)
+            scatter_spat = plt.scatter(vis_spat[:, 0], vis_spat[:, 1], alpha=0.8, s=30, c=rir_indices, cmap='tab10')
+            plt.title('Spatial Encoder Embeddings\n(Color: Room/RIR Index 0-9)')
+            plt.colorbar(scatter_spat, ticks=range(10), label='Room Index')
+            plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
     plt.savefig(save_path)

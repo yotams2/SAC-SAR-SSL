@@ -669,6 +669,10 @@ def spatial_features_from_stft(
     sample_rate: float,
     max_ipd_freq: float = 1500.0,
     eps: float = 1e-8,
+    hop_length: int = 256,
+    early_win_s: float = 0.05,
+    late_win_s: float = 0.20,
+    onset_db_threshold: float = 6.0,
 ) -> dict:
     """
     Compute spatial features from per-channel STFTs.
@@ -690,10 +694,33 @@ def spatial_features_from_stft(
     X_R = X[:, 1]
     
     # 1. ILD (Broadband)
+    min_ild_freq = 2000.0
     magL = X_L.abs() + eps
     magR = X_R.abs() + eps
-    ild = 20.0 * torch.log10(magL / magR)
-    ild_mean = ild.mean(dim=(1, 2)) # [B]
+    powL = magL**2
+    powR = magR**2
+    total_power = powL + powR # [B, F, T]
+    
+    # Raw ILD (log magnitude ratio)
+    ild_bins = 10.0 * torch.log10((powL + eps) / (powR + eps))
+    
+    # Frequency Mask: Only keep High Frequencies (> 2000 Hz)
+    # ILD is physically negligible at low freqs due to diffraction
+    freqs = torch.linspace(0, sample_rate / 2, F_bins, device=device)
+    hf_mask = freqs > min_ild_freq # [F]
+    
+    if hf_mask.sum() > 0:
+        # Apply mask to freq dimension
+        ild_hf = ild_bins[:, hf_mask, :]       # [B, F_hf, T]
+        weight_hf = total_power[:, hf_mask, :] # [B, F_hf, T]
+        
+        # Weighted Mean: Sum(ILD * Weight) / Sum(Weight)
+        # This automatically ignores silent bins (Weight ~ 0)
+        numerator = (ild_hf * weight_hf).sum(dim=(1, 2))
+        denominator = weight_hf.sum(dim=(1, 2)) + eps
+        ild_mean = numerator / denominator
+    else:
+        ild_mean = torch.zeros(B, device=device)
     
     # 2. IPD (Low Frequency)
     phase_L = torch.angle(X_L)
@@ -793,6 +820,133 @@ def spatial_features_from_stft(
     sample_delay = max_idx.float() - (F_bins - 1)
     tdoa = sample_delay / sample_rate
     
+    # 5. IACC (Raw Cross-Correlation) - Spatial Width Cue
+    # Unlike GCC-PHAT, this is NOT whitened. It captures the energy decay shape.
+    # CC = IFFT( E[X_L * X_R*] )
+    n_fft = 2 * (F_bins - 1)
+    raw_cc = torch.fft.irfft(cross_spec_mean, n=n_fft, dim=-1) # [B, Time]
+    raw_cc = torch.roll(raw_cc, shifts=F_bins-1, dims=-1)
+    
+    # Normalize by energy (Standard IACC definition)
+    # Denom = sqrt( E[x^2] * E[y^2] ) - scalar per sample
+    # Note: using sum over F of the PSDs estimates total energy
+    energy_L = powL_mean.sum(dim=1)
+    energy_R = powR_mean.sum(dim=1)
+    norm_factor = torch.sqrt(energy_L * energy_R) + eps
+    raw_cc_norm = raw_cc / norm_factor.unsqueeze(1)
+    
+    # Feature: IACC (Peak of normalized raw cross-correlation)
+    # High IACC (~1.0) = Narrow/Focused source
+    # Low IACC (<0.3) = Diffuse/Enveloping sound
+    iacc_max, _ = torch.max(raw_cc_norm.abs(), dim=1)
+
+    # 6. Decay Slope Statistics (Room Acoustics Proxy)
+    # Calculated per-sample as consistent with reference logic
+    decay_slope_median = torch.zeros(B, device=device)
+    decay_slope_p10 = torch.zeros(B, device=device)
+    decay_slope_p90 = torch.zeros(B, device=device)
+
+    # Log Energy of Left Channel
+    # X_L is [B, F, T]
+    logE_ft = torch.log(magL**2 + eps)
+    # Difference along time: [B, F, T-1]
+    dlogE_ft = torch.diff(logE_ft, dim=2)
+    
+    # Loop over batch to handle variable number of negative slopes
+    for b in range(B):
+        # Flatten time-freq for this sample
+        slopes = dlogE_ft[b].flatten()
+        # Keep only negative
+        neg_slopes = slopes[slopes < 0.0]
+        
+        if neg_slopes.numel() == 0:
+            decay_slope_median[b] = 0.0
+            decay_slope_p10[b] = 0.0
+            decay_slope_p90[b] = 0.0
+        else:
+            # Quantiles
+            # torch.quantile requires float32/64
+            decay_slope_median[b] = torch.quantile(neg_slopes, 0.5)
+            decay_slope_p10[b] = torch.quantile(neg_slopes, 0.1)
+            decay_slope_p90[b] = torch.quantile(neg_slopes, 0.9)
+
+    # 7. Modulation Low/High Ratio (SRMR-like proxy)
+    # Broadband energy calculation
+    # sum over freq bins: [B, T]
+    E_t = (magL**2).sum(dim=1) + eps
+    logE_t = torch.log(E_t)
+    
+    # Remove mean and apply Hann window
+    # Window should be [T]
+    win = torch.hann_window(T_frames, device=device)
+    logE_t_centered = logE_t - logE_t.mean(dim=1, keepdim=True)
+    x_mod_in = logE_t_centered * win.unsqueeze(0) # [B, T]
+    
+    # Modulation spectrum
+    X_mod = torch.fft.rfft(x_mod_in, dim=-1)
+    P_mod = X_mod.abs() ** 2
+    
+    # Modulation Frequencies
+    fs_mod = sample_rate / float(hop_length)
+    # rfftfreq returns [T//2 + 1]
+    freqs_mod = torch.fft.rfftfreq(T_frames, d=1.0/fs_mod).to(device)
+    
+    low_band_mask = (freqs_mod >= 0.5) & (freqs_mod <= 4.0)
+    high_band_mask = (freqs_mod > 4.0) & (freqs_mod <= 20.0)
+    
+    # Integration
+    # We can do this vectorized over B
+    if low_band_mask.any():
+        P_low = P_mod[:, low_band_mask].sum(dim=1)
+    else:
+        P_low = torch.zeros(B, device=device)
+        
+    if high_band_mask.any():
+        P_high = P_mod[:, high_band_mask].sum(dim=1) + eps
+    else:
+        P_high = torch.ones(B, device=device) * eps # avoid div zero
+        
+    mod_low_high_ratio = P_low / P_high
+
+    # 8. Early-to-Late Energy Ratio (Clarity proxy)
+    # Onset detection on broadband energy E_t [B, T]
+    # E_t was computed above for modulation ratio
+    E_prev = torch.clamp(E_t[:, :-1], min=eps)
+    E_curr = torch.clamp(E_t[:, 1:], min=eps)
+    dB_change = 10.0 * torch.log10(E_curr / E_prev) # [B, T-1]
+    
+    early_win_frames = max(1, int(round(early_win_s * sample_rate / hop_length)))
+    late_win_frames = max(1, int(round(late_win_s * sample_rate / hop_length)))
+    
+    early_late_ratio_mean = torch.zeros(B, device=device)
+    early_late_ratio_median = torch.zeros(B, device=device)
+    
+    for b in range(B):
+        # Find onsets where dB change > threshold
+        # dim 0 of result tuple
+        onsets = torch.where(dB_change[b] > onset_db_threshold)[0] + 1
+        
+        ratios = []
+        for n0 in onsets:
+            n0 = n0.item()
+            n_early_end = min(T_frames, n0 + early_win_frames)
+            n_late_end = min(T_frames, n_early_end + late_win_frames)
+            
+            if n_late_end <= n_early_end:
+                continue
+                
+            E_early = E_t[b, n0:n_early_end].sum()
+            E_late = E_t[b, n_early_end:n_late_end].sum() + eps
+            ratios.append(E_early / E_late)
+            
+        if len(ratios) == 0:
+            early_late_ratio_mean[b] = 0.0
+            early_late_ratio_median[b] = 0.0
+        else:
+            ratios_tensor = torch.tensor(ratios, device=device)
+            early_late_ratio_mean[b] = ratios_tensor.mean()
+            early_late_ratio_median[b] = torch.quantile(ratios_tensor, 0.5)
+
     return {
         'ipd_cos_mean': ipd_cos_mean,
         'ipd_sin_mean': ipd_sin_mean,
@@ -804,7 +958,14 @@ def spatial_features_from_stft(
         'coherence_high': coherence_high,
         'hf_lf_ratio': hf_lf_ratio,
         'tdoa': tdoa,
-        'gcc_phat_max': gcc_phat_max
+        'gcc_phat_max': gcc_phat_max,
+        'iacc_max': iacc_max,
+        'decay_slope_median': decay_slope_median,
+        'decay_slope_p10': decay_slope_p10,
+        'decay_slope_p90': decay_slope_p90,
+        'mod_low_high_ratio': mod_low_high_ratio,
+        'early_late_ratio_mean': early_late_ratio_mean,
+        'early_late_ratio_median': early_late_ratio_median
     }
 
 def compute_spatial_features(
@@ -814,6 +975,9 @@ def compute_spatial_features(
     hop_length: int = 256,
     max_ipd_freq: float = 1500.0,
     eps: float = 1e-8,
+    early_win_s: float = 0.05,
+    late_win_s: float = 0.20,
+    onset_db_threshold: float = 6.0,
 ) -> dict:
     """
     Compute spatial acoustic features from binaural recordings.
@@ -824,11 +988,12 @@ def compute_spatial_features(
         n_fft, hop_length: STFT parameters.
         max_ipd_freq: only use frequencies <= this for IPD summary.
         eps: numerical stability.
+        early_win_s, late_win_s, onset_db_threshold: ELR parameters.
         
       Returns:
       dict: feature dictionary containing 'ipd_cos_mean', 'ipd_sin_mean', 'ild_mean',
           'coherence_mean', 'coherence_low', 'coherence_mid', 'coherence_high',
-          'tdoa', 'gcc_phat_max'.
+          'tdoa', 'gcc_phat_max', 'decay_slope_*', 'mod_low_high_ratio', 'early_late_ratio_*'.
     """
     import math
     device = x.device
@@ -848,4 +1013,4 @@ def compute_spatial_features(
     F_bins, T_frames = X.shape[-2], X.shape[-1]
     X = X.view(B, C, F_bins, T_frames) # [B, 2, F, T]
 
-    return spatial_features_from_stft(X, sample_rate, max_ipd_freq, eps)
+    return spatial_features_from_stft(X, sample_rate, max_ipd_freq, eps, hop_length, early_win_s, late_win_s, onset_db_threshold)

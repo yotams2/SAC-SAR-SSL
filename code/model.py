@@ -17,7 +17,7 @@ from common.CRNN import crnn, crnn_sim, tcrnn
 
 class EmbedEncoder(nn.Module):
 
-    def __init__(self, sig_shape, patch_shape, dembed, model=['cnn', 'conformer'], mode='spat', use_cls=False, device='cpu'):
+    def __init__(self, sig_shape, patch_shape, dembed, model=['cnn', 'conformer'], mode='spat', use_cls=False, device='cpu', hierarchical=False):
         super(EmbedEncoder, self).__init__()
 
         self.sig_shape = sig_shape
@@ -91,7 +91,7 @@ class EmbedEncoder(nn.Module):
                 if model[1] == 'transformer':
                     self.embed = TransformerEncoder(d_model=self.dembed, nlayer=mhsa_nlayer, nhead=4, d_ff=self.dembed*4, dropout=0.1)
                 elif model[1] == 'conformer':
-                    self.embed = ConformerEncoder(encoder_dim=self.dembed, num_layers=mhsa_nlayer, num_attention_heads=4, feed_forward_expansion_factor=4)
+                    self.embed = ConformerEncoder(encoder_dim=self.dembed, num_layers=mhsa_nlayer, num_attention_heads=4, feed_forward_expansion_factor=4, hierarchical=hierarchical)
 
         elif len(model) == 1:
             if model[0] == 'crnn':
@@ -217,7 +217,11 @@ class EmbedEncoder(nn.Module):
                 if self.use_cls:
                     cls_token = self.cls_token.expand(nbatch, -1, -1)
                     embed = torch.cat((embed, cls_token), dim=1)
+                
                 embed = self.embed.forward(embed, add_same_one)  # (nbatch, npatch, dembed)
+                
+                if isinstance(embed, tuple):
+                    embed = torch.cat(embed, dim=-1)
         
         if len(self.model) == 1:
             if (self.model[0] == 'crnn') | (self.model[0] == 'crnn-sim') | (self.model[0] == 'tcrnn'):
@@ -466,7 +470,7 @@ class SARSSL(nn.Module):
                  self.spec_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=spec_dembed, model=spec_model, 
                                             mode='spec', use_cls=use_cls, device=self.device)
             self.spat_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=spat_dembed, model=spat_model, 
-                                            mode='spat', use_cls=use_cls, device=self.device)
+                                            mode='spat', use_cls=use_cls, device=self.device, hierarchical=self.hierarchical)
 
         elif self.in_ver == 'single_ch_each_patch':
             self.spec_encoder = EmbedEncoder(sig_shape=[nf*nmic, nt, nreim, 1], patch_shape=patch_shape, dembed=int(spec_dembed/nmic), model=spec_model,
@@ -480,7 +484,11 @@ class SARSSL(nn.Module):
             if use_cls:
                 spec_dembed = spec_dembed + 1 
                 spat_dembed = spat_dembed + 1         
-            dec_dembed = spec_dembed + spat_dembed
+            
+            if self.hierarchical:
+                 dec_dembed = spec_dembed + spat_dembed * 2
+            else:
+                 dec_dembed = spec_dembed + spat_dembed
 
             dec_model = ['', 'fc']
             # dec_model = ['conformer', 'fc']
@@ -506,8 +514,8 @@ class SARSSL(nn.Module):
                 # Projection head for Feature Similarity Loss
                 # Projects spatial embedding to a latent space for similarity comparison
                 if self.hierarchical:
-                    # Two projection heads, each taking half the embedding dimension
-                    split_dim = spat_dembed // 2
+                    # Two projection heads, each taking the full embedding dimension (since we duplicated output)
+                    split_dim = spat_dembed
                     self.feat_sim_proj_doa = nn.Sequential(
                         nn.Linear(split_dim, split_dim),
                         nn.ReLU(),
@@ -541,12 +549,13 @@ class SARSSL(nn.Module):
 
         else:
             # specify downstream embedding
+            real_spat_dembed = spat_dembed * 2 if self.hierarchical else spat_dembed
             if self.embed_use4ds == 'spec_spat':
-                dembed_ds = spec_dembed + spat_dembed
+                dembed_ds = spec_dembed + real_spat_dembed
             elif self.embed_use4ds == 'spec':
                 dembed_ds = spec_dembed+0
             elif self.embed_use4ds == 'spat':
-                dembed_ds =  spat_dembed +0
+                dembed_ds =  real_spat_dembed +0
             elif self.embed_use4ds == 'noinfo':
                 dembed_ds = spec_dembed+0
 
@@ -1124,7 +1133,7 @@ class SARSSL(nn.Module):
 
         return loss, debug_stats
 
-    def feature_similarity_loss(self, embed_spat, spatial_features, temperature=0.1, sigma=1.0, eps=1e-8, return_metrics=False):
+    def feature_similarity_loss(self, embed_spat, spatial_features, temperature=0.1, eps=1e-8, return_metrics=False):
         """
         Calculate Feature Similarity Loss using a cue-weighted contrastive approach.
         
@@ -1138,18 +1147,18 @@ class SARSSL(nn.Module):
         else:
             z = embed_spat
             
-        z_proj = self.feat_sim_proj(z) # [B, 128]
+        z_proj = self.feat_sim_proj(z) # [B, 128]      
         
         # 2. & 3. Calculate Loss using helper
         # Features: ipd_cos, ipd_sin, ild, coherence, tdoa
         #feature_keys = ['ild_mean', 'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio', 'tdoa']
-        feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa']
-        
+        feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90', 'mod_low_high_ratio', 'early_late_ratio_mean', 'early_late_ratio_median']
+        sigma = 0.5 * np.sqrt(len(feature_keys))
         loss, metrics = self._calc_single_feat_sim_loss(z_proj, spatial_features, feature_keys, temperature, sigma, eps, return_metrics)
 
         return loss, metrics
 
-    def feature_similarity_loss_hierarchical(self, embed_spat, spatial_features, doa_temperature=0.3, room_temperature=0.07, sigma=1.0, eps=1e-8, return_metrics=False):
+    def feature_similarity_loss_hierarchical(self, embed_spat, spatial_features, doa_temperature=0.3, room_temperature=0.07, eps=1e-8, return_metrics=False):
         """
         Hierarchical Feature Similarity Loss.
         Splits embedding into DOA and Room halves and calculates separate losses.
@@ -1160,7 +1169,7 @@ class SARSSL(nn.Module):
         # doa_features = ['ild_mean', 'coherence_mean', 'tdoa']
         # room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio']
         doa_features = ['tdoa']
-        room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max']
+        room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90', 'mod_low_high_ratio', 'early_late_ratio_mean', 'early_late_ratio_median']
         
         # 1. Aggregate and split embeddings
         if embed_spat.dim() == 3:
@@ -1175,14 +1184,17 @@ class SARSSL(nn.Module):
         # 2. Project
         z_proj_doa = self.feat_sim_proj_doa(z_doa)   # [B, 128]
         z_proj_room = self.feat_sim_proj_room(z_room) # [B, 128]
+
+        sigma_doa = 0.4
+        sigma_room = 0.5 * np.sqrt(len(room_features))
         
         # 3. Calculate Loss for DOA
         loss_doa, metrics_doa = self._calc_single_feat_sim_loss(
-            z_proj_doa, spatial_features, doa_features, doa_temperature, sigma, eps, return_metrics)
+            z_proj_doa, spatial_features, doa_features, doa_temperature, sigma_doa, eps, return_metrics)
         
         # 4. Calculate Loss for Room
         loss_room, metrics_room = self._calc_single_feat_sim_loss(
-            z_proj_room, spatial_features, room_features, room_temperature, sigma, eps, return_metrics)
+            z_proj_room, spatial_features, room_features, room_temperature, sigma_room, eps, return_metrics)
         
         loss = (loss_doa + loss_room) / 2.0
         

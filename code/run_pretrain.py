@@ -183,6 +183,13 @@ def calculate_feature_stats(dataloader, device, learner, fs):
 	coherence_high_values = []
 	gcc_values = []
 	hf_lf_values = []
+	iacc_values = []
+	decay_median_values = []
+	decay_p10_values = []
+	decay_p90_values = []
+	mod_ratio_values = []
+	elr_mean_values = []
+	elr_median_values = []
 	num_batches_for_std = 50
 	
 	# Helper for stats
@@ -212,6 +219,15 @@ def calculate_feature_stats(dataloader, device, learner, fs):
 			# collect GCC-PHAT peak and HF/LF ratio
 			gcc_values.append(feats['gcc_phat_max'])
 			hf_lf_values.append(feats['hf_lf_ratio'])
+
+			# New features
+			iacc_values.append(feats['iacc_max'])
+			decay_median_values.append(feats['decay_slope_median'])
+			decay_p10_values.append(feats['decay_slope_p10'])
+			decay_p90_values.append(feats['decay_slope_p90'])
+			mod_ratio_values.append(feats['mod_low_high_ratio'])
+			elr_mean_values.append(feats['early_late_ratio_mean'])
+			elr_median_values.append(feats['early_late_ratio_median'])
 
 	feature_stats = {}
 	if len(ild_values) > 0:
@@ -249,6 +265,36 @@ def calculate_feature_stats(dataloader, device, learner, fs):
 		mean_hf_lf, std_hf_lf = get_stats(hf_lf_values)
 		feature_stats['hf_lf_ratio'] = {'mean': mean_hf_lf, 'std': std_hf_lf}
 		print(f"HF/LF Ratio (log10) Mean: {mean_hf_lf:.4f}, STD: {std_hf_lf:.4f}")
+
+		# New Features Stats
+		mean_iacc, std_iacc = get_stats(iacc_values)
+		feature_stats['iacc_max'] = {'mean': mean_iacc, 'std': std_iacc}
+		print(f"IACC Max Mean: {mean_iacc:.4f}, STD: {std_iacc:.4f}")
+
+		mean_decay_med, std_decay_med = get_stats(decay_median_values)
+		feature_stats['decay_slope_median'] = {'mean': mean_decay_med, 'std': std_decay_med}
+		print(f"Decay Slope Median Mean: {mean_decay_med:.4f}, STD: {std_decay_med:.4f}")
+
+		mean_decay_p10, std_decay_p10 = get_stats(decay_p10_values)
+		feature_stats['decay_slope_p10'] = {'mean': mean_decay_p10, 'std': std_decay_p10}
+		print(f"Decay Slope P10 Mean: {mean_decay_p10:.4f}, STD: {std_decay_p10:.4f}")
+
+		mean_decay_p90, std_decay_p90 = get_stats(decay_p90_values)
+		feature_stats['decay_slope_p90'] = {'mean': mean_decay_p90, 'std': std_decay_p90}
+		print(f"Decay Slope P90 Mean: {mean_decay_p90:.4f}, STD: {std_decay_p90:.4f}")
+
+		mean_mod, std_mod = get_stats(mod_ratio_values)
+		feature_stats['mod_low_high_ratio'] = {'mean': mean_mod, 'std': std_mod}
+		print(f"Modulation Ratio Mean: {mean_mod:.4f}, STD: {std_mod:.4f}")
+
+		mean_elr, std_elr = get_stats(elr_mean_values)
+		feature_stats['early_late_ratio_mean'] = {'mean': mean_elr, 'std': std_elr}
+		print(f"ELR Mean Mean: {mean_elr:.4f}, STD: {std_elr:.4f}")
+
+		mean_elr_med, std_elr_med = get_stats(elr_median_values)
+		feature_stats['early_late_ratio_median'] = {'mean': mean_elr_med, 'std': std_elr_med}
+		print(f"ELR Median Mean: {mean_elr_med:.4f}, STD: {std_elr_med:.4f}")
+
 	else:
 		print("Warning: Could not calculate feature statistics.")
 		
