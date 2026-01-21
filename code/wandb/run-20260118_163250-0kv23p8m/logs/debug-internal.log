@@ -1,0 +1,12 @@
+{"time":"2026-01-18T16:32:52.227058439+02:00","level":"INFO","msg":"stream: starting","core version":"0.23.1"}
+{"time":"2026-01-18T16:32:53.162079402+02:00","level":"INFO","msg":"stream: created new stream","id":"0kv23p8m"}
+{"time":"2026-01-18T16:32:53.169492442+02:00","level":"INFO","msg":"handler: started","stream_id":"0kv23p8m"}
+{"time":"2026-01-18T16:32:53.176695017+02:00","level":"INFO","msg":"stream: started","id":"0kv23p8m"}
+{"time":"2026-01-18T16:32:53.176883539+02:00","level":"INFO","msg":"writer: started","stream_id":"0kv23p8m"}
+{"time":"2026-01-18T16:32:53.177213045+02:00","level":"INFO","msg":"sender: started","stream_id":"0kv23p8m"}
+{"time":"2026-01-18T18:31:37.098782156+02:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/yotams2-tel-aviv-university/SAR-SSL/0kv23p8m/file_stream\": dial tcp: lookup api.wandb.ai on 169.254.25.10:53: read udp 10.244.9.176:58844->169.254.25.10:53: i/o timeout"}
+{"time":"2026-01-19T05:44:29.713995136+02:00","level":"INFO","msg":"stream: closing","id":"0kv23p8m"}
+{"time":"2026-01-19T05:44:31.292779012+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-01-19T05:44:32.236034743+02:00","level":"INFO","msg":"handler: closed","stream_id":"0kv23p8m"}
+{"time":"2026-01-19T05:44:32.251439062+02:00","level":"INFO","msg":"sender: closed","stream_id":"0kv23p8m"}
+{"time":"2026-01-19T05:44:32.256139722+02:00","level":"INFO","msg":"stream: closed","id":"0kv23p8m"}

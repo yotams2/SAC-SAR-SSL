@@ -756,7 +756,17 @@ class SARSSL(nn.Module):
                     if self.hsic:
                         # Minimize HSIC (independence)
                         obt_loss = at_module.hsic(z_spat_v, z_spec_v)
+                    elif self.hierarchical:
+                        # Center
+                        dim = z_spat_v.shape[-1]//2
+                        z_spat_doa_v = z_spat_v[:, :dim] - z_spat_v[:, :dim].mean(dim=0)
+                        z_spat_room_v = z_spat_v[:, dim:] - z_spat_v[:, dim:].mean(dim=0)
                         
+                        # Covariance
+                        cov = (z_spat_doa_v.T @ z_spat_room_v) / (nbatch - 1)
+                        
+                        # Loss = sum of squared elements
+                        obt_loss = cov.pow(2).sum()
                     else:
                         # Center
                         z_spat_v = z_spat_v - z_spat_v.mean(dim=0)
@@ -1133,7 +1143,7 @@ class SARSSL(nn.Module):
 
         return loss, debug_stats
 
-    def feature_similarity_loss(self, embed_spat, spatial_features, temperature=0.1, eps=1e-8, return_metrics=False):
+    def feature_similarity_loss(self, embed_spat, spatial_features, temperature=0.5, eps=1e-8, return_metrics=False):
         """
         Calculate Feature Similarity Loss using a cue-weighted contrastive approach.
         
@@ -1152,13 +1162,16 @@ class SARSSL(nn.Module):
         # 2. & 3. Calculate Loss using helper
         # Features: ipd_cos, ipd_sin, ild, coherence, tdoa
         #feature_keys = ['ild_mean', 'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio', 'tdoa']
-        feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90', 'mod_low_high_ratio', 'early_late_ratio_mean', 'early_late_ratio_median']
-        sigma = 0.5 * np.sqrt(len(feature_keys))
+        # feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90', 'mod_low_high_ratio', 'early_late_ratio_mean', 'early_late_ratio_median']
+        # feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90']
+        feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa']
+        #sigma = 0.5 * np.sqrt(len(feature_keys))
+        sigma = 1
         loss, metrics = self._calc_single_feat_sim_loss(z_proj, spatial_features, feature_keys, temperature, sigma, eps, return_metrics)
 
         return loss, metrics
 
-    def feature_similarity_loss_hierarchical(self, embed_spat, spatial_features, doa_temperature=0.3, room_temperature=0.07, eps=1e-8, return_metrics=False):
+    def feature_similarity_loss_hierarchical(self, embed_spat, spatial_features, doa_temperature=0.4, room_temperature=0.2, eps=1e-8, return_metrics=False):
         """
         Hierarchical Feature Similarity Loss.
         Splits embedding into DOA and Room halves and calculates separate losses.
@@ -1169,8 +1182,8 @@ class SARSSL(nn.Module):
         # doa_features = ['ild_mean', 'coherence_mean', 'tdoa']
         # room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio']
         doa_features = ['tdoa']
-        room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90', 'mod_low_high_ratio', 'early_late_ratio_mean', 'early_late_ratio_median']
-        
+        # room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90', 'mod_low_high_ratio', 'early_late_ratio_mean', 'early_late_ratio_median']
+        room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90']
         # 1. Aggregate and split embeddings
         if embed_spat.dim() == 3:
             z = embed_spat.mean(dim=1) # [B, dembed]

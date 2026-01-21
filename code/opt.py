@@ -57,7 +57,7 @@ class opt_pretrain():
         parser.add_argument('--contrastive-learning', '--cl', action='store_true', default=False, help='Use contrastive learning batch sampling')
         parser.add_argument('--contrastive-learning-data-aug', '--clda', action='store_true', default=False, help='Use data augmentation in contrastive learning batch sampling')
         parser.add_argument('--contrastive-learning-data-aug-stronger', '--clda_s', action='store_true', default=False, help='Use strong data augmentation in contrastive learning batch sampling')
-        parser.add_argument('--wandb', action='store_true', default=True, help='Enable Weights & Biases logging (default: True)')
+        parser.add_argument('--no-wandb', action='store_true', default=False, help='Disable Weights & Biases logging (default: False)')
         parser.add_argument('--debug', action='store_true', default=False, help='Enable debug mode with extensive logging (default: False)')
         parser.add_argument('--data-aug', '--da', action='store_true', default=False, help='Use data augmentation without contrastive learning batch sampling')
         parser.add_argument('--num-rooms-cl', type=int, default=300, help='Total number of rooms for CL')
@@ -74,6 +74,7 @@ class opt_pretrain():
         parser.add_argument('--hierarchical', action='store_true', default=False, help='Enable hierarchical spatial encoder (split embedding) (default: False)')
 
         args = parser.parse_args()
+        args.wandb = not args.no_wandb
         assert (args.pretrain + args.pretrain_frozen_encoder + args.test)==1, 'Pretraining stage (pretrain or test) is undefined'
         assert args.test_mode in ['all', 'ins'], 'Test mode is undefined'
         assert args.pretrain_mode in ['masked', 'autoenc'], 'Pretraining mode is undefined'

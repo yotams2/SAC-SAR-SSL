@@ -1,0 +1,52 @@
+T: 4.112, nt: 256, nf: 256
+# Parameters (M): 20.11 ['spec_encoder: 6.92', 'spat_encoder: 6.69', 'decoder: 6.3', 'mlp_head: 0', 'spec_encoder.patch_embed: 0.6', 'spec_encoder.embed: 6.32', 'spat_encoder.patch_embed: 0.34', 'spat_encoder.embed: 6.35']
+/storage/yotam/SAR-SSL/SAR-SSL/code/common/utils.py:100: UserWarning: mods argument is not needed anymore, you can stop passing it
+  with FlopCounterMode(model, display=False) as fcm:
+FLOPs_forward: 7.33G/s
+Pre-Training stage!
+Using provided num_train_samples: 50000
+Dynamic Data Counts - Train: 50000, Val: 4000, Test: 4000
+Calculating global feature statistics...
+ILD Mean: 0.0018, STD: 0.6226
+TDOA Mean: 0.000018, STD: 0.000212
+Coherence Mean: 0.4256, STD: 0.0777
+Coherence Low (<500Hz) Mean: 0.8178, STD: 0.0678
+Coherence Mid (500-2500Hz) Mean: 0.5174, STD: 0.1366
+Coherence High (>2500Hz) Mean: 0.3561, STD: 0.0736
+GCC-PHAT Max Mean: 0.1561, STD: 0.0639
+HF/LF Ratio (log10) Mean: -0.8402, STD: 0.4410
+IACC Max Mean: 0.0026, STD: 0.0006
+Decay Slope Median Mean: -1.0733, STD: 0.0177
+Decay Slope P10 Mean: -2.9073, STD: 0.0311
+Decay Slope P90 Mean: -0.1961, STD: 0.0051
+Modulation Ratio Mean: 5.2071, STD: 4.5027
+ELR Mean Mean: 0.2706, STD: 0.2356
+ELR Median Mean: 0.2223, STD: 0.2129
+Updated model with feature stats.
+
+Epoch 1/30:
+Epoch 1:   0%|                                                                                | 0/391 [00:06<?, ?it/s]/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py:109: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_amp):
+/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py:231: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_amp):
+Val loss sim: 0.7550
+	 Saving 1 epoch model checkpoint...
+	 Found a max score in the 1 epoch, saving...
+
+Epoch 2/30:
+Epoch 5:  29%|██████▏              | 115/391 [31:28<04:40,  1.01s/it, feat_sim=0.232, loss=0.65, loss_gen=0.639, obt=0]
+Val loss sim: 0.6734
+	 Saving 2 epoch model checkpoint...
+	 Found a max score in the 2 epoch, saving...
+
+Epoch 3/30:
+Val loss sim: 0.5457
+	 Saving 3 epoch model checkpoint...
+	 Found a max score in the 3 epoch, saving...
+
+Epoch 4/30:
+Val loss sim: 0.4850
+	 Saving 4 epoch model checkpoint...
+	 Found a max score in the 4 epoch, saving...
+
+Epoch 5/30:

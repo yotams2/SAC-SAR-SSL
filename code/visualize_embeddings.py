@@ -400,10 +400,119 @@ def run_visualization(exp_dir, regressive=False):
     plt.savefig(save_path)
     print(f"Saved visualization to {save_path}")
 
+    # ---------------------------------------------------------
+    # Correlation Analysis (New)
+    # ---------------------------------------------------------
+    if regressive:
+        print("\nRunning Correlation Analysis...")
+        # X: Spatial Embeddings (N, D)
+        X = embeddings_spat
+        
+        # Y: Labels (N, 5)
+        # Order: TDOA, T60, C50, ABS, DRR
+        metrics = ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
+        Y = np.stack([np.array(reg_labels[m]) for m in metrics], axis=1)
+        
+        print(f"Data shapes - Embeddings: {X.shape}, Labels: {Y.shape}")
+        
+        n_features = X.shape[1]
+        n_labels = Y.shape[1]
+        
+        # Calculate Pearson Correlation
+        # We want matrix (Features, Labels) - (D, 5)
+        corr_matrix = np.zeros((n_features, n_labels))
+        
+        # Normalize to avoid division by zero issues logic inside loops or efficiently
+        # Center data
+        X_centered = X - X.mean(axis=0)
+        Y_centered = Y - Y.mean(axis=0)
+        
+        # Std dev
+        X_std = X.std(axis=0)
+        Y_std = Y.std(axis=0)
+        
+        # Avoid division by zero
+        X_std[X_std == 0] = 1e-8
+        Y_std[Y_std == 0] = 1e-8
+        
+        # Fast correlation: Covariance / (std_x * std_y)
+        # Cov = (X_c.T @ Y_c) / N
+        N = X.shape[0]
+        cov = (X_centered.T @ Y_centered) / N
+        corr_matrix = cov / (X_std[:, None] @ Y_std[None, :])
+        
+        # Save raw matrix
+        matrix_path = os.path.join(exp_dir, 'metrics', 'correlation_matrix.npy')
+        np.save(matrix_path, corr_matrix)
+        print(f"Saved correlation matrix to {matrix_path}")
+        
+        # 1. Bar Chart: Max Absolute Correlation per Label
+        max_abs_corr = np.max(np.abs(corr_matrix), axis=0) # (5,)
+        
+        plt.figure(figsize=(10, 6))
+        bars = plt.bar(metrics, max_abs_corr, color='skyblue')
+        plt.ylim(0, 1.0)
+        plt.title('Maximum Absolute Correlation with Spatial Features')
+        plt.ylabel('Max |Pearson Correlation|')
+        
+        # Add value labels
+        for bar in bars:
+            height = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width()/2., height,
+                     f'{height:.2f}',
+                     ha='center', va='bottom')
+            
+        plt.grid(axis='y', alpha=0.3)
+        plt.savefig(os.path.join(exp_dir, 'metrics', 'correlation_max_bar.png'))
+        plt.close()
+        
+        # 2. Heatmap: Top Correlated Dimensions vs Labels
+        # We select top K dimensions for each label, take the union, and plot
+        top_k = 5
+        top_dims = set()
+        for i in range(n_labels):
+            # Sort by abs correlation
+            sorted_indices = np.argsort(np.abs(corr_matrix[:, i]))[::-1]
+            top_dims.update(sorted_indices[:top_k])
+            
+        top_dims = sorted(list(top_dims))
+        print(f"Selected {len(top_dims)} unique dimensions for heatmap (Top-{top_k} per label).")
+        
+        if len(top_dims) > 50:
+            print("Warning: Too many dimensions for clear heatmap, truncating to top 50 by max overall correlation.")
+            # Fallback: sort top_dims by their max correlation across any label
+            top_dims.sort(key=lambda d: np.max(np.abs(corr_matrix[d, :])), reverse=True)
+            top_dims = top_dims[:50]
+            top_dims.sort() # Resort indices for sanity
+            
+        sub_matrix = corr_matrix[top_dims, :] # (K, 5)
+        
+        plt.figure(figsize=(8, max(6, len(top_dims)*0.3)))
+        plt.imshow(sub_matrix, cmap='coolwarm', vmin=-1, vmax=1, aspect='auto')
+        plt.colorbar(label='Pearson Correlation')
+        
+        plt.xticks(range(n_labels), metrics)
+        plt.yticks(range(len(top_dims)), top_dims)
+        plt.ylabel('Embedding Dimension Index')
+        plt.title('Correlation Heatmap (Top Dimensions)')
+        
+        # Annotate if small enough
+        if len(top_dims) < 30:
+            for i in range(len(top_dims)):
+                for j in range(n_labels):
+                    val = sub_matrix[i, j]
+                    color = "white" if abs(val) > 0.5 else "black"
+                    plt.text(j, i, f"{val:.2f}", 
+                             ha="center", va="center", color=color, fontsize=8)
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(exp_dir, 'metrics', 'correlation_heatmap.png'))
+        plt.close()
+
+
 def visualize_embeddings():
     parser = argparse.ArgumentParser(description='Visualize Embeddings')
     parser.add_argument('-t', '--time', nargs='+', default=None, help='List of timestamps of the models to use. If None, uses latest.')
-    parser.add_argument('--regressive', action='store_true', default=False, help='Use regressive visualization mode')
     args = parser.parse_args()
 
     base_exp_dir = '../exp/pretrain'
@@ -425,8 +534,11 @@ def visualize_embeddings():
             print(f"Experiment directory not found: {exp_dir}")
             continue
             
-        print(f"\nProcessing experiment: {t}")
-        run_visualization(exp_dir, regressive=args.regressive)
+        print(f"\nProcessing experiment: {t} (Non-Regressive Mode)")
+        run_visualization(exp_dir, regressive=False)
+        
+        print(f"\nProcessing experiment: {t} (Regressive Mode)")
+        run_visualization(exp_dir, regressive=True)
 
 if __name__ == '__main__':
     visualize_embeddings()

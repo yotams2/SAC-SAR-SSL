@@ -32,7 +32,13 @@ def main():
         "01111117": "Autoenc + Pseudo-Hierarchical Feat Sim, mono spectral,  wo. ILD and HF_LF, doa_temp 0.3, room_temp 0.07",
         "01122345": "Autoenc + Feat Sim w. Newest Features (decay slope etc), temp 0.1",
         "01131440": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 1/1, temp 0.3/0.07",
-        "01141100": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 0.4/1.6, temp 0.3/0.07"
+        "01141100": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 0.4/1.6, temp 0.3/0.07",
+        "01151136": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.1/0.07",
+        "01161203": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
+        "01190956": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), OBT, Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
+        "01191734": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), sigma 0.5*sqrt(dim), temp 0.1",
+        "01200950": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.1",
+        "01201345": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.5"
     }
     
     models = args.m
