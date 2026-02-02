@@ -407,7 +407,7 @@ class Learner(ABC):
 		else:
 			return loss
 
-	def test_epoch(self, dataset, return_metric=False, return_vis=False):
+	def test_epoch(self, dataset, return_metric=False, return_vis=False, return_std=False):
 		""" Test the model with an epoch of the dataset
 		"""
 		self.model.eval()  
@@ -415,6 +415,8 @@ class Learner(ABC):
 			loss = 0
 			if return_metric: 
 				metric = 0
+				if return_std:
+					all_metrics = []
 			if return_vis:
 				embed = []
 				gt = []
@@ -431,7 +433,14 @@ class Learner(ABC):
 
 				if return_metric: 
 					metric_batch = self.evaluate(pred_batch=pred_batch, gt_batch=gt_batch)
-					metric += metric_batch  
+					metric += metric_batch 
+					if return_std:
+						# Calculate instance-wise metric for std
+						# Assuming evaluate calculates mean absolute error, we replicate logic for instance-wise
+						# For MAE: abs(pred - gt)
+						inst_metric = torch.abs(pred_batch.contiguous().detach()-gt_batch.contiguous().detach())
+						all_metrics.append(inst_metric.cpu().numpy())
+
 				if return_vis:
 					embed += [embed_batch]
 					gt += [gt_batch]
@@ -439,14 +448,21 @@ class Learner(ABC):
 			loss /= len(dataset)
 			if return_metric: 
 				metric /= len(dataset)
+				if return_std:
+					all_metrics = np.concatenate(all_metrics, axis=0) # (Total_samples, 1) or (Total_samples,)
+					metric_std = np.std(all_metrics)
 
 			if return_vis:
 				vis_data = {'embed': torch.cat(embed, dim=0), 'label': torch.cat(gt, dim=0)}
 
 			if return_metric: 
 				if return_vis:
+					if return_std:
+						return loss, metric, metric_std, vis_data
 					return loss, metric, vis_data
 				else:
+					if return_std:
+						return loss, metric, metric_std
 					return loss, metric
 			else:
 				if return_vis:

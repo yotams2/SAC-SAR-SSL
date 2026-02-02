@@ -343,7 +343,7 @@ print(f"T: {T:.3f}, nt: {nt}, nf: {nf}")
 
 # Network
 if args.pretrain | args.test:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, feature_sim_loss_weight=args.feature_sim_loss_weight, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug, hierarchical=args.hierarchical)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, feature_sim_loss_weight=args.feature_sim_loss_weight, feature_sim_sigma=args.feature_sim_sigma, feature_sim_temperature=args.feature_sim_temperature, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug, hierarchical=args.hierarchical)
 if args.pretrain_frozen_encoder:
 	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input)
 
@@ -351,8 +351,8 @@ layer_keys = ['spec_encoder', 'spat_encoder', 'decoder', 'mlp_head','spec_encode
 nparam, nparam_sum = get_nparams(net, param_key_list=layer_keys)
 print('# Parameters (M):', round(nparam_sum, 2), [key+': '+str(round(nparam[key], 2)) for key in nparam.keys()])
 nreim = 2
-flops_forward_eval, _ = get_FLOPs(net, input_shape=(1, nmic, nf, nt, nreim), duration=T)
-print(f"FLOPs_forward: {flops_forward_eval:.2f}G/s")
+flops_forward_eval, _ = get_FLOPs(net, input_shape=(2, nmic, nf, nt, nreim), duration=T)
+print(f"FLOPs_forward: {flops_forward_eval/2:.2f}G/s")
 
 # Pre-Train
 if args.pretrain:

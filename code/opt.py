@@ -72,6 +72,9 @@ class opt_pretrain():
         parser.add_argument('--feature-sim-loss-weight', type=float, default=1.0, help='Weight for Feature Similarity Loss (default: 1.0)')
         parser.add_argument('--gen-metrics', action='store_true', default=False, help='Generate metrics histograms (default: False)')
         parser.add_argument('--hierarchical', action='store_true', default=False, help='Enable hierarchical spatial encoder (split embedding) (default: False)')
+        parser.add_argument('--feature-sim-sigma', type=float, default=1.0, help='Sigma for Feature Similarity Loss (default: 1.0)')
+        parser.add_argument('--feature-sim-temperature', type=float, default=0.3, help='Temperature for Feature Similarity Loss (default: 0.3)')
+        parser.add_argument('--exp-dir', type=str, default='exp', help='Experiment directory name (default: exp)')
 
         args = parser.parse_args()
         args.wandb = not args.no_wandb
@@ -82,6 +85,7 @@ class opt_pretrain():
 
         self.time = args.time
         self.work_dir = args.work_dir
+        self.exp_dir = args.exp_dir
         self.cl = args.contrastive_learning
         self.clda = args.contrastive_learning_data_aug
         self.da = args.data_aug
@@ -111,7 +115,7 @@ class opt_pretrain():
                 dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data_cl_da'
         else:
             dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data'
-        dirs['exp'] = work_dir + '/SAR-SSL/exp'
+        dirs['exp'] = work_dir + '/SAR-SSL/' + self.exp_dir
 
         dirs['micsig_simu_pretrain'] = dirs['gerdata'] + '/MicSig/simu/pretrain'
         dirs['micsig_simu_preval'] = dirs['gerdata'] + '/MicSig/simu/preval'
@@ -216,6 +220,8 @@ class opt_downstream():
 
         parser.add_argument('--my-tmp', action='store_true', default=False, help='run tmp script only for GPU testing')
 
+        parser.add_argument('--exp-dir', type=str, default='exp', help='Experiment directory name (default: exp)')
+
         args = parser.parse_args()
         assert (args.ds_train + args.ds_test)==1, 'Downstream stage (train or test) is not defined'
         assert args.ds_trainmode in ['scratchLOW', 'finetune', 'lineareval'], 'Downstream train mode in not defined' # 'sratchUP'   
@@ -225,6 +231,7 @@ class opt_downstream():
         self.simu_exp = args.simu_exp
         self.time = args.time
         self.work_dir = args.work_dir
+        self.exp_dir = args.exp_dir
         self.ds_token = args.ds_token
         self.ds_head = args.ds_head
         self.ds_embed = args.ds_embed
@@ -322,7 +329,7 @@ class opt_downstream():
         # dirs['gerdata'] = work_dir + '/SAR-SSL/data'
         dirs['data'] = self.work_dir_local + '/data'
         dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data'
-        dirs['exp'] = work_dir + '/SAR-SSL/exp'
+        dirs['exp'] = work_dir + '/SAR-SSL/' + self.exp_dir
 
         dirs['srcsig_train'] = dirs['data'] + '/SrcSig/wsj0/tr'
         dirs['srcsig_val'] = dirs['data'] + '/SrcSig/wsj0/dt'

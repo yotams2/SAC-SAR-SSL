@@ -1,0 +1,54 @@
+{
+  "os":  "Linux-5.4.0-109-generic-x86_64-with-glibc2.10",
+  "python":  "CPython 3.8.13",
+  "startedAt":  "2026-01-26T14:25:28.588965Z",
+  "args":  [
+    "--pretrain",
+    "--simu-exp",
+    "--gpu-id",
+    "0,",
+    "--d",
+    "feature_sim_loss 5 features (coherences, gcc max, tdoa), BN in projection head, temp 0.5, sigma 1, gen_metrics, CCSR mode, 50000 training samples",
+    "--num-train-samples",
+    "50000",
+    "--feature-sim-loss",
+    "--gen-metrics",
+    "--time",
+    "01261622"
+  ],
+  "program":  "run_pretrain.py",
+  "codePath":  "code/run_pretrain.py",
+  "codePathLocal":  "run_pretrain.py",
+  "git":  {
+    "remote":  "https://github.com/Audio-WestlakeU/SAR-SSL.git",
+    "commit":  "c3766b9970dfc5a2c720745ba695e1b7c9a43c7c"
+  },
+  "email":  "yotams2@mail.tau.ac.il",
+  "root":  "/storage/yotam/SAR-SSL/SAR-SSL/code",
+  "host":  "yotam-sar-ssl-0-6",
+  "executable":  "/storage/yotam/venvs/sar_ssl_venv/bin/python",
+  "cpu_count":  48,
+  "cpu_count_logical":  96,
+  "gpu":  "NVIDIA RTX 6000 Ada Generation",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "941747974144",
+      "used":  "518468399104"
+    }
+  },
+  "memory":  {
+    "total":  "540692570112"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA RTX 6000 Ada Generation",
+      "memoryTotal":  "51527024640",
+      "cudaCores":  18176,
+      "architecture":  "Ada",
+      "uuid":  "GPU-87b9caed-cedd-5dfd-512b-fc8331ec25f5"
+    }
+  ],
+  "cudaVersion":  "12.2",
+  "writerId":  "7hx9uzts9d1unmylrb2uoiey614kts80"
+}

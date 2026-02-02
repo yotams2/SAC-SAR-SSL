@@ -477,6 +477,7 @@ if (args.ds_test):
 		if args.test_mode == 'cal_metric':
 			loss_test = np.zeros((ntrials))
 			metric_test = np.zeros((ntrials))
+			metric_test_std = np.zeros((ntrials))
 		if args.test_mode == 'cal_metric_wo_info':
 			mae_test_data = np.zeros((ntrials))
 			min_test_data = np.zeros((ntrials))
@@ -530,8 +531,8 @@ if (args.ds_test):
 			if (args.test_mode == 'cal_metric'):
 				learner.load_checkpoint_ensemble(checkpoints_dir=task_dir) 
 				set_random_seed(seeds['test'])
-				loss_test[trial_idx], metric_test[trial_idx] = learner.test_epoch(dataloader_test, return_metric=True, return_vis=False)
-				print('{} estimation, Test loss: {:.4f}, Test metric: {:.4f}'.format(task, loss_test[trial_idx], metric_test[trial_idx]))
+				loss_test[trial_idx], metric_test[trial_idx], metric_test_std[trial_idx] = learner.test_epoch(dataloader_test, return_metric=True, return_vis=False, return_std=True)
+				print('{} estimation, Test loss: {:.4f}, Test metric: {:.4f}, Test metric std: {:.4f}'.format(task, loss_test[trial_idx], metric_test[trial_idx], metric_test_std[trial_idx]))
 				
 				downstream_res_list.append({
 					'task': task,
@@ -539,7 +540,8 @@ if (args.ds_test):
 					'lr_idx': lr_idx,
 					'bs_idx': bs_idx,
 					'loss_test': loss_test[trial_idx],
-					'metric_test': metric_test[trial_idx]
+					'metric_test': metric_test[trial_idx],
+					'metric_test_std': metric_test_std[trial_idx]
 				})
 
 			if args.test_mode == 'vis_embed':
@@ -555,14 +557,19 @@ if (args.ds_test):
 					
 					set_random_seed(seeds['train'])
 					vis_train, data_vis_train = vis_TSNE(data=vis_train['embed'].cpu().detach().numpy(), label=vis_train['label'].cpu().detach().numpy())
-					vis_train.savefig(task_dir.replace(task_dir.split('/')[-1], 'test_result/tsne_vis_train_'+task_dir.split('/')[-1]) + '.png')
-					scipy.io.savemat(task_dir.replace(task_dir.split('/')[-1], 'test_result/tsne_vis_train_'+task_dir.split('/')[-1]) + '.mat', 
+					train_vis_path = task_dir.replace(task_dir.split('/')[-1], 'test_result/tsne_vis_train_'+task_dir.split('/')[-1])
+					os.makedirs(os.path.dirname(train_vis_path), exist_ok=True)
+					vis_train.savefig(train_vis_path + '.png')
+					scipy.io.savemat(train_vis_path + '.mat', 
 							{'data': data_vis_train['data'], 'label':data_vis_train['label']})
 					
 					set_random_seed(seeds['test'])
 					vis_test, data_vis_test = vis_TSNE(data=vis_test['embed'].cpu().detach().numpy(), label=vis_test['label'].cpu().detach().numpy())
-					vis_test.savefig(task_dir.replace(task_dir.split('/')[-1], 'test_result/tsne_vis_test_'+task_dir.split('/')[-1]) + '.png')
-					scipy.io.savemat(task_dir.replace(task_dir.split('/')[-1], 'test_result/tsne_vis_test_'+task_dir.split('/')[-1]) + '.mat', 
+					
+					test_vis_path = task_dir.replace(task_dir.split('/')[-1], 'test_result/tsne_vis_test_'+task_dir.split('/')[-1])
+					os.makedirs(os.path.dirname(test_vis_path), exist_ok=True)
+					vis_test.savefig(test_vis_path + '.png')
+					scipy.io.savemat(test_vis_path + '.mat', 
 							{'data': data_vis_test['data'], 'label':data_vis_test['label']})
 					
 			if args.test_mode == 'cal_metric_wo_info':
@@ -570,7 +577,7 @@ if (args.ds_test):
 				print('Trial: {}, Data MAE: {:.4f}'.format(trial_idx, mae_test_data[trial_idx]))
 
 		if len(downstream_res_list) > 0:
-			res_file = os.path.join(task_time_dir, 'downstream_test_res.json')
+			res_file = os.path.join(task_time_dir, 'downstream_test_res_{}.json'.format(args.ds_trainmode))
 			try:
 				with open(res_file, 'w') as f:
 					json.dump(downstream_res_list, f, indent=4)

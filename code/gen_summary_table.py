@@ -38,7 +38,16 @@ def main():
         "01190956": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), OBT, Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
         "01191734": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), sigma 0.5*sqrt(dim), temp 0.1",
         "01200950": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.1",
-        "01201345": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.5"
+        "01201345": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.5",
+        "01211117": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
+        "01212123": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.3",
+        "01221548": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, mono spectral, sigma 1, temp 0.5",
+        "01231932": "Autoenc ONLY",
+        "01261622": "CCSR + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
+        "01271707": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.07",
+        "01272122": "CCSR + New Version of Feat Sim w. minus sim_max, 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.07",
+        "01301633": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 0.1, temp 0.5",
+        "01311252": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.3"
     }
     
     models = args.m
@@ -49,7 +58,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     
     # Data collection
-    # results[model][task] = [list of metrics]
+    # results[model][task] = [list of (metric, std) tuples]
     results = {m: {t: [] for t in tasks} for m in models}
     
     for task in tasks:
@@ -59,7 +68,13 @@ def main():
                 try:
                     with open(file_path, 'r') as f:
                         data = json.load(f)
-                        metrics = [entry['metric_test'] for entry in data]
+                        # Store tuple (metric, std)
+                        # std might be missing in older files
+                        metrics = []
+                        for entry in data:
+                            val = entry['metric_test']
+                            std = entry.get('metric_test_std', None)
+                            metrics.append((val, std))
                         results[model_id][task] = metrics
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
@@ -78,10 +93,12 @@ def main():
         task_min_vals = []
         task_mean_vals = []
         for model_id in models:
-            metrics = results[model_id][task]
-            if metrics:
-                task_min_vals.append(np.min(metrics))
-                task_mean_vals.append(np.mean(metrics))
+            metrics_list = results[model_id][task]
+            if metrics_list:
+                # Extract just the values for calculation
+                vals = [m[0] for m in metrics_list]
+                task_min_vals.append(np.min(vals))
+                task_mean_vals.append(np.mean(vals))
         
         if task_min_vals:
             best_results_min[task] = min(task_min_vals)
@@ -103,9 +120,19 @@ def main():
     lines.append(f"```bash\n{command_used}\n```")
     lines.append("")
     
-    def format_val(val, best_val):
+    def format_val(val_tuple, best_val):
         # Format string, bold if matches best
+        # val_tuple is (val, std) or just val if we passed scalar before, but now we pass tuple
+        if isinstance(val_tuple, tuple):
+            val, std = val_tuple
+        else:
+            val = val_tuple
+            std = None
+            
         s = f"{val:.4f}"
+        if std is not None:
+            s += f" ± {std:.4f}"
+            
         if best_val is not None and np.isclose(val, best_val, atol=1e-6):
             return f"**{s}**"
         return s
@@ -122,11 +149,34 @@ def main():
             display_name = model_name_map.get(model_id, f"Model {model_id}")
             row_data = [display_name]
             for task in tasks:
-                metrics = results_dict[model_id][task]
-                if metrics:
-                    val = np.min(metrics) if "Lowest" in title else np.mean(metrics)
-                    best = best_results.get(task)
-                    row_data.append(format_val(val, best))
+                metrics_list = results_dict[model_id][task] # list of (val, std)
+                if metrics_list:
+                    vals = [m[0] for m in metrics_list]
+                    stds = [m[1] for m in metrics_list]
+                    
+                    if "Lowest" in title:
+                        # Find index of min value
+                        idx = np.argmin(vals)
+                        val = vals[idx]
+                        std = stds[idx]
+                        
+                        # We only show std if it exists
+                        display_tuple = (val, std)
+                    else:
+                        # Mean
+                        val = np.mean(vals)
+                        display_tuple = val # Just mean val
+                    
+                    if "Lowest" in title:
+                         best = best_results.get(task)
+                         # display_tuple is (val, std)
+                         row_data.append(format_val(display_tuple, best))
+                    else:
+                         # Average table
+                         best = best_results.get(task)
+                         # display_tuple is scalar val
+                         row_data.append(format_val(display_tuple, best))
+                         
                 else:
                     row_data.append("N/A")
             rows.append(row_data)

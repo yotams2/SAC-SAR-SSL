@@ -353,7 +353,7 @@ class EmbedDecoder(nn.Module):
  
 class SARSSL(nn.Module): 
 
-    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, feature_sim_loss_weight=1.0, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False, feature_stats=None, hierarchical=False, **kwargs):#vis=False):
+    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, feature_sim_loss_weight=1.0, feature_sim_sigma=1.0, feature_sim_temperature=0.3, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False, feature_stats=None, hierarchical=False, **kwargs):#vis=False):
         # patch_shape: size of each patch, (nf, nt)
         # patch_shape=(16,16), maskedpatch_mode='TF',
         # patch_shape=(256,1), maskedpatch_mode='T'
@@ -386,6 +386,8 @@ class SARSSL(nn.Module):
         self.debug = debug
         self.feature_sim_loss = feature_sim_loss
         self.feature_sim_loss_weight = feature_sim_loss_weight
+        self.feature_sim_sigma = feature_sim_sigma
+        self.feature_sim_temperature = feature_sim_temperature
         self.hierarchical = hierarchical
         
         # Fixed normalization parameters
@@ -529,6 +531,7 @@ class SARSSL(nn.Module):
                 else:
                     self.feat_sim_proj = nn.Sequential(
                         nn.Linear(spat_dembed, spat_dembed),
+                        nn.BatchNorm1d(spat_dembed),
                         nn.ReLU(),
                         nn.Linear(spat_dembed, 128) # Smaller dim for similarity
                     )
@@ -1143,7 +1146,7 @@ class SARSSL(nn.Module):
 
         return loss, debug_stats
 
-    def feature_similarity_loss(self, embed_spat, spatial_features, temperature=0.5, eps=1e-8, return_metrics=False):
+    def feature_similarity_loss(self, embed_spat, spatial_features, temperature=None, eps=1e-8, return_metrics=False):
         """
         Calculate Feature Similarity Loss using a cue-weighted contrastive approach.
         
@@ -1151,6 +1154,9 @@ class SARSSL(nn.Module):
             embed_spat: [B, npatch, dembed] or [B, dembed]
             spatial_features: dict of raw features
         """
+        if temperature is None:
+            temperature = self.feature_sim_temperature
+
         # 1. Aggregate embeddings: Mean over patches if necessary
         if embed_spat.dim() == 3:
             z = embed_spat.mean(dim=1) # [B, dembed]
@@ -1166,7 +1172,7 @@ class SARSSL(nn.Module):
         # feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90']
         feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa']
         #sigma = 0.5 * np.sqrt(len(feature_keys))
-        sigma = 1
+        sigma = self.feature_sim_sigma
         loss, metrics = self._calc_single_feat_sim_loss(z_proj, spatial_features, feature_keys, temperature, sigma, eps, return_metrics)
 
         return loss, metrics
@@ -1259,16 +1265,35 @@ class SARSSL(nn.Module):
         diag = torch.eye(B, device=device, dtype=torch.bool)
         mask = ~diag
 
-        sim_max = sim.max(dim=1, keepdim=True).values.detach()
-        sim = sim - sim_max
+        # sim_max = sim.max(dim=1, keepdim=True).values.detach()
+        # sim = sim - sim_max
 
-        exp_sim = torch.exp(sim) * mask
+        # exp_sim = torch.exp(sim) * mask
         
-        num = (exp_sim * w).sum(dim=1)
-        den = exp_sim.sum(dim=1) + eps
+        # num = (exp_sim * w).sum(dim=1)
+        # den = exp_sim.sum(dim=1) + eps
 
-        num = num + eps
-        loss_per_sample = -torch.log(num / den)
+        # num = num + eps
+        # loss_per_sample = -torch.log(num / den)
+        # loss = loss_per_sample.mean()
+
+        # 1. Prepare Denominator for Softmax (sum over k != i)
+        # We use masking to ensure we don't sum the diagonal
+        exp_sim = torch.exp(sim) * mask
+        den = exp_sim.sum(dim=1, keepdim=True) + eps # [B, 1]
+        
+        # 2. Calculate Log-Probability: log( exp(s_ij) / sum(exp(s_ik)) )
+        # log(a/b) = log(a) - log(b) = s_ij - log(den)
+        log_prob = sim - torch.log(den) # [B, B]
+
+        # 3. Normalize the Weights (sum over j != i should be 1)
+        w_mask = w * mask
+        w_sum = w_mask.sum(dim=1, keepdim=True) + eps
+        w_norm = w_mask / w_sum # [B, B]
+
+        # 4. Calculate SupCon Loss: Weighted Sum of Log-Probs
+        # L_i = - sum_j ( w_norm_ij * log_prob_ij )
+        loss_per_sample = - (w_norm * log_prob).sum(dim=1)
         loss = loss_per_sample.mean()
         
         metrics = None

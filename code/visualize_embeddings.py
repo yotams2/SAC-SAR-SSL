@@ -171,9 +171,9 @@ def run_visualization(exp_dir, regressive=False):
     target_indices = []
     
     if regressive:
-        # Use 1000 random samples
+        # Use 4000 random samples
         np.random.seed(42) # For reproducibility
-        target_indices = np.random.choice(len(dataset), 1000, replace=False).tolist()
+        target_indices = np.random.choice(len(dataset), 4000, replace=False).tolist()
         target_indices.sort()
     else:
         # "different permutations of 10 rooms and 10 utterances"

@@ -259,10 +259,10 @@ def analyze(args):
         'gcc_phat_max', 
         # 'hf_lf_ratio',
         'tdoa',
-        'iacc_max',
-        'decay_slope_median',
-        'decay_slope_p10',
-        'decay_slope_p90',
+        # 'iacc_max',
+        # 'decay_slope_median',
+        # 'decay_slope_p10',
+        # 'decay_slope_p90',
         # 'mod_low_high_ratio',
         # 'early_late_ratio_mean',
         # 'early_late_ratio_median'
@@ -338,8 +338,10 @@ def analyze(args):
             for set_name, keys in analysis_sets.items():
                 if set_name == 'hierarchical_weight_doa':
                     sigma = 0.4
-                else:
+                elif set_name == 'hierarchical_weight_room':
                     sigma = 0.5 * np.sqrt(len(keys))
+                else:
+                    sigma = 0.8
                 if count == 0:
                     print(f"Set: {set_name}, Sigma: {sigma}")
                 weights, dist = calculate_weights(features, feature_stats, keys=keys, sigma=sigma)

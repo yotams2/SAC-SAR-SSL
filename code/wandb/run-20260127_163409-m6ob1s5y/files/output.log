@@ -1,0 +1,69 @@
+T: 4.112, nt: 256, nf: 256
+# Parameters (M): 17.63 ['spec_encoder: 6.92', 'spat_encoder: 5.1', 'decoder: 5.51', 'mlp_head: 0', 'spec_encoder.patch_embed: 0.6', 'spec_encoder.embed: 6.32', 'spat_encoder.patch_embed: 0.34', 'spat_encoder.embed: 4.77']
+/storage/yotam/SAR-SSL/SAR-SSL/code/common/utils.py:100: UserWarning: mods argument is not needed anymore, you can stop passing it
+  with FlopCounterMode(model, display=False) as fcm:
+FLOPs_forward: 7.01G/s
+Pre-Training stage!
+Using provided num_train_samples: 50000
+Dynamic Data Counts - Train: 50000, Val: 4000, Test: 4000
+Calculating global feature statistics...
+ILD Mean: 0.0071, STD: 0.6285
+TDOA Mean: 0.000008, STD: 0.000210
+Coherence Mean: 0.4254, STD: 0.0769
+Coherence Low (<500Hz) Mean: 0.8177, STD: 0.0679
+Coherence Mid (500-2500Hz) Mean: 0.5160, STD: 0.1372
+Coherence High (>2500Hz) Mean: 0.3562, STD: 0.0718
+GCC-PHAT Max Mean: 0.1556, STD: 0.0639
+HF/LF Ratio (log10) Mean: -0.8306, STD: 0.4443
+IACC Max Mean: 0.0026, STD: 0.0006
+Decay Slope Median Mean: -1.0733, STD: 0.0177
+Decay Slope P10 Mean: -2.9068, STD: 0.0305
+Decay Slope P90 Mean: -0.1961, STD: 0.0051
+Modulation Ratio Mean: 5.1457, STD: 4.4141
+ELR Mean Mean: 0.2676, STD: 0.2078
+ELR Median Mean: 0.2202, STD: 0.1750
+Updated model with feature stats.
+
+Epoch 1/30:
+Epoch 1:   0%|                                                                                 | 0/391 [00:08<?, ?it/s]/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py:109: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_amp):
+/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py:231: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_amp):
+Val loss sim: 3.2402
+	 Saving 1 epoch model checkpoint...
+	 Found a max score in the 1 epoch, saving...
+
+Epoch 2/30:
+Traceback (most recent call last):                                                                                     
+Val loss sim: 3.1027
+	 Saving 2 epoch model checkpoint...
+	 Found a max score in the 2 epoch, saving...
+
+Epoch 3/30:
+Val loss sim: 3.0537
+	 Saving 3 epoch model checkpoint...
+	 Found a max score in the 3 epoch, saving...
+
+Epoch 4/30:
+Val loss sim: 3.0240
+	 Saving 4 epoch model checkpoint...
+	 Found a max score in the 4 epoch, saving...
+
+Epoch 5/30:
+  File "run_pretrain.py", line 601, in <module>
+    loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, obt_train, loss_gen_train, loss_feat_sim_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
+  File "/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py", line 111, in pretrain_epoch
+    loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch = self.model(in_batch, indices=indices, epoch=epoch) # Unpack loss_feat_sim_batch
+  File "/storage/yotam/venvs/sar_ssl_venv/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/storage/yotam/venvs/sar_ssl_venv/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/storage/yotam/venvs/sar_ssl_venv/lib/python3.8/site-packages/torch/nn/parallel/data_parallel.py", line 184, in forward
+    return self.module(*inputs[0], **module_kwargs[0])
+  File "/storage/yotam/venvs/sar_ssl_venv/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/storage/yotam/venvs/sar_ssl_venv/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/storage/yotam/SAR-SSL/SAR-SSL/code/model.py", line 709, in forward
+    loss_cl_spat = torch.tensor(0.0, device=self.device)
+KeyboardInterrupt

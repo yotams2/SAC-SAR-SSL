@@ -1,0 +1,179 @@
+_wandb:
+    value:
+        cli_version: 0.23.1
+        e:
+            o5owitkuqvke8t0lkyc7redr4z1mnirr:
+                args:
+                    - --pretrain
+                    - --simu-exp
+                    - --gpu-id
+                    - 0,
+                    - --d
+                    - new version of feature_sim_loss w minus sim_max, 5 features (coherences, gcc max, tdoa), BN in projection head, temp 0.5, sigma 0.1, gen_metrics, CCSR mode, 50000 training samples
+                    - --num-train-samples
+                    - "50000"
+                    - --feature-sim-loss
+                    - --gen-metrics
+                    - --feature-sim-sigma
+                    - "0.1"
+                    - --feature-sim-temperature
+                    - "0.5"
+                    - --time
+                    - "01301633"
+                codePath: code/run_pretrain.py
+                codePathLocal: run_pretrain.py
+                cpu_count: 48
+                cpu_count_logical: 96
+                cudaVersion: "12.2"
+                disk:
+                    /:
+                        total: "941747974144"
+                        used: "541581492224"
+                email: yotams2@mail.tau.ac.il
+                executable: /storage/yotam/venvs/sar_ssl_venv/bin/python
+                git:
+                    commit: c3766b9970dfc5a2c720745ba695e1b7c9a43c7c
+                    remote: https://github.com/Audio-WestlakeU/SAR-SSL.git
+                gpu: NVIDIA RTX 6000 Ada Generation
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ada
+                      cudaCores: 18176
+                      memoryTotal: "51527024640"
+                      name: NVIDIA RTX 6000 Ada Generation
+                      uuid: GPU-19f8aff5-3f8e-e07a-4003-053484e8e0bf
+                host: yotam-sar-ssl-0-9
+                memory:
+                    total: "540692570112"
+                os: Linux-5.4.0-109-generic-x86_64-with-glibc2.10
+                program: run_pretrain.py
+                python: CPython 3.8.13
+                root: /storage/yotam/SAR-SSL/SAR-SSL/code
+                startedAt: "2026-01-30T14:35:16.302341Z"
+                writerId: o5owitkuqvke8t0lkyc7redr4z1mnirr
+        m: []
+        python_version: 3.8.13
+        t:
+            "1":
+                - 1
+                - 5
+                - 41
+                - 49
+                - 53
+                - 63
+            "2":
+                - 1
+                - 5
+                - 41
+                - 49
+                - 53
+                - 63
+            "3":
+                - 13
+                - 16
+                - 61
+            "4": 3.8.13
+            "5": 0.23.1
+            "12": 0.23.1
+            "13": linux-x86_64
+acoustic_setting:
+    value:
+        T: 4.112
+        fs: 16000
+        mic_dist_range:
+            - 0.03
+            - 0.2
+        nmic: 2
+        sound_speed: 343
+bs:
+    value:
+        - 128
+        - 128
+        - 128
+checkpoint_from_best_epoch:
+    value: false
+checkpoint_start:
+    value: false
+cl_n_distinct:
+    value: 0
+contrastive_learning:
+    value: false
+contrastive_learning_data_aug:
+    value: false
+contrastive_learning_data_aug_stronger:
+    value: false
+data_aug:
+    value: false
+debug:
+    value: false
+description:
+    value: new version of feature_sim_loss w minus sim_max, 5 features (coherences, gcc max, tdoa), BN in projection head, temp 0.5, sigma 0.1, gen_metrics, CCSR mode, 50000 training samples
+exp_dir:
+    value: exp
+feature_sim_loss:
+    value: true
+feature_sim_loss_weight:
+    value: 1
+feature_sim_sigma:
+    value: 0.1
+feature_sim_temperature:
+    value: 0.5
+gen_metrics:
+    value: true
+gpu_id:
+    value: 0,
+hierarchical:
+    value: false
+hsic:
+    value: false
+lr:
+    value: 0.001
+nepoch:
+    value: 30
+no_cuda:
+    value: false
+no_wandb:
+    value: false
+num_rooms_cl:
+    value: 300
+num_train_samples:
+    value: 50000
+num_utterances_cl:
+    value: 300
+obt:
+    value: false
+pretrain:
+    value: true
+pretrain_frozen_encoder:
+    value: false
+pretrain_mode:
+    value: masked
+seed:
+    value: 1
+simu_exp:
+    value: true
+source_state:
+    value: static
+sources:
+    value:
+        - 1
+spat_dembed:
+    value: 256
+spec_dembed:
+    value: 512
+spectral_enc_input:
+    value: all
+test:
+    value: false
+test_mode:
+    value: all
+time:
+    value: "01301633"
+use_amp:
+    value: false
+wandb:
+    value: true
+work_dir:
+    value: /storage/yotam/SAR-SSL
+workers:
+    value: 8
