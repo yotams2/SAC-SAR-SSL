@@ -47,7 +47,12 @@ def main():
         "01271707": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.07",
         "01272122": "CCSR + New Version of Feat Sim w. minus sim_max, 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.07",
         "01301633": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 0.1, temp 0.5",
-        "01311252": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.3"
+        "01311252": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.3",
+        "02010901": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.15",
+        "02011216": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
+        "02021006": "Autoenc + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.15",
+        "02041034": "CCSR",
+        "02041438": "No Pretrain"
     }
     
     models = args.m
@@ -59,51 +64,66 @@ def main():
     
     # Data collection
     # results[model][task] = [list of (metric, std) tuples]
-    results = {m: {t: [] for t in tasks} for m in models}
+    results_finetune = {m: {t: [] for t in tasks} for m in models}
+    results_linear = {m: {t: [] for t in tasks} for m in models}
     
     for task in tasks:
         for model_id in models:
-            file_path = os.path.join(base_path, task, model_id, "downstream_test_res.json")
-            if os.path.exists(file_path):
-                try:
-                    with open(file_path, 'r') as f:
+            # 1. Finetune or scrathcLOW
+            for file_name in ["downstream_test_res_finetune.json", "downstream_test_res.json", "downstream_test_res_scratchLOW.json"]:
+                file_path = os.path.join(base_path, task, model_id, file_name)
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, 'r') as f:
+                            data = json.load(f)
+                            metrics = []
+                            for entry in data:
+                                val = entry['metric_test']
+                                std = entry.get('metric_test_std', None)
+                                metrics.append((val, std))
+                            results_finetune[model_id][task] = metrics
+                            break
+                    except Exception as e:
+                        print(f"Error reading {file_path}: {e}")
+            
+            # 2. Linear Eval
+            file_name_linear = "downstream_test_res_lineareval.json"
+            file_path_linear = os.path.join(base_path, task, model_id, file_name_linear)
+            if os.path.exists(file_path_linear):
+                 try:
+                    with open(file_path_linear, 'r') as f:
                         data = json.load(f)
-                        # Store tuple (metric, std)
-                        # std might be missing in older files
                         metrics = []
                         for entry in data:
                             val = entry['metric_test']
                             std = entry.get('metric_test_std', None)
                             metrics.append((val, std))
-                        results[model_id][task] = metrics
-                except Exception as e:
-                    print(f"Error reading {file_path}: {e}")
-            else:
-                pass # Sent warning previously, keeping it clean for now
+                        results_linear[model_id][task] = metrics
+                 except Exception as e:
+                    print(f"Error reading {file_path_linear}: {e}")
 
-    # Helper to find best values per column
-    # For min table: best = min(min(metrics))
-    # For avg table: best = min(mean(metrics))
-    
-    best_results_min = {} # {task: min_value}
-    best_results_avg = {} # {task: min_mean_value}
+    # Helper to calculate stats
+    def calculate_best_stats(results_dict):
+        best_min = {}
+        best_avg = {}
+        for task in tasks:
+            task_min_vals = []
+            task_mean_vals = []
+            for model_id in models:
+                metrics_list = results_dict[model_id][task]
+                if metrics_list:
+                    vals = [m[0] for m in metrics_list]
+                    task_min_vals.append(np.min(vals))
+                    task_mean_vals.append(np.mean(vals))
+            
+            if task_min_vals:
+                best_min[task] = min(task_min_vals)
+            if task_mean_vals:
+                best_avg[task] = min(task_mean_vals)
+        return best_min, best_avg
 
-    for task in tasks:
-        # Check all models for this task
-        task_min_vals = []
-        task_mean_vals = []
-        for model_id in models:
-            metrics_list = results[model_id][task]
-            if metrics_list:
-                # Extract just the values for calculation
-                vals = [m[0] for m in metrics_list]
-                task_min_vals.append(np.min(vals))
-                task_mean_vals.append(np.mean(vals))
-        
-        if task_min_vals:
-            best_results_min[task] = min(task_min_vals)
-        if task_mean_vals:
-            best_results_avg[task] = min(task_mean_vals)
+    best_ft_min, best_ft_avg = calculate_best_stats(results_finetune)
+    best_lin_min, best_lin_avg = calculate_best_stats(results_linear)
 
     # Generate Output Content
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -122,7 +142,7 @@ def main():
     
     def format_val(val_tuple, best_val):
         # Format string, bold if matches best
-        # val_tuple is (val, std) or just val if we passed scalar before, but now we pass tuple
+        # val_tuple is (val, std)
         if isinstance(val_tuple, tuple):
             val, std = val_tuple
         else:
@@ -153,29 +173,30 @@ def main():
                 if metrics_list:
                     vals = [m[0] for m in metrics_list]
                     stds = [m[1] for m in metrics_list]
+                    # stds might contain None if some entries didn't have it, but we handle None in format_val
+                    # actually we need mean of stds for mean table
                     
                     if "Lowest" in title:
                         # Find index of min value
                         idx = np.argmin(vals)
                         val = vals[idx]
                         std = stds[idx]
-                        
-                        # We only show std if it exists
                         display_tuple = (val, std)
+                        best = best_results.get(task)
+                        row_data.append(format_val(display_tuple, best))
                     else:
                         # Mean
                         val = np.mean(vals)
-                        display_tuple = val # Just mean val
-                    
-                    if "Lowest" in title:
-                         best = best_results.get(task)
-                         # display_tuple is (val, std)
-                         row_data.append(format_val(display_tuple, best))
-                    else:
-                         # Average table
-                         best = best_results.get(task)
-                         # display_tuple is scalar val
-                         row_data.append(format_val(display_tuple, best))
+                        # valid_stds
+                        valid_stds = [s for s in stds if s is not None]
+                        if valid_stds:
+                            mean_std = np.mean(valid_stds)
+                        else:
+                            mean_std = None
+                        
+                        display_tuple = (val, mean_std)
+                        best = best_results.get(task)
+                        row_data.append(format_val(display_tuple, best))
                          
                 else:
                     row_data.append("N/A")
@@ -196,7 +217,6 @@ def main():
             line = "|"
             for i, item in enumerate(row_items):
                 # Padding: space + item + space, then fill rest
-                # Actually, standard is " item ".ljust(width)
                 content = f" {item} "
                 line += content.ljust(col_widths[i]) + "|"
             return line
@@ -209,8 +229,6 @@ def main():
         sep_line = "|"
         for width in col_widths:
             # width includes the 2 spaces padding from calculation
-            # standard md col: " :----- " (space, colon, dashes, space) = width chars
-            # so 1 + 1 + dashes + 1 = width => dashes = width - 3
             dashes = "-" * (width - 3)
             sep = f" :{dashes} |"
             sep_line += sep
@@ -224,8 +242,10 @@ def main():
         table_lines.append("")
         return table_lines
 
-    lines.extend(generate_aligned_table("Table 1: Best Result (Lowest Metric)", results, best_results_min))
-    lines.extend(generate_aligned_table("Table 2: Average Performance (Mean)", results, best_results_avg))
+    lines.extend(generate_aligned_table("Table 1: Best Result (Finetune - Lowest Metric)", results_finetune, best_ft_min))
+    lines.extend(generate_aligned_table("Table 2: Average Performance (Finetune - Mean)", results_finetune, best_ft_avg))
+    lines.extend(generate_aligned_table("Table 3: Best Result (Linear Eval - Lowest Metric)", results_linear, best_lin_min))
+    lines.extend(generate_aligned_table("Table 4: Average Performance (Linear Eval - Mean)", results_linear, best_lin_avg))
     
     # Write to file
     with open(output_path, 'w') as f:

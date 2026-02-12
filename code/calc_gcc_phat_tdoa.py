@@ -63,7 +63,7 @@ def main():
                 hop_length=256
             )
             
-            est_tdoa = features['tdoa'].item()
+            est_tdoa = -features['tdoa'].item()
             
             # Calculate absolute error
             # TDOA in seconds
