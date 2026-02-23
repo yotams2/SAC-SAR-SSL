@@ -1,0 +1,1 @@
+{"_step":30,"train/loss_cl_spec":0,"_timestamp":1.7709036088200965e+09,"val_sim/loss_cl_spat":0,"_runtime":5853.883422421,"train/lr":0,"val_sim/loss_cl_spec":0,"train/loss":4.6762838961218325,"train/loss_feat_sim":4.6762838961218325,"val_sim/diff":0,"val_sim/loss":4.592288434505463,"_wandb":{"runtime":5853},"train/loss_cl_spat":0,"train/diff":0}

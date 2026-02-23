@@ -9,6 +9,8 @@ import json
 import json
 from pathlib import Path
 import textwrap
+from datetime import datetime
+
 
 # Add current directory to path to allow imports
 sys.path.append(os.getcwd())
@@ -19,37 +21,45 @@ import common.utils_module as at_module
 
 # Predefined names for specific timestamps (from gen_summary_table.py)
 MODEL_NAME_MAP = {
-    "12281023": "Baseline (CCSR)",
-    "12281234": "Original + Feat Sim",
-    "12281809": "Autoenc + Feat Sim",
-    "12291627": "Autoenc + Feat Sim w. New Normalization",
-    "12291841": "Autoenc + Feat Sim w. New Normalization * 4",
-    "01041159": "Autoenc + Feat Sim w. Percentile Normalization",
-    "01041536": "Autoenc + Feat Sim w. Mean+STD+Clip Normalization",
-    "01051314": "Autoenc + Feat Sim w. New Features, temp 0.07",
-    "01051625": "Autoenc + Feat Sim w. New Features, temp 0.1",
-    "01061055": "Autoenc + Feat Sim w. New Features, temp 0.3",
-    "01061410": "Autoenc + Pseudo-Hierarchical Feat Sim",
-    "01081544": "Autoenc + Feat Sim wo. ILD and HF_LF, temp 0.1",
-    "01111059": "Autoenc + Pseudo-Hierarchical Feat Sim wo. ILD and HF_LF, doa_temp 0.3, room_temp 0.07",
-    "01111117": "Autoenc + Pseudo-Hierarchical Feat Sim, mono spectral,  wo. ILD and HF_LF, doa_temp 0.3, room_temp 0.07",
-    "01122345": "Autoenc + Feat Sim w. Newest Features (decay slope etc), temp 0.1",
-    "01131440": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 1/1, temp 0.3/0.07",
-    "01141100": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 0.4/1.6, temp 0.3/0.07",
-    "01151136": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.1/0.07",
-    "01161203": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
-    "01190956": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), OBT, Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
-    "01191734": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), sigma 0.5*sqrt(dim), temp 0.1",
-    "01200950": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.1",
-    "01201345": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.5",
-    "01211117": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
-    "01212123": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.3",
-    "01221548": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, mono spectral, sigma 1, temp 0.5",
-    "01231932": "Autoenc ONLY",
-    "01261622": "CCSR + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
-    "01271707": "Ours (CCSR + FeatSim)",
-    "01272122": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.07"
-}
+        "12281023": "Baseline (CCSR)",
+        "12281234": "Original + Feat Sim",
+        "12281809": "Autoenc + Feat Sim",
+        "12291627": "Autoenc + Feat Sim w. New Normalization",
+        "12291841": "Autoenc + Feat Sim w. New Normalization * 4",
+        "01041159": "Autoenc + Feat Sim w. Percentile Normalization",
+        "01041536": "Autoenc + Feat Sim w. Mean+STD+Clip Normalization",
+        "01051314": "Autoenc + Feat Sim w. New Features, temp 0.07",
+        "01051625": "Autoenc + Feat Sim w. New Features, temp 0.1",
+        "01061055": "Autoenc + Feat Sim w. New Features, temp 0.3",
+        "01061410": "Autoenc + Pseudo-Hierarchical Feat Sim",
+        "01081544": "Autoenc + Feat Sim wo. ILD and HF_LF, temp 0.1",
+        "01111059": "Autoenc + Pseudo-Hierarchical Feat Sim wo. ILD and HF_LF, doa_temp 0.3, room_temp 0.07",
+        "01111117": "Autoenc + Pseudo-Hierarchical Feat Sim, mono spectral,  wo. ILD and HF_LF, doa_temp 0.3, room_temp 0.07",
+        "01122345": "Autoenc + Feat Sim w. Newest Features (decay slope etc), temp 0.1",
+        "01131440": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 1/1, temp 0.3/0.07",
+        "01141100": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 0.4/1.6, temp 0.3/0.07",
+        "01151136": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.1/0.07",
+        "01161203": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
+        "01190956": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), OBT, Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
+        "01191734": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), sigma 0.5*sqrt(dim), temp 0.1",
+        "01200950": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.1",
+        "01201345": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.5",
+        "01211117": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
+        "01212123": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.3",
+        "01221548": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, mono spectral, sigma 1, temp 0.5",
+        "01231932": "Autoenc ONLY",
+        "01261622": "CCSR + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
+        "01271707": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.07",
+        "01272122": "CCSR + New Version of Feat Sim w. minus sim_max, 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.07",
+        "01301633": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 0.1, temp 0.5",
+        "01311252": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.3",
+        "02010901": "Ours (CCSR + SAC Loss)",
+        "02011216": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
+        "02021006": "AE + FeatSim",
+        "02041034": "CCSR Run 2",
+        "02041438": "No Pretrain",
+        "02121359": "Only FeatSim"
+    }
 
 class VisDataset(at_dataset.FixMicSigDataset):
     """
@@ -245,6 +255,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Running on {device}")
     
+    # LaTeX Support (using mathtext, no external LaTeX required)
+    plt.rcParams.update({
+        "text.usetex": False,
+        "font.family": "serif",
+        "mathtext.fontset": "cm", # Computer Modern font for LaTeX look
+    })
+    
     # Prepare Plot
     n_models = len(models)
     n_tasks = len(tasks)
@@ -310,11 +327,11 @@ def main():
                 if i == 0:
                      # Use Task + Unit for title if present, otherwise just Task
                      title_text = task + clabel_text if task not in ['TDOA', 'T60', 'DRR'] else task
-                     ax.set_title(title_text, fontsize=18, fontweight='bold')
+                     ax.set_title(title_text, fontsize=20, fontweight='bold')
                 
                 if j == 0:
                     ylabel = textwrap.fill(model_name, width=30)
-                    ax.set_ylabel(ylabel, rotation=90, fontsize=18, fontweight='bold')
+                    ax.set_ylabel(ylabel, rotation=90, fontsize=20, fontweight='bold')
 
                 # Colorbar with units
                 cbar = plt.colorbar(scatter, ax=ax)
@@ -334,7 +351,9 @@ def main():
             traceback.print_exc()
             
     plt.tight_layout()
-    output_filename = "figures/compare_embeddings.png"
+    models_suffix = "_".join(models)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"figures/compare_embeddings_{models_suffix}_mode_{tsne_mode}_{timestamp}.png"
     plt.savefig(output_filename)
     print(f"Saved comparison to {output_filename}")
 

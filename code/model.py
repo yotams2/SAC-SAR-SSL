@@ -353,12 +353,12 @@ class EmbedDecoder(nn.Module):
  
 class SARSSL(nn.Module): 
 
-    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, feature_sim_loss_weight=1.0, feature_sim_sigma=1.0, feature_sim_temperature=0.3, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False, feature_stats=None, hierarchical=False, **kwargs):#vis=False):
+    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, feature_sim_loss_weight=1.0, feature_sim_sigma=1.0, feature_sim_temperature=0.3, hierarchical_feature_sim_room_temperature=0.2, hierarchical_feature_sim_room_sigma=1.0, hierarchical_feature_sim_doa_temperature=0.4, hierarchical_feature_sim_doa_sigma=0.4, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False, feature_stats=None, hierarchical=False, rec_loss=True, **kwargs):#vis=False):
         # patch_shape: size of each patch, (nf, nt)
         # patch_shape=(16,16), maskedpatch_mode='TF',
         # patch_shape=(256,1), maskedpatch_mode='T'
         super(SARSSL, self).__init__()
-        
+
         nf, nt, nreim, nmic = sig_shape 
         npatch_shape = [int(nf / patch_shape[0]), int(nt / patch_shape[1])]
         dpatch = patch_shape[0] * patch_shape[1]
@@ -388,7 +388,12 @@ class SARSSL(nn.Module):
         self.feature_sim_loss_weight = feature_sim_loss_weight
         self.feature_sim_sigma = feature_sim_sigma
         self.feature_sim_temperature = feature_sim_temperature
+        self.hierarchical_feature_sim_room_temperature = hierarchical_feature_sim_room_temperature
+        self.hierarchical_feature_sim_room_sigma = hierarchical_feature_sim_room_sigma
+        self.hierarchical_feature_sim_doa_temperature = hierarchical_feature_sim_doa_temperature
+        self.hierarchical_feature_sim_doa_sigma = hierarchical_feature_sim_doa_sigma
         self.hierarchical = hierarchical
+        self.rec_loss = rec_loss
         
         # Fixed normalization parameters
         self.feature_stats = feature_stats if feature_stats is not None else {} # Dictionary containing 'p1' and 'p99' for each feature
@@ -620,7 +625,11 @@ class SARSSL(nn.Module):
                 vec_patch_pred = vec_patch_pred.reshape(nbatch, npatch, dpatch, 2, nmic)
                 
                 # Reconstruction Loss (MSE on full tensor)
-                loss_gen = torch.mean((vec_patch_pred - vec_patch)**2)
+                if self.rec_loss:
+                    loss_gen = torch.mean((vec_patch_pred - vec_patch)**2)
+                else:
+                    loss_gen = torch.tensor(0.0, device=self.device)
+                
                 diff = torch.tensor(0.0, device=self.device) # No diff metric relevant here yet
                 
                 # Visualization data
@@ -696,8 +705,12 @@ class SARSSL(nn.Module):
                 vec_patch_pred = vec_patch_pred.reshape(nbatch, npatch, dpatch, 2, nmic)  # (nbatch, npatch, dpatch, 2, nmic)
                 pred_patches = torch.sum(vec_patch_pred * (1 - mask_ch_dense_expand), dim=-1)  # (nbatch, npatch, dpatch, 2)
         
-                loss, diff = self.gen_loss(pred_patches=pred_patches, tar_patches=tar_ch_patches, mask_idx=mask_patch_idx, tar_unmaskch_patches=tar_anotherch_patches)
-                loss_gen = loss
+                if self.rec_loss:
+                    loss, diff = self.gen_loss(pred_patches=pred_patches, tar_patches=tar_ch_patches, mask_idx=mask_patch_idx, tar_unmaskch_patches=tar_anotherch_patches)
+                    loss_gen = loss
+                else:
+                    loss_gen = torch.tensor(0.0, device=self.device)
+                    diff = torch.tensor(0.0, device=self.device)
 
                 # Additional visualized data
                 mask = mask_dense.clone().detach()
@@ -705,8 +718,8 @@ class SARSSL(nn.Module):
                 pred = vec_patch_pred.clone().detach()
                 data_vis = {}
                 data_vis['mask'], data_vis['pred'], data_vis['tar'] = self.vis_results(mask_patches=mask, pred_patches=pred, tar_patches=tar)
-                data_vis['embed_spec'] = embed_spec
-                data_vis['embed_spat'] = embed_spat
+                data_vis['embed_spec'] = embed_spec.detach() if hasattr(embed_spec, 'detach') else embed_spec
+                data_vis['embed_spat'] = embed_spat.detach() if hasattr(embed_spat, 'detach') else embed_spat
             
             loss_cl_spat = torch.tensor(0.0, device=self.device)
             loss_cl_spec = torch.tensor(0.0, device=self.device)
@@ -783,7 +796,12 @@ class SARSSL(nn.Module):
                     
             # Final Loss Calculation
             # Organize losses to sum to 1 with equal weights
-            losses = [loss_gen]
+            losses = []
+            if self.rec_loss:
+                losses.append(loss_gen)
+            else:
+                 loss_gen = torch.tensor(0.0, device=self.device)
+
             if (self.contrastive_learning or self.contrastive_learning_data_aug) and indices is not None:
                 losses.append(loss_cl_spat)
                 losses.append(loss_cl_spec)
@@ -798,7 +816,8 @@ class SARSSL(nn.Module):
                 # Assuming nmic=2. 
                 x_complex = torch.view_as_complex(x) # [B, nmic, nf, nt]
 
-                feats = at_module.spatial_features_from_stft(x_complex, sample_rate=16000)
+                with torch.no_grad():
+                    feats = at_module.spatial_features_from_stft(x_complex, sample_rate=16000)
                 
                 loss_feat_sim, feat_sim_metrics = self.feature_similarity_loss_hierarchical(embed_spat, feats, return_metrics=gen_metrics) if self.hierarchical else self.feature_similarity_loss(embed_spat, feats, return_metrics=gen_metrics)
                 loss_feat_sim = loss_feat_sim * self.feature_sim_loss_weight
@@ -904,7 +923,10 @@ class SARSSL(nn.Module):
             vec_patch_pred = self.spec_spat_decoder.forward(embed)  # (nbatch, npatch, dpatch*nch)
             vec_patch_pred = vec_patch_pred.reshape(nbatch, npatch, dpatch, 2, nmic)  # (nbatch, npatch, dpatch, 2, nmic)
             pred_patches = torch.sum(vec_patch_pred * (1 - mask_ch_dense_expand), dim=-1)  # (nbatch, npatch, dpatch, 2)
-            loss = self.gen_loss_spec(pred_patches=pred_patches, tar_patches=tar_ch_patches, mask_idx=mask_patch_idx, tar_unmaskch_patches=tar_anotherch_patches, tar_maskch=True)
+            if self.rec_loss:
+                loss = self.gen_loss_spec(pred_patches=pred_patches, tar_patches=tar_ch_patches, mask_idx=mask_patch_idx, tar_unmaskch_patches=tar_anotherch_patches, tar_maskch=True)
+            else:
+                loss = torch.tensor(0.0, device=self.device)
             
             ## Additional visualized data
             mask = mask_dense.clone().detach()
@@ -1177,7 +1199,7 @@ class SARSSL(nn.Module):
 
         return loss, metrics
 
-    def feature_similarity_loss_hierarchical(self, embed_spat, spatial_features, doa_temperature=0.4, room_temperature=0.2, eps=1e-8, return_metrics=False):
+    def feature_similarity_loss_hierarchical(self, embed_spat, spatial_features, doa_temperature=None, room_temperature=None, doa_sigma=None, room_sigma=None, eps=1e-8, return_metrics=False):
         """
         Hierarchical Feature Similarity Loss.
         Splits embedding into DOA and Room halves and calculates separate losses.
@@ -1185,11 +1207,21 @@ class SARSSL(nn.Module):
         DOA features: ['ild_mean', 'coherence_mean', 'tdoa']
         Room features: ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio']
         """
+        if doa_temperature is None:
+            doa_temperature = self.hierarchical_feature_sim_doa_temperature
+        if room_temperature is None:
+            room_temperature = self.hierarchical_feature_sim_room_temperature
+        if doa_sigma is None:
+            doa_sigma = self.hierarchical_feature_sim_doa_sigma
+        if room_sigma is None:
+            room_sigma = self.hierarchical_feature_sim_room_sigma
+
         # doa_features = ['ild_mean', 'coherence_mean', 'tdoa']
         # room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio']
         doa_features = ['tdoa']
         # room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90', 'mod_low_high_ratio', 'early_late_ratio_mean', 'early_late_ratio_median']
-        room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90']
+        # room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90']
+        room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max']
         # 1. Aggregate and split embeddings
         if embed_spat.dim() == 3:
             z = embed_spat.mean(dim=1) # [B, dembed]
@@ -1204,16 +1236,13 @@ class SARSSL(nn.Module):
         z_proj_doa = self.feat_sim_proj_doa(z_doa)   # [B, 128]
         z_proj_room = self.feat_sim_proj_room(z_room) # [B, 128]
 
-        sigma_doa = 0.4
-        sigma_room = 0.5 * np.sqrt(len(room_features))
-        
         # 3. Calculate Loss for DOA
         loss_doa, metrics_doa = self._calc_single_feat_sim_loss(
-            z_proj_doa, spatial_features, doa_features, doa_temperature, sigma_doa, eps, return_metrics)
+            z_proj_doa, spatial_features, doa_features, doa_temperature, doa_sigma, eps, return_metrics)
         
         # 4. Calculate Loss for Room
         loss_room, metrics_room = self._calc_single_feat_sim_loss(
-            z_proj_room, spatial_features, room_features, room_temperature, sigma_room, eps, return_metrics)
+            z_proj_room, spatial_features, room_features, room_temperature, room_sigma, eps, return_metrics)
         
         loss = (loss_doa + loss_room) / 2.0
         

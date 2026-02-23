@@ -74,10 +74,17 @@ class opt_pretrain():
         parser.add_argument('--hierarchical', action='store_true', default=False, help='Enable hierarchical spatial encoder (split embedding) (default: False)')
         parser.add_argument('--feature-sim-sigma', type=float, default=1.0, help='Sigma for Feature Similarity Loss (default: 1.0)')
         parser.add_argument('--feature-sim-temperature', type=float, default=0.3, help='Temperature for Feature Similarity Loss (default: 0.3)')
+        parser.add_argument('--hierarchical-feature-sim-room-temperature', type=float, default=0.2, help='Room Temperature for Hierarchical Feature Similarity Loss (default: 0.2)')
+        parser.add_argument('--hierarchical-feature-sim-room-sigma', type=float, default=1.0, help='Room Sigma for Hierarchical Feature Similarity Loss (default: 1.0)')
+        parser.add_argument('--hierarchical-feature-sim-doa-temperature', type=float, default=0.4, help='DOA Temperature for Hierarchical Feature Similarity Loss (default: 0.4)')
+        parser.add_argument('--hierarchical-feature-sim-doa-sigma', type=float, default=0.5, help='DOA Sigma for Hierarchical Feature Similarity Loss (default: 0.4)')
         parser.add_argument('--exp-dir', type=str, default='exp', help='Experiment directory name (default: exp)')
 
+        parser.add_argument('--no-rec-loss', action='store_true', default=False, help='Disable reconstruction loss (default: False)')
+        
         args = parser.parse_args()
         args.wandb = not args.no_wandb
+        args.rec_loss = not args.no_rec_loss
         assert (args.pretrain + args.pretrain_frozen_encoder + args.test)==1, 'Pretraining stage (pretrain or test) is undefined'
         assert args.test_mode in ['all', 'ins'], 'Test mode is undefined'
         assert args.pretrain_mode in ['masked', 'autoenc'], 'Pretraining mode is undefined'

@@ -968,6 +968,103 @@ def spatial_features_from_stft(
         'early_late_ratio_median': early_late_ratio_median
     }
 
+def spectral_features_from_stft(
+    X: torch.Tensor,
+    sample_rate: float,
+    hop_length: int = 256,
+    n_fft: int = 512,
+) -> dict:
+    """
+    Extracts a frame-wise, robust DSP feature vector for speech from STFT.
+    
+    Args:
+        X (torch.Tensor): Complex STFT tensor of shape (B, F, T) or (B, C, F, T)
+        sample_rate (float): Sample rate
+        hop_length (int): Frame shift (should match the encoder's stride)
+        n_fft (int): Window size for STFT
+        
+    Returns:
+        dict containing:
+            'feature_matrix' (torch.Tensor): Feature matrix of shape (B, 16, T)
+            'voiced_prob' (torch.Tensor): Probability of voicing of shape (B, T)
+    """
+    import librosa
+    
+    device = X.device
+    B = X.shape[0]
+    
+    # 1. Monaural Mixdown: Ensure spatial differences don't contaminate spectral targets
+    if X.ndim == 4 and X.shape[1] > 1:
+        X_mono = X.mean(dim=1)
+    elif X.ndim == 4:
+        X_mono = X.squeeze(1)
+    else:
+        X_mono = X
+        
+    feature_matrices = []
+    voiced_probs = []
+    
+    for b in range(B):
+        # Convert STFT to numpy array
+        S_complex = X_mono[b].detach().cpu().numpy()
+        
+        # 1. Invert STFT to get the time-domain waveform
+        waveform = librosa.istft(S_complex, hop_length=hop_length, n_fft=n_fft)
+        
+        # 2. Pitch / Fundamental Frequency (F0) & Voicing Mask
+        f0, voiced_flag, voiced_prob = librosa.pyin(
+            waveform, 
+            fmin=librosa.note_to_hz('C2'), 
+            fmax=librosa.note_to_hz('C7'),
+            sr=sample_rate, 
+            hop_length=hop_length,
+            fill_na=0.0
+        )
+        
+        T_target = S_complex.shape[1]
+        
+        def pad_or_trunc(arr, target_len):
+            if len(arr) < target_len:
+                return np.pad(arr, (0, target_len - len(arr)))
+            return arr[:target_len]
+            
+        f0 = pad_or_trunc(f0, T_target)
+        voiced_prob = pad_or_trunc(voiced_prob, T_target)
+        
+        # Use magnitude spectrogram for energy and spectral features
+        S_mag = np.abs(S_complex)
+        
+        # 3. RMS Log-Energy
+        rms = librosa.feature.rms(S=S_mag, frame_length=n_fft, hop_length=hop_length)[0]
+        rms = pad_or_trunc(rms, T_target)
+        log_energy = librosa.amplitude_to_db(rms, ref=np.max)
+        
+        # 4. Spectral Centroid
+        centroid = librosa.feature.spectral_centroid(S=S_mag, sr=sample_rate, n_fft=n_fft, hop_length=hop_length)[0]
+        centroid = pad_or_trunc(centroid, T_target)
+        
+        # 5. MFCCs
+        mfccs = librosa.feature.mfcc(S=librosa.amplitude_to_db(S_mag, ref=np.max), sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
+        if mfccs.shape[1] < T_target:
+            mfccs = np.pad(mfccs, ((0, 0), (0, T_target - mfccs.shape[1])))
+        else:
+            mfccs = mfccs[:, :T_target]
+            
+        feature_matrix = np.vstack([
+            f0,                 # Shape: (1, T)
+            log_energy,         # Shape: (1, T)
+            centroid,           # Shape: (1, T)
+            mfccs               # Shape: (13, T)
+        ])
+        
+        feature_matrices.append(feature_matrix)
+        voiced_probs.append(voiced_prob)
+        
+    return {
+        'feature_matrix': torch.tensor(np.array(feature_matrices), device=device, dtype=torch.float32),
+        'voiced_prob': torch.tensor(np.array(voiced_probs), device=device, dtype=torch.float32)
+    }
+
 def compute_spatial_features(
     x: torch.Tensor,
     sample_rate: float,

@@ -16,16 +16,8 @@ def main():
     
     # Predefined names for specific timestamps
     model_name_map = {
-        "12281023": "Original",
-        "12281234": "Original + Feat Sim",
-        "12281809": "Autoenc + Feat Sim",
-        "12291627": "Autoenc + Feat Sim w. New Normalization",
-        "12291841": "Autoenc + Feat Sim w. New Normalization * 4",
-        "01041159": "Autoenc + Feat Sim w. Percentile Normalization",
-        "01041536": "Autoenc + Feat Sim w. Mean+STD+Clip Normalization",
-        "01051314": "Autoenc + Feat Sim w. New Features, temp 0.07",
-        "01051625": "Autoenc + Feat Sim w. New Features, temp 0.1",
-        "01061055": "Autoenc + Feat Sim w. New Features, temp 0.3",
+        "12281023": "CCSR Run 1",
+        "12281234": "CCSR + Feat Sim",
         "01061410": "Autoenc + Pseudo-Hierarchical Feat Sim",
         "01081544": "Autoenc + Feat Sim wo. ILD and HF_LF, temp 0.1",
         "01111059": "Autoenc + Pseudo-Hierarchical Feat Sim wo. ILD and HF_LF, doa_temp 0.3, room_temp 0.07",
@@ -36,23 +28,15 @@ def main():
         "01151136": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.1/0.07",
         "01161203": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
         "01190956": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), OBT, Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
-        "01191734": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), sigma 0.5*sqrt(dim), temp 0.1",
-        "01200950": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.1",
-        "01201345": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), sigma 1, temp 0.5",
-        "01211117": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
-        "01212123": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.3",
-        "01221548": "Autoenc + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, mono spectral, sigma 1, temp 0.5",
         "01231932": "Autoenc ONLY",
         "01261622": "CCSR + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
         "01271707": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.07",
         "01272122": "CCSR + New Version of Feat Sim w. minus sim_max, 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.07",
-        "01301633": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 0.1, temp 0.5",
-        "01311252": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.3",
-        "02010901": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.15",
-        "02011216": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
-        "02021006": "Autoenc + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.15",
-        "02041034": "CCSR",
-        "02041438": "No Pretrain"
+        "02010901": "CCSR + FeatSim",
+        "02021006": "AE + FeatSim",
+        "02041034": "CCSR Run 2",
+        "02041438": "No Pretrain",
+        "02121359": "Only FeatSim"
     }
     
     models = args.m

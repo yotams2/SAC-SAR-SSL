@@ -343,7 +343,7 @@ print(f"T: {T:.3f}, nt: {nt}, nf: {nf}")
 
 # Network
 if args.pretrain | args.test:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, feature_sim_loss_weight=args.feature_sim_loss_weight, feature_sim_sigma=args.feature_sim_sigma, feature_sim_temperature=args.feature_sim_temperature, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug, hierarchical=args.hierarchical)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, feature_sim_loss_weight=args.feature_sim_loss_weight, feature_sim_sigma=args.feature_sim_sigma, feature_sim_temperature=args.feature_sim_temperature, hierarchical_feature_sim_room_temperature=args.hierarchical_feature_sim_room_temperature, hierarchical_feature_sim_room_sigma=args.hierarchical_feature_sim_room_sigma, hierarchical_feature_sim_doa_temperature=args.hierarchical_feature_sim_doa_temperature, hierarchical_feature_sim_doa_sigma=args.hierarchical_feature_sim_doa_sigma, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug, hierarchical=args.hierarchical, rec_loss=args.rec_loss)
 if args.pretrain_frozen_encoder:
 	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input)
 
@@ -650,12 +650,13 @@ if args.pretrain:
 		if args.wandb:
 			log_dict = {
 				'train/loss': loss_train,
-				'train/loss_recon': loss_gen_train, # Reconstruction loss
 				'train/lr': lr,
 				'train/diff': diff_train,
 				'train/loss_cl_spat': loss_cl_spat_train,
 				'train/loss_cl_spec': loss_cl_spec_train,
 			}
+			if args.rec_loss:
+				log_dict['train/loss_recon'] = loss_gen_train
 			if args.obt:
 				log_dict['train/obt'] = obt_train
 			
@@ -665,32 +666,38 @@ if args.pretrain:
 			if args.simu_exp:
 				log_dict.update({
 					'val_sim/loss': loss_val_sim,
-					'val_sim/loss_recon': loss_gen_val_sim,
 					'val_sim/diff': diff_val_sim,
 					'val_sim/loss_cl_spat': loss_cl_spat_val_sim,
 					'val_sim/loss_cl_spec': loss_cl_spec_val_sim,
 				})
+				if args.rec_loss:
+					log_dict['val_sim/loss_recon'] = loss_gen_val_sim
 				if args.obt:
 					log_dict['val_sim/obt'] = obt_val_sim
 			else:
 				log_dict.update({
 					'val_real/loss': loss_val_real,
-					'val_real/loss_recon': loss_gen_val_real,
 					'val_real/diff': diff_val_real,
 					'val_real/loss_cl_spat': loss_cl_spat_val_real,
 					'val_real/loss_cl_spec': loss_cl_spec_val_real,
 				})
+				if args.rec_loss:
+					log_dict['val_real/loss_recon'] = loss_gen_val_real
+
 				if args.obt:
 					log_dict['val_real/obt'] = obt_val_sim
 				
 				log_dict.update({
 					'test_locata/loss': loss_test_locata,
-					'test_locata/loss_recon': loss_gen_test_locata,
 					'test_locata/diff': diff_test_locata,
 					'test_ace/loss': loss_test_ace,
-					'test_ace/loss_recon': loss_gen_test_ace,
 					'test_ace/diff': diff_test_ace
 				})
+				if args.rec_loss:
+					log_dict.update({
+						'test_locata/loss_recon': loss_gen_test_locata,
+						'test_ace/loss_recon': loss_gen_test_ace,
+					})
 			
 			wandb.log(log_dict, step=epoch)
 

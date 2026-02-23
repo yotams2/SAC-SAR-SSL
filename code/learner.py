@@ -133,9 +133,11 @@ class Learner(ABC):
 			
 			# Construct dynamic pbar dict
 			pbar_dict = {'loss': avg_loss / (1 - avg_beta ** (batch_idx + 1))}
-			pbar_dict['loss_gen'] = loss_gen_batch.item()
 			# Unwrap model if wrapped (DataParallel)
 			model_core = getattr(self.model, 'module', self.model)
+			
+			if hasattr(model_core, 'rec_loss') and model_core.rec_loss:
+				pbar_dict['loss_gen'] = loss_gen_batch.item()
 			
 			if hasattr(model_core, 'contrastive_learning') and model_core.contrastive_learning or \
 			   (hasattr(model_core, 'contrastive_learning_data_aug') and model_core.contrastive_learning_data_aug):
