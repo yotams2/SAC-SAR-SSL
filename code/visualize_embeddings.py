@@ -112,7 +112,10 @@ def run_visualization(exp_dir, regressive=False):
                     spat_dembed = args_dict.get('spat_dembed', 256)
                     spectral_enc_input = args_dict.get('spectral_enc_input', 'all')
                     hierarchical = args_dict.get('hierarchical', False)
-                    print(f"Loaded config: spec_dembed={spec_dembed}, spat_dembed={spat_dembed}, spectral_enc_input={spectral_enc_input}, hierarchical={hierarchical}")
+                    split_spatial_encoder = args_dict.get('split_spatial_encoder', False)
+                    diff_feat_selection = args_dict.get('diff_feat_selection', False)
+                    diff_feat_selection_lambda = args_dict.get('diff_feat_selection_lambda', 0.01)
+                    print(f"Loaded config: spec_dembed={spec_dembed}, spat_dembed={spat_dembed}, spectral_enc_input={spectral_enc_input}, hierarchical={hierarchical}, split_spatial_encoder={split_spatial_encoder}, diff_feat={diff_feat_selection}")
                 else:
                     print("Warning: config.json structure unexpected. Using defaults.")
         except Exception as e:
@@ -130,7 +133,10 @@ def run_visualization(exp_dir, regressive=False):
         spec_dembed=spec_dembed,
         spat_dembed=spat_dembed,
         spectral_enc_input=spectral_enc_input,
-        hierarchical=hierarchical
+        hierarchical=hierarchical,
+        split_spatial_encoder=split_spatial_encoder,
+        diff_feat_selection=diff_feat_selection,
+        diff_feat_selection_lambda=diff_feat_selection_lambda
     )
     
     # Load Checkpoint
@@ -206,8 +212,8 @@ def run_visualization(exp_dir, regressive=False):
     rir_indices = []
     utt_indices = []
     
-    # Store regression labels
-    reg_labels = {k: [] for k in ['TDOA', 'T60', 'C50', 'ABS', 'DRR']}
+    # Store regression labels dynamically based on annos
+    reg_labels = {}
 
     
     import common.utils_module as at_module
@@ -250,10 +256,10 @@ def run_visualization(exp_dir, regressive=False):
                  # vec_patch: (nbatch, npatch, dpatch, nreim, nmic)
                  # Take first channel (mic 0)
                  vec_patch_flat_spec = vec_patch[:, :, :, :, 0].reshape(nbatch, npatch, -1)
-                 emb_spec = net.spec_encoder(vec_patch_flat_spec)
+                 emb_spec = net.spec_encoder(vec_patch_flat_spec)[0]
             else:
-                 emb_spec = net.spec_encoder(vec_patch_flat)
-            emb_spat = net.spat_encoder(vec_patch_flat)
+                 emb_spec = net.spec_encoder(vec_patch_flat)[0]
+            emb_spat = net.spat_encoder(vec_patch_flat)[0]
             
             emb_spec_mean = torch.mean(emb_spec, dim=1) 
             emb_spat_mean = torch.mean(emb_spat, dim=1) 
@@ -266,8 +272,10 @@ def run_visualization(exp_dir, regressive=False):
                 rir_indices.extend(indices // samples_per_room)
                 utt_indices.extend(indices % samples_per_room)
             else:
-                for k in reg_labels.keys():
-                    reg_labels[k].extend(annos[k].numpy())
+                for k in annos.keys():
+                    if k not in reg_labels:
+                        reg_labels[k] = []
+                    reg_labels[k].extend(annos[k].numpy() if hasattr(annos[k], 'numpy') else annos[k])
 
             
     embeddings_spec = np.concatenate(embeddings_spec, axis=0)
@@ -286,8 +294,8 @@ def run_visualization(exp_dir, regressive=False):
     
     vis_spec = tsne.fit_transform(embeddings_spec)
     
-    if hierarchical and embeddings_spat.shape[1] == spat_dembed * 2:
-        print("Handling Hierarchical Embeddings...")
+    if (hierarchical or split_spatial_encoder) and embeddings_spat.shape[1] == spat_dembed * 2:
+        print("Handling Hierarchical/Split Embeddings...")
         # Split Spat into DOA and Room
         dim = spat_dembed
         embeddings_doa = embeddings_spat[:, :dim]
@@ -306,17 +314,18 @@ def run_visualization(exp_dir, regressive=False):
     os.makedirs(exp_dir, exist_ok=True)
     if regressive:
         os.makedirs(os.path.join(exp_dir, 'metrics'), exist_ok=True)
+        os.makedirs(os.path.join(exp_dir, 'spectral_metrics'), exist_ok=True)
         save_path = os.path.join(exp_dir, 'metrics', 'embedding_vis.png')
     else:
         save_path = os.path.join(exp_dir, 'embedding_vis.png')
     
-    if hierarchical and vis_doa is not None:
+    if (hierarchical or split_spatial_encoder) and vis_doa is not None:
          # Plot layout for hierarchical: Spec, DOA, Room
          
          if regressive:
              # 2x5 grid. Top row: DOA, Bottom row: Room
              plt.figure(figsize=(25, 10))
-             metrics = ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
+             metrics = [m for m in ['TDOA', 'T60', 'C50', 'ABS', 'DRR'] if m in reg_labels]
              
              for i, metric in enumerate(metrics):
                  vals = np.array(reg_labels[metric])
@@ -369,7 +378,7 @@ def run_visualization(exp_dir, regressive=False):
         if regressive:
             # 5 plots for ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
             # Only spatial embeddings
-            metrics = ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
+            metrics = [m for m in ['TDOA', 'T60', 'C50', 'ABS', 'DRR'] if m in reg_labels]
             for i, metric in enumerate(metrics):
                 plt.subplot(2, 3, i+1)
                 vals = np.array(reg_labels[metric])
@@ -399,115 +408,148 @@ def run_visualization(exp_dir, regressive=False):
     plt.tight_layout()
     plt.savefig(save_path)
     print(f"Saved visualization to {save_path}")
+    plt.close()
+
+    # Generate Spectral Embeddings Plot in Regressive Mode
+    if regressive:
+        spectral_metrics = ['src_idx', 'SNR']
+        valid_spec_metrics = [m for m in spectral_metrics if m in reg_labels]
+        if valid_spec_metrics:
+            plt.figure(figsize=(6 * len(valid_spec_metrics), 5))
+            for i, metric in enumerate(valid_spec_metrics):
+                plt.subplot(1, len(valid_spec_metrics), i+1)
+                vals = np.array(reg_labels[metric])
+                # src_idx is better with discrete colormap, SNR with continuous
+                cmap = 'tab10' if metric == 'src_idx' else 'viridis'
+                scatter = plt.scatter(vis_spec[:, 0], vis_spec[:, 1], alpha=0.8, s=30, c=vals, cmap=cmap)
+                plt.title(f'Spectral Encoder - {metric}')
+                plt.colorbar(scatter, label=metric)
+                plt.grid(True, alpha=0.3)
+            
+            spectral_save_path = os.path.join(exp_dir, 'spectral_metrics', 'spectral_embedding_vis.png')
+            plt.tight_layout()
+            plt.savefig(spectral_save_path)
+            print(f"Saved spectral visualization to {spectral_save_path}")
+            plt.close()
 
     # ---------------------------------------------------------
     # Correlation Analysis (New)
     # ---------------------------------------------------------
     if regressive:
         print("\nRunning Correlation Analysis...")
-        # X: Spatial Embeddings (N, D)
-        X = embeddings_spat
         
-        # Y: Labels (N, 5)
-        # Order: TDOA, T60, C50, ABS, DRR
-        metrics = ['TDOA', 'T60', 'C50', 'ABS', 'DRR']
-        Y = np.stack([np.array(reg_labels[m]) for m in metrics], axis=1)
-        
-        print(f"Data shapes - Embeddings: {X.shape}, Labels: {Y.shape}")
-        
-        n_features = X.shape[1]
-        n_labels = Y.shape[1]
-        
-        # Calculate Pearson Correlation
-        # We want matrix (Features, Labels) - (D, 5)
-        corr_matrix = np.zeros((n_features, n_labels))
-        
-        # Normalize to avoid division by zero issues logic inside loops or efficiently
-        # Center data
-        X_centered = X - X.mean(axis=0)
-        Y_centered = Y - Y.mean(axis=0)
-        
-        # Std dev
-        X_std = X.std(axis=0)
-        Y_std = Y.std(axis=0)
-        
-        # Avoid division by zero
-        X_std[X_std == 0] = 1e-8
-        Y_std[Y_std == 0] = 1e-8
-        
-        # Fast correlation: Covariance / (std_x * std_y)
-        # Cov = (X_c.T @ Y_c) / N
-        N = X.shape[0]
-        cov = (X_centered.T @ Y_centered) / N
-        corr_matrix = cov / (X_std[:, None] @ Y_std[None, :])
-        
-        # Save raw matrix
-        matrix_path = os.path.join(exp_dir, 'metrics', 'correlation_matrix.npy')
-        np.save(matrix_path, corr_matrix)
-        print(f"Saved correlation matrix to {matrix_path}")
-        
-        # 1. Bar Chart: Max Absolute Correlation per Label
-        max_abs_corr = np.max(np.abs(corr_matrix), axis=0) # (5,)
-        
-        plt.figure(figsize=(10, 6))
-        bars = plt.bar(metrics, max_abs_corr, color='skyblue')
-        plt.ylim(0, 1.0)
-        plt.title('Maximum Absolute Correlation with Spatial Features')
-        plt.ylabel('Max |Pearson Correlation|')
-        
-        # Add value labels
-        for bar in bars:
-            height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2., height,
-                     f'{height:.2f}',
-                     ha='center', va='bottom')
+        # Determine representations for Correlation Analysis
+        embeddings_to_analyze = {}
+        if (hierarchical or split_spatial_encoder) and embeddings_spat.shape[1] == spat_dembed * 2:
+            dim = spat_dembed
+            embeddings_to_analyze['DOA'] = embeddings_spat[:, :dim]
+            embeddings_to_analyze['Room'] = embeddings_spat[:, dim:]
+        else:
+            embeddings_to_analyze['Spatial'] = embeddings_spat
             
-        plt.grid(axis='y', alpha=0.3)
-        plt.savefig(os.path.join(exp_dir, 'metrics', 'correlation_max_bar.png'))
-        plt.close()
-        
-        # 2. Heatmap: Top Correlated Dimensions vs Labels
-        # We select top K dimensions for each label, take the union, and plot
-        top_k = 5
-        top_dims = set()
-        for i in range(n_labels):
-            # Sort by abs correlation
-            sorted_indices = np.argsort(np.abs(corr_matrix[:, i]))[::-1]
-            top_dims.update(sorted_indices[:top_k])
+        for enc_name, X in embeddings_to_analyze.items():
+            print(f"Running for Encoder: {enc_name}")
             
-        top_dims = sorted(list(top_dims))
-        print(f"Selected {len(top_dims)} unique dimensions for heatmap (Top-{top_k} per label).")
-        
-        if len(top_dims) > 50:
-            print("Warning: Too many dimensions for clear heatmap, truncating to top 50 by max overall correlation.")
-            # Fallback: sort top_dims by their max correlation across any label
-            top_dims.sort(key=lambda d: np.max(np.abs(corr_matrix[d, :])), reverse=True)
-            top_dims = top_dims[:50]
-            top_dims.sort() # Resort indices for sanity
+            # Y: Labels (N, 5)
+            # Order: TDOA, T60, C50, ABS, DRR
+            metrics = [m for m in ['TDOA', 'T60', 'C50', 'ABS', 'DRR'] if m in reg_labels]
+            Y = np.stack([np.array(reg_labels[m]) for m in metrics], axis=1)
             
-        sub_matrix = corr_matrix[top_dims, :] # (K, 5)
+            print(f"Data shapes - {enc_name} Embeddings: {X.shape}, Labels: {Y.shape}")
+            
+            n_features = X.shape[1]
+            n_labels = Y.shape[1]
+            
+            # Calculate Pearson Correlation
+            # We want matrix (Features, Labels) - (D, 5)
+            corr_matrix = np.zeros((n_features, n_labels))
+            
+            # Normalize to avoid division by zero issues logic inside loops or efficiently
+            # Center data
+            X_centered = X - X.mean(axis=0)
+            Y_centered = Y - Y.mean(axis=0)
+            
+            # Std dev
+            X_std = X.std(axis=0)
+            Y_std = Y.std(axis=0)
+            
+            # Avoid division by zero
+            X_std[X_std == 0] = 1e-8
+            Y_std[Y_std == 0] = 1e-8
+            
+            # Fast correlation: Covariance / (std_x * std_y)
+            # Cov = (X_c.T @ Y_c) / N
+            N = X.shape[0]
+            cov = (X_centered.T @ Y_centered) / N
+            corr_matrix = cov / (X_std[:, None] @ Y_std[None, :])
+            
+            # Save raw matrix
+            matrix_path = os.path.join(exp_dir, 'metrics', f'correlation_matrix_{enc_name}.npy')
+            np.save(matrix_path, corr_matrix)
+            print(f"Saved correlation matrix to {matrix_path}")
+            
+            # 1. Bar Chart: Max Absolute Correlation per Label
+            max_abs_corr = np.max(np.abs(corr_matrix), axis=0) # (5,)
+            
+            plt.figure(figsize=(10, 6))
+            bars = plt.bar(metrics, max_abs_corr, color='skyblue')
+            plt.ylim(0, 1.0)
+            plt.title(f'Maximum Absolute Correlation with {enc_name} Features')
+            plt.ylabel('Max |Pearson Correlation|')
         
-        plt.figure(figsize=(8, max(6, len(top_dims)*0.3)))
-        plt.imshow(sub_matrix, cmap='coolwarm', vmin=-1, vmax=1, aspect='auto')
-        plt.colorbar(label='Pearson Correlation')
-        
-        plt.xticks(range(n_labels), metrics)
-        plt.yticks(range(len(top_dims)), top_dims)
-        plt.ylabel('Embedding Dimension Index')
-        plt.title('Correlation Heatmap (Top Dimensions)')
-        
-        # Annotate if small enough
-        if len(top_dims) < 30:
-            for i in range(len(top_dims)):
-                for j in range(n_labels):
-                    val = sub_matrix[i, j]
-                    color = "white" if abs(val) > 0.5 else "black"
-                    plt.text(j, i, f"{val:.2f}", 
-                             ha="center", va="center", color=color, fontsize=8)
-        
-        plt.tight_layout()
-        plt.savefig(os.path.join(exp_dir, 'metrics', 'correlation_heatmap.png'))
-        plt.close()
+            # Add value labels
+            for bar in bars:
+                height = bar.get_height()
+                plt.text(bar.get_x() + bar.get_width()/2., height,
+                         f'{height:.2f}',
+                         ha='center', va='bottom')
+                
+            plt.grid(axis='y', alpha=0.3)
+            plt.savefig(os.path.join(exp_dir, 'metrics', f'correlation_max_bar_{enc_name}.png'))
+            plt.close()
+            
+            # 2. Heatmap: Top Correlated Dimensions vs Labels
+            # We select top K dimensions for each label, take the union, and plot
+            top_k = 5
+            top_dims = set()
+            for i in range(n_labels):
+                # Sort by abs correlation
+                sorted_indices = np.argsort(np.abs(corr_matrix[:, i]))[::-1]
+                top_dims.update(sorted_indices[:top_k])
+                
+            top_dims = sorted(list(top_dims))
+            print(f"Selected {len(top_dims)} unique dimensions for heatmap (Top-{top_k} per label).")
+            
+            if len(top_dims) > 50:
+                print("Warning: Too many dimensions for clear heatmap, truncating to top 50 by max overall correlation.")
+                # Fallback: sort top_dims by their max correlation across any label
+                top_dims.sort(key=lambda d: np.max(np.abs(corr_matrix[d, :])), reverse=True)
+                top_dims = top_dims[:50]
+                top_dims.sort() # Resort indices for sanity
+                
+            sub_matrix = corr_matrix[top_dims, :] # (K, 5)
+            
+            plt.figure(figsize=(8, max(6, len(top_dims)*0.3)))
+            plt.imshow(sub_matrix, cmap='coolwarm', vmin=-1, vmax=1, aspect='auto')
+            plt.colorbar(label='Pearson Correlation')
+            
+            plt.xticks(range(n_labels), metrics)
+            plt.yticks(range(len(top_dims)), top_dims)
+            plt.ylabel('Embedding Dimension Index')
+            plt.title(f'Correlation Heatmap (Top Dimensions, {enc_name})')
+            
+            # Annotate if small enough
+            if len(top_dims) < 30:
+                for i in range(len(top_dims)):
+                    for j in range(n_labels):
+                        val = sub_matrix[i, j]
+                        color = "white" if abs(val) > 0.5 else "black"
+                        plt.text(j, i, f"{val:.2f}", 
+                                 ha="center", va="center", color=color, fontsize=8)
+            
+            plt.tight_layout()
+            plt.savefig(os.path.join(exp_dir, 'metrics', f'correlation_heatmap_{enc_name}.png'))
+            plt.close()
 
 
 def visualize_embeddings():

@@ -262,7 +262,7 @@ class PatchMask(nn.Module):
         mask_ch_idx = torch.empty((nbatch, 1), device=self.device, requires_grad=False).long() # (nbatch, 1)
         for b_idx in range(nbatch):
             # randomly generate # nmasked_patch mask indexes without duplicate
-            mask_patch_idx[b_idx, :] = self.gen_mask_idx(npatch_shape=self.npatch_shape, nmasked_patch=self.nmasked_patch, patch_mode=self.patch_mode)
+            mask_patch_idx[b_idx, :] = self.gen_mask_idx(npatch_shape=self.npatch_shape, nmasked_patch=self.nmasked_patch, patch_mode=self.patch_mode).to(self.device)
             # mask_ch_idx[b_idx, :] = random.randrange(nmic)
             mask_ch_idx[b_idx, :] = random.randint(0, nmic-1)
             mask_dense[b_idx, mask_patch_idx[b_idx], :, mask_ch_idx[b_idx, :]] = 0
@@ -989,10 +989,11 @@ def spectral_features_from_stft(
             'voiced_prob' (torch.Tensor): Probability of voicing of shape (B, T)
     """
     import librosa
-    
+    import numpy as np
+
     device = X.device
     B = X.shape[0]
-    
+
     # 1. Monaural Mixdown: Ensure spatial differences don't contaminate spectral targets
     if X.ndim == 4 and X.shape[1] > 1:
         X_mono = X.mean(dim=1)
@@ -1000,28 +1001,36 @@ def spectral_features_from_stft(
         X_mono = X.squeeze(1)
     else:
         X_mono = X
-        
+
+    # Restore truncated Nyquist bin if needed (from 256 to 257)
+    if X_mono.shape[1] == n_fft // 2:
+        X_mono = torch.nn.functional.pad(X_mono, (0, 0, 0, 1))
+
+    # Pre-copy STFTs to CPU
+    S_complex_list = [X_mono[b].detach().cpu().numpy() for b in range(B)]
+    T_target = S_complex_list[0].shape[1]
+
     feature_matrices = []
     voiced_probs = []
-    
-    for b in range(B):
-        # Convert STFT to numpy array
-        S_complex = X_mono[b].detach().cpu().numpy()
-        
+
+    for S_complex in S_complex_list:
         # 1. Invert STFT to get the time-domain waveform
         waveform = librosa.istft(S_complex, hop_length=hop_length, n_fft=n_fft)
         
         # 2. Pitch / Fundamental Frequency (F0) & Voicing Mask
-        f0, voiced_flag, voiced_prob = librosa.pyin(
-            waveform, 
-            fmin=librosa.note_to_hz('C2'), 
-            fmax=librosa.note_to_hz('C7'),
-            sr=sample_rate, 
-            hop_length=hop_length,
-            fill_na=0.0
-        )
-        
-        T_target = S_complex.shape[1]
+        rms_time = np.sqrt(np.mean(waveform**2))
+        if rms_time < 1e-6 or not np.isfinite(waveform).all():
+            f0 = np.zeros(T_target)
+            voiced_prob = np.zeros(T_target)
+        else:
+            f0, voiced_flag, voiced_prob = librosa.pyin(
+                waveform, 
+                fmin=librosa.note_to_hz('C2'), 
+                fmax=librosa.note_to_hz('C7'),
+                sr=sample_rate, 
+                hop_length=hop_length,
+                fill_na=0.0
+            )
         
         def pad_or_trunc(arr, target_len):
             if len(arr) < target_len:
@@ -1044,7 +1053,7 @@ def spectral_features_from_stft(
         centroid = pad_or_trunc(centroid, T_target)
         
         # 5. MFCCs
-        mfccs = librosa.feature.mfcc(S=librosa.amplitude_to_db(S_mag, ref=np.max), sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
+        mfccs = librosa.feature.mfcc(y=waveform, sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
         if mfccs.shape[1] < T_target:
             mfccs = np.pad(mfccs, ((0, 0), (0, T_target - mfccs.shape[1])))
         else:
@@ -1059,7 +1068,7 @@ def spectral_features_from_stft(
         
         feature_matrices.append(feature_matrix)
         voiced_probs.append(voiced_prob)
-        
+
     return {
         'feature_matrix': torch.tensor(np.array(feature_matrices), device=device, dtype=torch.float32),
         'voiced_prob': torch.tensor(np.array(voiced_probs), device=device, dtype=torch.float32)

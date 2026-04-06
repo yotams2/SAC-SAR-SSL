@@ -171,7 +171,7 @@ import dataset as at_dataset
 import learner as at_learner
 import model as at_model
 from common.utils import set_seed, set_random_seed, create_learning_rate_schedule, get_nparams, get_FLOPs, save_config_to_file, vis_time_fre_data, plot_learning_curve, vis_TSNE, cross_validation_datadir
-from common.utils_module import spatial_features_from_stft
+from common.utils_module import spatial_features_from_stft, spectral_features_from_stft
 
 def calculate_feature_stats(dataloader, device, learner, fs):
 	print("Calculating global feature statistics...")
@@ -300,6 +300,71 @@ def calculate_feature_stats(dataloader, device, learner, fs):
 		
 	return feature_stats
 
+def calculate_spectral_feature_stats(dataloader, device, learner, fs):
+	from tqdm import tqdm
+	print("Calculating global spectral feature statistics...")
+	feature_matrices = []
+	num_batches_for_std = 50
+	
+	with torch.no_grad():
+		try:
+			total_batches = min(num_batches_for_std, len(dataloader))
+		except TypeError:
+			total_batches = num_batches_for_std
+		
+		for i, data in enumerate(tqdm(dataloader, total=total_batches, desc="Spectral Stats")):
+			if i >= num_batches_for_std:
+				break
+			mic_sig_batch = data[0].to(device)
+			
+			if len(data) > 2 and isinstance(data[-2], dict) and 'feature_matrix' in data[-2]:
+				spec_feats = data[-2]
+				spec_feats = {k: v.to(device) for k,v in spec_feats.items()}
+			else:
+				stft = learner.stft(mic_sig_batch) 
+				stft = stft.permute(0, 3, 1, 2) # [B, C, F, T]
+				spec_feats = spectral_features_from_stft(stft, fs)
+				
+			feature_matrix = spec_feats['feature_matrix'] # [B, 16, T]
+			voiced_prob = spec_feats['voiced_prob'] # [B, T]
+			
+			B, num_features, T = feature_matrix.shape
+			
+			# For F0 (index 0), only keep voiced frames (prob > 0.5)
+			f0_vals = feature_matrix[:, 0, :]
+			voiced_mask = voiced_prob > 0.5
+			if voiced_mask.any():
+				valid_f0 = f0_vals[voiced_mask]
+			else:
+				valid_f0 = torch.zeros(0, device=device)
+				
+			# Extract other features directly flattened
+			other_feats = []
+			for f_idx in range(1, num_features):
+				other_feats.append(feature_matrix[:, f_idx, :].flatten())
+			
+			feature_matrices.append((valid_f0, other_feats))
+
+	feature_stats = {}
+	if len(feature_matrices) > 0:
+		all_f0 = torch.cat([fm[0] for fm in feature_matrices])
+		if all_f0.numel() > 0:
+			feature_stats['mean'] = [torch.mean(all_f0).item()]
+			feature_stats['std'] = [torch.std(all_f0).item()]
+		else:
+			feature_stats['mean'] = [0.0]
+			feature_stats['std'] = [1e-6]
+			
+		for f_idx in range(1, 16):
+			all_f = torch.cat([fm[1][f_idx-1] for fm in feature_matrices])
+			feature_stats['mean'].append(torch.mean(all_f).item())
+			feature_stats['std'].append(torch.std(all_f).item())
+			
+		print("Spectral Feature Stats Calculated")
+	else:
+		print("Warning: Could not calculate spectral feature statistics.")
+	
+	return feature_stats
 
 use_cuda = not args.no_cuda and torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
@@ -310,7 +375,8 @@ set_seed(args.seed)
 if args.pretrain:
 	os.makedirs(dirs['log_pretrain'], exist_ok=True)
 	file_path = os.path.join(dirs['log_pretrain'],"config.json")
-	command = 'python ' + ' '.join(sys.argv)
+	import shlex
+	command = 'python ' + ' '.join(shlex.quote(arg) for arg in sys.argv)
 	save_config_to_file([args.__dict__, dirs, {'command': command}], file_path)
 
 	if args.description is not None:
@@ -343,9 +409,10 @@ print(f"T: {T:.3f}, nt: {nt}, nf: {nf}")
 
 # Network
 if args.pretrain | args.test:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, feature_sim_loss_weight=args.feature_sim_loss_weight, feature_sim_sigma=args.feature_sim_sigma, feature_sim_temperature=args.feature_sim_temperature, hierarchical_feature_sim_room_temperature=args.hierarchical_feature_sim_room_temperature, hierarchical_feature_sim_room_sigma=args.hierarchical_feature_sim_room_sigma, hierarchical_feature_sim_doa_temperature=args.hierarchical_feature_sim_doa_temperature, hierarchical_feature_sim_doa_sigma=args.hierarchical_feature_sim_doa_sigma, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug, hierarchical=args.hierarchical, rec_loss=args.rec_loss)
+	fixed_fw = getattr(args, 'fixed_feature_weights_path', None) is not None
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, diff_feat_selection=args.diff_feat_selection, diff_feat_selection_lambda=args.diff_feat_selection_lambda, feature_sim_loss_weight=args.feature_sim_loss_weight, feature_sim_sigma=args.feature_sim_sigma, feature_sim_temperature=args.feature_sim_temperature, hierarchical_feature_sim_room_temperature=args.hierarchical_feature_sim_room_temperature, hierarchical_feature_sim_room_sigma=args.hierarchical_feature_sim_room_sigma, hierarchical_feature_sim_doa_temperature=args.hierarchical_feature_sim_doa_temperature, hierarchical_feature_sim_doa_sigma=args.hierarchical_feature_sim_doa_sigma, spectral_feature_sim_loss=args.spectral_feature_sim_loss, spectral_feature_sim_weight=args.spectral_feature_sim_weight, spectral_feature_sim_sigma=args.spectral_feature_sim_sigma, spectral_feature_sim_temperature=args.spectral_feature_sim_temperature, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug, hierarchical=args.hierarchical, split_spatial_encoder=args.split_spatial_encoder, hierarchical_adv=args.hierarchical_adv, adv_weight=args.adv_weight, rec_loss=args.rec_loss, fixed_feature_weights=fixed_fw)
 if args.pretrain_frozen_encoder:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, split_spatial_encoder=args.split_spatial_encoder)
 
 layer_keys = ['spec_encoder', 'spat_encoder', 'decoder', 'mlp_head','spec_encoder.patch_embed','spec_encoder.embed','spat_encoder.patch_embed','spat_encoder.embed']
 nparam, nparam_sum = get_nparams(net, param_key_list=layer_keys)
@@ -427,7 +494,8 @@ if args.pretrain:
 			fs = fs,
 			dataset_sz=data_num['train'],
 			transforms = None,
-            sort=args.contrastive_learning or args.contrastive_learning_data_aug
+            sort=args.contrastive_learning or args.contrastive_learning_data_aug,
+            load_spec_feats=args.spectral_feature_sim_loss
 			)
 		dataset_preval = at_dataset.FixMicSigDataset( 
 			data_dir = dirs['micsig_simu_preval'], 
@@ -436,6 +504,7 @@ if args.pretrain:
 			fs = fs,
 			dataset_sz=data_num['val'],
 			transforms = None,
+            load_spec_feats=args.spectral_feature_sim_loss
 			)
 	else:
 		dataset_list_train = ['LOCATA', 'RealMAN', # FIXME 'LOCATA', 'MCWSJ', 'LibriCSS', 'AMI', 'AISHELL4', 'M2MeT', 'RealMAN', # RealSig
@@ -457,7 +526,8 @@ if args.pretrain:
 			remove_spkoverlap = remove_spkoverlap,
 			dataset_list = dataset_list_train,
 			dataset_probs = dataset_probs_train,
-			sound_speed = speed) 
+			sound_speed = speed,
+            load_spec_feats=args.spectral_feature_sim_loss) 
 
 		dataset_list_val = ['RealMAN', # FIXME 'AISHELL4', 'M2MeT',  RealSig
 							'DCASE', 'BUTReverb'] 			# RealRIR
@@ -477,7 +547,8 @@ if args.pretrain:
 			remove_spkoverlap = remove_spkoverlap,
 			dataset_list = dataset_list_val,
 			dataset_probs = dataset_probs_val,
-			sound_speed = speed)
+			sound_speed = speed,
+            load_spec_feats=args.spectral_feature_sim_loss)
 
 		dataset_pretest_locata = at_dataset.RandomRealDataset(
 			data_dirs = dirs['micsig_real_pretest'], 
@@ -493,7 +564,8 @@ if args.pretrain:
 			remove_spkoverlap = remove_spkoverlap,
 			dataset_list = ['LOCATA'],
 			dataset_probs = [1],
-			sound_speed = speed)
+			sound_speed = speed,
+            load_spec_feats=args.spectral_feature_sim_loss)
 		
 		dataset_pretest_ace = at_dataset.RandomRealDataset(
 			data_dirs = dirs['micsig_real_pretest'], 
@@ -509,7 +581,8 @@ if args.pretrain:
 			remove_spkoverlap = remove_spkoverlap,
 			dataset_list = ['ACE'],
 			dataset_probs = [1],
-			sound_speed = speed)
+			sound_speed = speed,
+            load_spec_feats=args.spectral_feature_sim_loss)
 
 	kwargs = {'num_workers': args.workers, 'pin_memory': True}  if use_cuda else {}
 
@@ -582,9 +655,40 @@ if args.pretrain:
 
 	# Calculate global feature statistics
 	feature_stats = calculate_feature_stats(dataloader_pretrain, device, learner, fs)
-	model_core = getattr(learner.model, 'module', learner.model)
+	model_core = learner.model.module if hasattr(learner.model, 'module') else learner.model
 	model_core.feature_stats = feature_stats
+	
+	if args.spectral_feature_sim_loss:
+		spectral_feature_stats = calculate_spectral_feature_stats(dataloader_pretrain, device, learner, fs)
+		model_core.spectral_feature_stats = spectral_feature_stats
+		
 	print("Updated model with feature stats.")
+
+	if getattr(args, 'fixed_feature_weights_path', None):
+		import json
+		print(f"Loading fixed feature weights from {args.fixed_feature_weights_path}")
+		with open(args.fixed_feature_weights_path, 'r') as f:
+			imp_history = json.load(f)
+		
+		# Get the last epoch
+		epochs = sorted([int(k.split('_')[1]) for k in imp_history.keys()])
+		last_epoch_key = f"epoch_{epochs[-1]}"
+		last_epoch_weights = imp_history[last_epoch_key]
+		
+		# Map the weights to the model's spatial_feature_weights
+		# Based on user instruction: take the weights as-is from the json file.
+		if hasattr(model_core, 'spatial_feature_weights') and hasattr(model_core, 'candidate_features'):
+			new_weights = []
+			for feat in model_core.candidate_features:
+				val = last_epoch_weights.get(feat, 0.5)
+				new_weights.append(val)
+				
+			model_core.spatial_feature_weights.data = torch.tensor(new_weights, dtype=torch.float32, device=device)
+			model_core.spatial_feature_weights.requires_grad = False
+			model_core.fixed_feature_weights = True
+			print(f"Fixed feature weights assigned: {last_epoch_weights}")
+		else:
+			print("Warning: Model does not have spatial_feature_weights or candidate_features, skipping fixed weights.")
 
 	# Network training
 	for epoch in range(learner.start_epoch, nepoch+1, 1):
@@ -598,18 +702,18 @@ if args.pretrain:
 			lr = 0.0001
 			
 		set_random_seed(seeds['train']+epoch)
-		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, obt_train, loss_gen_train, loss_feat_sim_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
+		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, obt_train, loss_gen_train, loss_feat_sim_train, loss_spec_feat_sim_train, loss_adv_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		if args.simu_exp:
 			set_random_seed(seeds['val']) # can be fixed when there is one card, where therea are multiple cards, inputs are fix but network are not
-			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, cka_val_sim, obt_val_sim, loss_gen_val_sim, loss_feat_sim_val_sim, _, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+			loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, cka_val_sim, obt_val_sim, loss_gen_val_sim, loss_feat_sim_val_sim, loss_spec_feat_sim_val_sim, loss_adv_val_sim, _, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 			print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 		else:
 			set_random_seed(seeds['val']) 
-			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, cka_val_real, obt_val_real, loss_gen_val_real, loss_feat_sim_val_real, _, _ = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
+			loss_val_real, diff_val_real, data_vis_val_real, loss_cl_spat_val_real, loss_cl_spec_val_real, cka_val_real, obt_val_real, loss_gen_val_real, loss_feat_sim_val_real, loss_spec_feat_sim_val_real, loss_adv_val_real, _, _ = learner.pretest_epoch(dataloader_preval_real, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _, _, loss_gen_test_locata, _, _, _ = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
+			loss_test_locata, diff_test_locata, data_vis_test_locata, _, _, _, _, loss_gen_test_locata, _, _, _, _, _ = learner.pretest_epoch(dataloader_pretest_locata, return_diff=True)
 			set_random_seed(seeds['test'])
-			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _, _, loss_gen_test_ace, _, _, _ = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
+			loss_test_ace, diff_test_ace, data_vis_test_ace, _, _, _, _, loss_gen_test_ace, _, _, _, _, _ = learner.pretest_epoch(dataloader_pretest_ace, return_diff=True)
 
 			print('Val loss real: {:.4f}'.format(loss_val_real) )
 			print('Test loss locata: {:.4f}'.format(loss_test_locata) )
@@ -662,6 +766,10 @@ if args.pretrain:
 			
 			if args.feature_sim_loss:
 				log_dict['train/loss_feat_sim'] = loss_feat_sim_train
+			if args.spectral_feature_sim_loss:
+				log_dict['train/loss_spec_feat_sim'] = loss_spec_feat_sim_train
+			if getattr(args, 'hierarchical_adv', False):
+				log_dict['train/loss_adv'] = loss_adv_train
 			
 			if args.simu_exp:
 				log_dict.update({
@@ -674,6 +782,8 @@ if args.pretrain:
 					log_dict['val_sim/loss_recon'] = loss_gen_val_sim
 				if args.obt:
 					log_dict['val_sim/obt'] = obt_val_sim
+				if getattr(args, 'hierarchical_adv', False):
+					log_dict['val_sim/loss_adv'] = loss_adv_val_sim
 			else:
 				log_dict.update({
 					'val_real/loss': loss_val_real,
@@ -685,7 +795,9 @@ if args.pretrain:
 					log_dict['val_real/loss_recon'] = loss_gen_val_real
 
 				if args.obt:
-					log_dict['val_real/obt'] = obt_val_sim
+					log_dict['val_real/obt'] = obt_val_real
+				if getattr(args, 'hierarchical_adv', False):
+					log_dict['val_real/loss_adv'] = loss_adv_val_real
 				
 				log_dict.update({
 					'test_locata/loss': loss_test_locata,
@@ -742,12 +854,80 @@ if args.pretrain:
 		if args.feature_sim_loss:
 			history['loss_feat_sim_train'].append(loss_feat_sim_train)
 
+		if getattr(args, 'diff_feat_selection', False):
+			import json
+			metrics_dir = os.path.join(dirs['log_pretrain'], 'metrics')
+			os.makedirs(metrics_dir, exist_ok=True)
+			
+			importance_file = os.path.join(metrics_dir, 'features_importance.json')
+			
+			# Read existing
+			if os.path.exists(importance_file):
+				with open(importance_file, 'r') as f:
+					imp_history = json.load(f)
+			else:
+				imp_history = {}
+				
+			# Add current epoch if the model has the weights enabled
+			if hasattr(model_core, 'spatial_feature_weights'):
+				# learned_importance = torch.sigmoid(model_core.spatial_feature_weights).detach().cpu().numpy().tolist()
+				learned_importance = model_core.get_active_spatial_feature_weights().detach().cpu().numpy().tolist()
+				# learned_importance = model_core.spatial_feature_weights.detach().cpu().numpy().tolist()
+				epoch_data = dict(zip(model_core.candidate_features, learned_importance))
+				imp_history[f"epoch_{epoch}"] = epoch_data
+				
+				with open(importance_file, 'w') as f:
+					json.dump(imp_history, f, indent=4)
+
 		plot_learning_curve(history, dirs['log_pretrain'] + '/learning_curve.png')
 
 		if stop_flag:
 			break
 
 	print('\nPre-Training finished\n')
+
+	if getattr(args, 'diff_feat_selection', False):
+		import json
+		import matplotlib.pyplot as plt
+		metrics_dir = os.path.join(dirs['log_pretrain'], 'metrics')
+		importance_file = os.path.join(metrics_dir, 'features_importance.json')
+		
+		if os.path.exists(importance_file):
+			with open(importance_file, 'r') as f:
+				imp_history = json.load(f)
+			
+			epochs = sorted([int(k.split('_')[1]) for k in imp_history.keys()])
+			if len(epochs) > 0:
+				features = list(imp_history[f"epoch_{epochs[0]}"].keys())
+				
+				plt.figure(figsize=(12, 8))
+				cmap = plt.get_cmap('tab20')
+				
+				for i, feature in enumerate(features):
+					values = [imp_history[f"epoch_{e}"].get(feature, 0) for e in epochs]
+					final_val = values[-1]
+					
+					# Highlight features that are actually being used, fade out noise
+					alpha = 1.0 if final_val > 0.1 else 0.3
+					linewidth = 2.5 if final_val > 0.1 else 1.0
+					
+					plt.plot(epochs, values, label=f"{feature} (Final: {final_val:.2f})", 
+							 color=cmap(i % 20), alpha=alpha, linewidth=linewidth)
+				
+				plt.title('Differentiable Feature Selection: Importance over Epochs')
+				plt.xlabel('Epoch')
+				plt.ylabel('Learned Importance')
+				# plt.ylim(0, 1.05)
+				plt.grid(True, linestyle='--', alpha=0.7)
+				
+				# Place legend completely outside the plot to avoid overlapping lines
+				plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize='small')
+				plt.tight_layout()
+				
+				plot_file = os.path.join(metrics_dir, 'features_importance_curve.png')
+				plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+				plt.close()
+				print(f"Saved feature importance plot to {plot_file}")
 
 
 if (args.pretrain_frozen_encoder):
@@ -788,6 +968,7 @@ if (args.pretrain_frozen_encoder):
 		fs = fs,
 		dataset_sz=data_num['train'],
 		transforms = None,
+        load_spec_feats=args.spectral_feature_sim_loss
 		)
 	dataset_preval = at_dataset.FixMicSigDataset( 
 		data_dir = dirs['micsig_simu_preval'], 
@@ -796,6 +977,7 @@ if (args.pretrain_frozen_encoder):
 		fs = fs,
 		dataset_sz=data_num['val'],
 		transforms = None,
+        load_spec_feats=args.spectral_feature_sim_loss
 		)
 
 	kwargs = {'num_workers': args.workers, 'pin_memory': True}  if use_cuda else {}
@@ -840,9 +1022,9 @@ if (args.pretrain_frozen_encoder):
 		
 		lr = lr_schedule(epoch)
 		set_random_seed(epoch)
-		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, _, loss_gen_train, _ = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
+		loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, _, loss_gen_train, _, _, _ = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
 		set_random_seed(args.seed+10001)
-		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, cka_val_sim, _, loss_gen_val_sim, _, _, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
+		loss_val_sim, diff_val_sim, data_vis_val_sim, loss_cl_spat_val_sim, loss_cl_spec_val_sim, cka_val_sim, _, loss_gen_val_sim, _, _, _, _, _ = learner.pretest_epoch(dataloader_preval_sim, return_diff=True)
 		print('Val loss sim: {:.4f}'.format(loss_val_sim) )
 
 		# Update history and plot learning curve
@@ -919,6 +1101,7 @@ if (args.test):
 			fs=fs,
 			dataset_sz=4000,
 			transforms = None,
+			load_spec_feats=args.spectral_feature_sim_loss
 			)
 		dataloader_pretest = torch.utils.data.DataLoader(dataset=dataset_pretest, batch_size=args.bs[2], shuffle=False, **kwargs)
 
@@ -926,46 +1109,63 @@ if (args.test):
 		feature_stats = calculate_feature_stats(dataloader_pretest, device, learner, fs)
 		model_core = getattr(learner.model, 'module', learner.model)
 		model_core.feature_stats = feature_stats
+		if args.spectral_feature_sim_loss:
+			spectral_feature_stats = calculate_spectral_feature_stats(dataloader_pretest, device, learner, fs)
+			model_core.spectral_feature_stats = spectral_feature_stats
+
 		print("Updated model with feature stats from Test Data.")
 
 		# Test
-		loss_test, diff_test, data_vis_test, _, _, cka_test, _, loss_gen_test, _, rank_analysis, metrics_data = learner.pretest_epoch(dataloader_pretest, return_diff=True, analyze_rank=True, gen_metrics=args.gen_metrics)
+		loss_test, diff_test, data_vis_test, _, _, cka_test, _, loss_gen_test, _, _, _, rank_analysis, metrics_data = learner.pretest_epoch(dataloader_pretest, return_diff=True, analyze_rank=True, gen_metrics=args.gen_metrics)
 
 		# Gen Metrics Histograms
 		if args.gen_metrics and metrics_data:
-			metrics_dir = os.path.join(dirs['log_pretrain'], 'metrics')
-			os.makedirs(metrics_dir, exist_ok=True)
+			spatial_metrics_dir = os.path.join(dirs['log_pretrain'], 'metrics')
+			spectral_metrics_dir = os.path.join(dirs['log_pretrain'], 'spectral_metrics')
+			os.makedirs(spatial_metrics_dir, exist_ok=True)
+			os.makedirs(spectral_metrics_dir, exist_ok=True)
 			
-			def plot_metrics(m_data, prefix=''):
+			def _flatten_list(nl):
+				fl = []
+				for el in nl:
+					if isinstance(el, list):
+						fl.extend(_flatten_list(el))
+					else:
+						fl.append(el)
+				return fl
+
+			def plot_metrics(m_data, out_dir, prefix=''):
 				# Helper to plot raw, norm, sim_weights, cue_dist
 				# 1. Raw features
 				if 'raw' in m_data:
 					for k, v_list in m_data['raw'].items():
-						data_cat = torch.cat(v_list).numpy()
+						flat_v = _flatten_list(v_list)
+						data_cat = torch.cat(flat_v).numpy()
 						plt.figure()
 						plt.hist(data_cat, bins=50)
 						plt.title(f'{prefix}Raw {k}')
-						plt.savefig(os.path.join(metrics_dir, f'{prefix}raw_{k}.png'))
+						plt.savefig(os.path.join(out_dir, f'{prefix}raw_{k}.png'))
 						plt.close()
 					
 				# 2. Normalized features
 				if 'norm' in m_data:
 					for k, v_list in m_data['norm'].items():
-						data_cat = torch.cat(v_list).numpy()
+						flat_v = _flatten_list(v_list)
+						data_cat = torch.cat(flat_v).numpy()
 						plt.figure()
 						plt.hist(data_cat, bins=50)
 						plt.title(f'{prefix}Normalized {k}')
-						plt.savefig(os.path.join(metrics_dir, f'{prefix}norm_{k}.png'))
+						plt.savefig(os.path.join(out_dir, f'{prefix}norm_{k}.png'))
 						plt.close()
 
 				# 3. Similarity Weights
 				if 'sim_weights' in m_data:
-					w_list = m_data['sim_weights']
+					w_list = _flatten_list(m_data['sim_weights'])
 					w_all = torch.cat([x.flatten() for x in w_list]).numpy()
 					plt.figure()
 					plt.hist(w_all, bins=50)
 					plt.title(f'{prefix}Similarity Weights (w) - Global')
-					plt.savefig(os.path.join(metrics_dir, f'{prefix}sim_weights_global.png'))
+					plt.savefig(os.path.join(out_dir, f'{prefix}sim_weights_global.png'))
 					plt.close()
 					
 					# Anchor Sim Weights
@@ -974,17 +1174,17 @@ if (args.test):
 						plt.figure()
 						plt.hist(w_anchor, bins=50)
 						plt.title(f'{prefix}Similarity Weights (w) - Anchor')
-						plt.savefig(os.path.join(metrics_dir, f'{prefix}sim_weights_anchor.png'))
+						plt.savefig(os.path.join(out_dir, f'{prefix}sim_weights_anchor.png'))
 						plt.close()
 
 				# 4. Cue Dist
 				if 'cue_dist' in m_data:
-					cd_list = m_data['cue_dist']
+					cd_list = _flatten_list(m_data['cue_dist'])
 					cd_all = torch.cat([x.flatten() for x in cd_list]).numpy()
 					plt.figure()
 					plt.hist(cd_all, bins=50)
 					plt.title(f'{prefix}Cue Distance - Global')
-					plt.savefig(os.path.join(metrics_dir, f'{prefix}cue_dist_global.png'))
+					plt.savefig(os.path.join(out_dir, f'{prefix}cue_dist_global.png'))
 					plt.close()
 					
 					# Anchor Cue Dist
@@ -993,17 +1193,17 @@ if (args.test):
 						plt.figure()
 						plt.hist(cd_anchor, bins=50)
 						plt.title(f'{prefix}Cue Distance - Anchor')
-						plt.savefig(os.path.join(metrics_dir, f'{prefix}cue_dist_anchor.png'))
+						plt.savefig(os.path.join(out_dir, f'{prefix}cue_dist_anchor.png'))
 						plt.close()
 
 				# 5. Sim
 				if 'sim' in m_data:
-					sim_list = m_data['sim']
+					sim_list = _flatten_list(m_data['sim'])
 					sim_all = torch.cat([x.flatten() for x in sim_list]).numpy()
 					plt.figure()
 					plt.hist(sim_all, bins=50)
 					plt.title(f'{prefix}Similarity (sim) - Global')
-					plt.savefig(os.path.join(metrics_dir, f'{prefix}sim_global.png'))
+					plt.savefig(os.path.join(out_dir, f'{prefix}sim_global.png'))
 					plt.close()
 					
 					# Anchor Sim
@@ -1012,24 +1212,27 @@ if (args.test):
 						plt.figure()
 						plt.hist(sim_anchor, bins=50)
 						plt.title(f'{prefix}Similarity (sim) - Anchor')
-						plt.savefig(os.path.join(metrics_dir, f'{prefix}sim_anchor.png'))
+						plt.savefig(os.path.join(out_dir, f'{prefix}sim_anchor.png'))
 						plt.close()
 
 			# Check if hierarchical (keys like 'doa', 'room') or flat
 			# We assume if 'raw' is not in top level, it might be nested
 			# Generic hierarchical handling
-			def handle_metrics_recursive(data, prefix=''):
+			def handle_metrics_recursive(data, out_dir, prefix=''):
 				if 'raw' in data:
-					plot_metrics(data, prefix)
+					plot_metrics(data, out_dir, prefix)
 				else:
 					# This is a branch
 					for sub_key, sub_data in data.items():
 						if isinstance(sub_data, dict):
-							handle_metrics_recursive(sub_data, prefix=f"{prefix}{sub_key}_")
+							handle_metrics_recursive(sub_data, out_dir, prefix=f"{prefix}{sub_key}_")
 			
-			handle_metrics_recursive(metrics_data)
+			if metrics_data.get('spatial'):
+				handle_metrics_recursive(metrics_data['spatial'], spatial_metrics_dir)
+			if metrics_data.get('spectral'):
+				handle_metrics_recursive(metrics_data['spectral'], spectral_metrics_dir)
 			
-			print(f"Saved metric histograms to {metrics_dir}")
+			print(f"Saved spatial metric histograms to {spatial_metrics_dir} and spectral metric histograms to {spectral_metrics_dir}")
 
         # Plot Effective Rank Analysis
 		if rank_analysis:
@@ -1102,7 +1305,9 @@ if (args.test):
 				load_dp=True,
 				dataset_sz=None,
 				fs=fs,
-				transforms=None)
+				transforms=None,
+				load_spec_feats=args.spectral_feature_sim_loss
+			)
 			dataloader_pretest = torch.utils.data.DataLoader(dataset=dataset_pretest, batch_size=len(dataset_pretest), shuffle=False, **kwargs)
 
 			# Test

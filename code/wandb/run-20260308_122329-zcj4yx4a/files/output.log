@@ -1,0 +1,166 @@
+T: 4.112, nt: 256, nf: 256
+# Parameters (M): 12.61 ['spec_encoder: 6.92', 'spat_encoder: 0.55', 'decoder: 5.12', 'mlp_head: 0', 'spec_encoder.patch_embed: 0.6', 'spec_encoder.embed: 6.32', 'spat_encoder.patch_embed: 0.14', 'spat_encoder.embed: 0.41']
+/storage/yotam/SAR-SSL/SAR-SSL/code/common/utils.py:100: UserWarning: mods argument is not needed anymore, you can stop passing it
+  with FlopCounterMode(model, display=False) as fcm:
+FLOPs_forward: 6.35G/s
+Pre-Training stage!
+Using provided num_train_samples: 50000
+Dynamic Data Counts - Train: 50000, Val: 4000, Test: 4000
+Calculating global feature statistics...
+ILD Mean: 0.0095, STD: 0.6286
+TDOA Mean: 0.000017, STD: 0.000211
+Coherence Mean: 0.4256, STD: 0.0769
+Coherence Low (<500Hz) Mean: 0.8177, STD: 0.0675
+Coherence Mid (500-2500Hz) Mean: 0.5164, STD: 0.1353
+Coherence High (>2500Hz) Mean: 0.3563, STD: 0.0724
+GCC-PHAT Max Mean: 0.1557, STD: 0.0631
+HF/LF Ratio (log10) Mean: -0.8344, STD: 0.4439
+IACC Max Mean: 0.0026, STD: 0.0006
+Decay Slope Median Mean: -1.0730, STD: 0.0178
+Decay Slope P10 Mean: -2.9066, STD: 0.0308
+Decay Slope P90 Mean: -0.1960, STD: 0.0051
+Modulation Ratio Mean: 5.2034, STD: 4.4542
+ELR Mean Mean: 0.2653, STD: 0.1779
+ELR Median Mean: 0.2194, STD: 0.1492
+Updated model with feature stats.
+
+Epoch 1/30:
+Epoch 1:   0%|                                                                                 | 0/391 [00:12<?, ?it/s]/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py:114: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_amp):
+/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py:249: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_amp):
+Val loss sim: 4.7132
+	 Saving 1 epoch model checkpoint...
+	 Found a max score in the 1 epoch, saving...
+
+Epoch 2/30:
+                                                                                                                                                          
+Val loss sim: 4.6821
+	 Saving 2 epoch model checkpoint...
+	 Found a max score in the 2 epoch, saving...
+
+Epoch 3/30:
+Val loss sim: 4.6757
+	 Saving 3 epoch model checkpoint...
+	 Found a max score in the 3 epoch, saving...
+
+Epoch 4/30:
+Val loss sim: 4.7564
+	 Saving 4 epoch model checkpoint...
+
+Epoch 5/30:
+Val loss sim: 4.7058
+	 Saving 5 epoch model checkpoint...
+
+Epoch 6/30:
+Val loss sim: 4.6922
+	 Saving 6 epoch model checkpoint...
+
+Epoch 7/30:
+Val loss sim: 4.6673
+	 Saving 7 epoch model checkpoint...
+	 Found a max score in the 7 epoch, saving...
+
+Epoch 8/30:
+Val loss sim: 4.6440
+	 Saving 8 epoch model checkpoint...
+	 Found a max score in the 8 epoch, saving...
+
+Epoch 9/30:
+Val loss sim: 4.6777
+	 Saving 9 epoch model checkpoint...
+
+Epoch 10/30:
+Val loss sim: 4.6603
+	 Saving 10 epoch model checkpoint...
+
+Epoch 11/30:
+Val loss sim: 4.6412
+	 Saving 11 epoch model checkpoint...
+	 Found a max score in the 11 epoch, saving...
+
+Epoch 12/30:
+Val loss sim: 4.6399
+	 Saving 12 epoch model checkpoint...
+	 Found a max score in the 12 epoch, saving...
+
+Epoch 13/30:
+Val loss sim: 4.6376
+	 Saving 13 epoch model checkpoint...
+	 Found a max score in the 13 epoch, saving...
+
+Epoch 14/30:
+Val loss sim: 4.6407
+	 Saving 14 epoch model checkpoint...
+
+Epoch 15/30:
+Val loss sim: 4.6401
+	 Saving 15 epoch model checkpoint...
+
+Epoch 16/30:
+Val loss sim: 4.6379
+	 Saving 16 epoch model checkpoint...
+
+Epoch 17/30:
+Val loss sim: 4.6342
+	 Saving 17 epoch model checkpoint...
+	 Found a max score in the 17 epoch, saving...
+
+Epoch 18/30:
+Val loss sim: 4.6318
+	 Saving 18 epoch model checkpoint...
+	 Found a max score in the 18 epoch, saving...
+
+Epoch 19/30:
+Val loss sim: 4.6403
+	 Saving 19 epoch model checkpoint...
+
+Epoch 20/30:
+Val loss sim: 4.6306
+	 Saving 20 epoch model checkpoint...
+	 Found a max score in the 20 epoch, saving...
+
+Epoch 21/30:
+Val loss sim: 4.6308
+	 Saving 21 epoch model checkpoint...
+
+Epoch 22/30:
+Val loss sim: 4.6289
+	 Saving 22 epoch model checkpoint...
+	 Found a max score in the 22 epoch, saving...
+
+Epoch 23/30:
+Val loss sim: 4.6290
+	 Saving 23 epoch model checkpoint...
+
+Epoch 24/30:
+Val loss sim: 4.6309
+	 Saving 24 epoch model checkpoint...
+
+Epoch 25/30:
+Val loss sim: 4.6292
+	 Saving 25 epoch model checkpoint...
+
+Epoch 26/30:
+Val loss sim: 4.6284
+	 Saving 26 epoch model checkpoint...
+	 Found a max score in the 26 epoch, saving...
+
+Epoch 27/30:
+Val loss sim: 4.6277
+	 Saving 27 epoch model checkpoint...
+	 Found a max score in the 27 epoch, saving...
+
+Epoch 28/30:
+Val loss sim: 4.6277
+	 Saving 28 epoch model checkpoint...
+
+Epoch 29/30:
+Val loss sim: 4.6279
+	 Saving 29 epoch model checkpoint...
+
+Epoch 30/30:
+Val loss sim: 4.6277
+	 Saving 30 epoch model checkpoint...
+
+Pre-Training finished

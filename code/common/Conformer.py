@@ -142,9 +142,11 @@ class ConformerEncoder(nn.Module):
         # )
         
         if self.hierarchical:
-            num_shared_layers = num_layers - 1
+            num_shared_layers = 0 
+            num_separate_layers = num_layers - num_shared_layers
         else:
             num_shared_layers = num_layers
+            num_separate_layers = 0
 
         self.layers = nn.ModuleList([
             ConformerBlock(
@@ -161,7 +163,8 @@ class ConformerEncoder(nn.Module):
         ])
 
         if self.hierarchical:
-            self.last_layer_doa = ConformerBlock(
+            self.doa_layers = nn.ModuleList([
+                ConformerBlock(
                     encoder_dim=encoder_dim,
                     num_attention_heads=num_attention_heads,
                     feed_forward_expansion_factor=feed_forward_expansion_factor,
@@ -171,19 +174,22 @@ class ConformerEncoder(nn.Module):
                     conv_dropout_p=conv_dropout_p,
                     conv_kernel_size=conv_kernel_size,
                     half_step_residual=half_step_residual,
-                )
+                ) for _ in range(num_separate_layers)
+            ])
 
-            self.last_layer_room = ConformerBlock(
-                encoder_dim=encoder_dim,
-                num_attention_heads=num_attention_heads,
-                feed_forward_expansion_factor=feed_forward_expansion_factor,
-                conv_expansion_factor=conv_expansion_factor,
-                feed_forward_dropout_p=feed_forward_dropout_p,
-                attention_dropout_p=attention_dropout_p,
-                conv_dropout_p=conv_dropout_p,
-                conv_kernel_size=conv_kernel_size,
-                half_step_residual=half_step_residual,
-            )  
+            self.room_layers = nn.ModuleList([
+                ConformerBlock(
+                    encoder_dim=encoder_dim,
+                    num_attention_heads=num_attention_heads,
+                    feed_forward_expansion_factor=feed_forward_expansion_factor,
+                    conv_expansion_factor=conv_expansion_factor,
+                    feed_forward_dropout_p=feed_forward_dropout_p,
+                    attention_dropout_p=attention_dropout_p,
+                    conv_dropout_p=conv_dropout_p,
+                    conv_kernel_size=conv_kernel_size,
+                    half_step_residual=half_step_residual,
+                ) for _ in range(num_separate_layers)
+            ])
  
     def count_parameters(self) -> int:
         """ Count parameters of encoder """
@@ -215,6 +221,8 @@ class ConformerEncoder(nn.Module):
         # outputs = self.input_projection(outputs)
         outputs = inputs + 0.0
 
+        hidden_states = [outputs] # Stash input layer
+
         for layer in self.layers:
             # outputs = layer(inputs)
             outputs = layer(outputs)
@@ -224,21 +232,28 @@ class ConformerEncoder(nn.Module):
                 outputs_one = torch.mean(outputs, dim=1)
                 outputs_one = outputs_one[:, np.newaxis, :].expand(outputs.shape[0], outputs.shape[1], outputs.shape[-1])
                 outputs = outputs + outputs_one
+            hidden_states.append(outputs)
 
         if self.hierarchical:
-            outputs_doa = self.last_layer_doa(outputs)
-            outputs_room = self.last_layer_room(outputs)
-            if add_same_one:
-                outputs_one = torch.mean(outputs_doa, dim=1)
-                outputs_one = outputs_one[:, np.newaxis, :].expand(outputs_doa.shape[0], outputs_doa.shape[1], outputs_doa.shape[-1])
-                outputs_doa = outputs_doa + outputs_one
+            outputs_doa = outputs
+            for layer in self.doa_layers:
+                outputs_doa = layer(outputs_doa)
+                if add_same_one:
+                    outputs_one = torch.mean(outputs_doa, dim=1)
+                    outputs_one = outputs_one[:, np.newaxis, :].expand(outputs_doa.shape[0], outputs_doa.shape[1], outputs_doa.shape[-1])
+                    outputs_doa = outputs_doa + outputs_one
 
-                outputs_one = torch.mean(outputs_room, dim=1)
-                outputs_one = outputs_one[:, np.newaxis, :].expand(outputs_room.shape[0], outputs_room.shape[1], outputs_room.shape[-1])
-                outputs_room = outputs_room + outputs_one
-            return outputs_doa, outputs_room
+            outputs_room = outputs
+            for layer in self.room_layers:
+                outputs_room = layer(outputs_room)
+                if add_same_one:
+                    outputs_one = torch.mean(outputs_room, dim=1)
+                    outputs_one = outputs_one[:, np.newaxis, :].expand(outputs_room.shape[0], outputs_room.shape[1], outputs_room.shape[-1])
+                    outputs_room = outputs_room + outputs_one
+                    
+            return outputs_doa, outputs_room, hidden_states
         else:
-            return outputs
+            return outputs, hidden_states
 
 
 # class Conformer(nn.Module):

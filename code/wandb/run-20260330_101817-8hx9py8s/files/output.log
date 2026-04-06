@@ -1,0 +1,87 @@
+T: 4.112, nt: 256, nf: 256
+# Parameters (M): 23.32 ['spec_encoder: 6.92', 'spat_encoder: 9.87', 'decoder: 6.3', 'mlp_head: 0', 'spec_encoder.patch_embed: 0.6', 'spec_encoder.embed: 6.32', 'spat_encoder.patch_embed: 0.34', 'spat_encoder.embed: 9.53']
+/storage/yotam/SAR-SSL/SAR-SSL/code/common/utils.py:100: UserWarning: mods argument is not needed anymore, you can stop passing it
+  with FlopCounterMode(model, display=False) as fcm:
+FLOPs_forward: 7.78G/s
+Pre-Training stage!
+Using provided num_train_samples: 50000
+Dynamic Data Counts - Train: 50000, Val: 4000, Test: 4000
+Calculating global feature statistics...
+ILD Mean: -0.0082, STD: 0.6238
+TDOA Mean: 0.000023, STD: 0.000213
+Coherence Mean: 0.4238, STD: 0.0771
+Coherence Low (<500Hz) Mean: 0.8172, STD: 0.0675
+Coherence Mid (500-2500Hz) Mean: 0.5142, STD: 0.1360
+Coherence High (>2500Hz) Mean: 0.3547, STD: 0.0723
+GCC-PHAT Max Mean: 0.1543, STD: 0.0633
+HF/LF Ratio (log10) Mean: -0.8374, STD: 0.4404
+IACC Max Mean: 0.0026, STD: 0.0006
+Decay Slope Median Mean: -1.0730, STD: 0.0176
+Decay Slope P10 Mean: -2.9066, STD: 0.0310
+Decay Slope P90 Mean: -0.1960, STD: 0.0051
+Modulation Ratio Mean: 5.1619, STD: 4.4457
+ELR Mean Mean: 0.2650, STD: 0.1803
+ELR Median Mean: 0.2191, STD: 0.1557
+Updated model with feature stats.
+
+Epoch 1/30:
+Epoch 1:   0%|                                                                                 | 0/391 [00:04<?, ?it/s]/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py:115: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_amp):
+/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py:256: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_amp):
+Val loss sim: 2.3527
+	 Saving 1 epoch model checkpoint...
+	 Found a max score in the 1 epoch, saving...
+
+Epoch 2/30:
+Traceback (most recent call last):                                                                                     
+Val loss sim: 2.3549
+	 Saving 2 epoch model checkpoint...
+
+Epoch 3/30:
+Val loss sim: 2.3407
+	 Saving 3 epoch model checkpoint...
+	 Found a max score in the 3 epoch, saving...
+
+Epoch 4/30:
+Val loss sim: 2.3349
+	 Saving 4 epoch model checkpoint...
+	 Found a max score in the 4 epoch, saving...
+
+Epoch 5/30:
+Val loss sim: 2.3437
+	 Saving 5 epoch model checkpoint...
+
+Epoch 6/30:
+Val loss sim: 2.3369
+	 Saving 6 epoch model checkpoint...
+
+Epoch 7/30:
+Val loss sim: 2.3429
+	 Saving 7 epoch model checkpoint...
+
+Epoch 8/30:
+Val loss sim: 2.3294
+	 Saving 8 epoch model checkpoint...
+	 Found a max score in the 8 epoch, saving...
+
+Epoch 9/30:
+  File "run_pretrain.py", line 705, in <module>
+    loss_train, diff_train, data_vis_train, loss_cl_spat_train, loss_cl_spec_train, obt_train, loss_gen_train, loss_feat_sim_train, loss_spec_feat_sim_train, loss_adv_train = learner.pretrain_epoch(dataloader_pretrain, lr=lr, epoch=epoch, return_diff=True)
+  File "/storage/yotam/SAR-SSL/SAR-SSL/code/learner.py", line 117, in pretrain_epoch
+    loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch, loss_spec_feat_sim_batch, loss_adv_batch = self.model(in_batch, indices=indices, epoch=epoch, precalc_spec_feats=spec_feats_batch) # Unpack loss_feat_sim_batch
+  File "/storage/yotam/venvs/sar_ssl_venv/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/storage/yotam/venvs/sar_ssl_venv/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/storage/yotam/venvs/sar_ssl_venv/lib/python3.8/site-packages/torch/nn/parallel/data_parallel.py", line 184, in forward
+    return self.module(*inputs[0], **module_kwargs[0])
+  File "/storage/yotam/venvs/sar_ssl_venv/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/storage/yotam/venvs/sar_ssl_venv/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/storage/yotam/SAR-SSL/SAR-SSL/code/model.py", line 867, in forward
+    feats = at_module.spatial_features_from_stft(x_complex, sample_rate=16000)
+  File "/storage/yotam/SAR-SSL/SAR-SSL/code/common/utils_module.py", line 869, in spatial_features_from_stft
+    decay_slope_median[b] = torch.quantile(neg_slopes, 0.5)
+KeyboardInterrupt

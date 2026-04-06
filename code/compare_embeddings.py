@@ -131,6 +131,8 @@ def load_and_extract(exp_dir, device, tasks):
                     spat_dembed = args_dict.get('spat_dembed', 256)
                     spectral_enc_input = args_dict.get('spectral_enc_input', 'all')
                     hierarchical = args_dict.get('hierarchical', False)
+                    diff_feat_selection = args_dict.get('diff_feat_selection', False)
+                    diff_feat_selection_lambda = args_dict.get('diff_feat_selection_lambda', 0.01)
         except Exception as e:
             print(f"Warning: Failed to load config.json: {e}")
 
@@ -143,7 +145,9 @@ def load_and_extract(exp_dir, device, tasks):
         spec_dembed=spec_dembed,
         spat_dembed=spat_dembed,
         spectral_enc_input=spectral_enc_input,
-        hierarchical=hierarchical
+        hierarchical=hierarchical,
+        diff_feat_selection=diff_feat_selection,
+        diff_feat_selection_lambda=diff_feat_selection_lambda
     )
     
     # Load Checkpoint

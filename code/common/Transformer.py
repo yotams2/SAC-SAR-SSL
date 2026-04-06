@@ -155,6 +155,9 @@ class TransformerEncoder(nn.Module):
 
     def forward(self, x, add_same_one, mask=None):
         x = self.pos_embedding(x)
+        
+        hidden_states = [x] # Stash input layer
+        
         for i in range(self.N):
             x = self.encoder_layers[i](x, mask)
 
@@ -162,8 +165,10 @@ class TransformerEncoder(nn.Module):
                 x_one = torch.mean(x, dim=1)
                 x_one = x_one[:, np.newaxis, :].expand(x.shape[0], x.shape[1], x.shape[-1])
                 x = x + x_one
+            
+            hidden_states.append(x)
 
-        return self.norm(x)
+        return self.norm(x), hidden_states
 
 
 # # build a decoder layer with two multi-head attention layers and one feed-forward layer

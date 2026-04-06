@@ -93,6 +93,8 @@ class Learner(ABC):
 			obt_loss_avg = 0
 			loss_gen_avg = 0
 			loss_feat_sim_avg = 0 # Initialize loss_feat_sim_avg
+			loss_spec_feat_sim_avg = 0
+			loss_adv_avg = 0
 
 		optimizer.zero_grad()
 		pbar = tqdm(enumerate(dataset), total=len(dataset), leave=False) 
@@ -104,13 +106,17 @@ class Learner(ABC):
 			if len(data) > 1:
 				indices = data[-1]
 			
+			spec_feats_batch = None
+			if len(data) > 2 and isinstance(data[-2], dict) and 'feature_matrix' in data[-2]:
+				spec_feats_batch = {k: v.to(self.device) for k, v in data[-2].items()}
+
 			in_batch, = self.data_preprocess(mic_sig_batch, None)
 
 			with torch.cuda.amp.autocast(enabled=self.use_amp):
 				if 'indices' in locals():
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch = self.model(in_batch, indices=indices, epoch=epoch) # Unpack loss_feat_sim_batch
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch, loss_spec_feat_sim_batch, loss_adv_batch = self.model(in_batch, indices=indices, epoch=epoch, precalc_spec_feats=spec_feats_batch) # Unpack loss_feat_sim_batch
 				else:
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch = self.model(in_batch, epoch=epoch) # Unpack loss_feat_sim_batch
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch, loss_spec_feat_sim_batch, loss_adv_batch = self.model(in_batch, epoch=epoch, precalc_spec_feats=spec_feats_batch) # Unpack loss_feat_sim_batch
 			loss_batch = loss_batch.mean() # for multiple gpus
 			diff_batch = diff_batch.mean()
 			loss_cl_spat = loss_cl_spat.mean()
@@ -118,6 +124,8 @@ class Learner(ABC):
 			obt_batch = obt_batch.mean()
 			loss_gen_batch = loss_gen_batch.mean()
 			loss_feat_sim_batch = loss_feat_sim_batch.mean() # Ensure it's a scalar
+			loss_spec_feat_sim_batch = loss_spec_feat_sim_batch.mean()
+			loss_adv_batch = loss_adv_batch.mean()
 
 			if self.use_amp:
 				self.scaler.scale(loss_batch).backward()
@@ -128,8 +136,25 @@ class Learner(ABC):
 				optimizer.step()
 
 			optimizer.zero_grad()
+			
+			model_core = getattr(self.model, 'module', self.model)
+			
+			loss_metric_val = loss_batch.item()
+			if getattr(model_core, 'hierarchical_adv', False) and hasattr(model_core, 'tdoa_adversary_head') and getattr(model_core, 'adv_weight', 0) > 0:
+				active_count = 0
+				if getattr(model_core, 'rec_loss', False): active_count += 1
+				if (getattr(model_core, 'contrastive_learning', False) or getattr(model_core, 'contrastive_learning_data_aug', False)) and 'indices' in locals(): active_count += 2
+				nepoch = getattr(model_core, 'nepoch', 0)
+				if (getattr(model_core, 'obt', False) or getattr(model_core, 'hsic', False)) and epoch is not None and epoch > (nepoch / 3): active_count += 1
+				if getattr(model_core, 'feature_sim_loss', False): active_count += 1
+				if getattr(model_core, 'spectral_feature_sim_loss', False): active_count += 1
+				active_count += 1 # for loss_adv
+				
+				# loss_batch.item() has (other_losses + adv) / N
+				# we want (other_losses - adv) / N, so we subtract 2 * adv / N
+				loss_metric_val -= (2 * loss_adv_batch.item() * getattr(model_core, 'adv_weight', 0)) / active_count
 
-			avg_loss = avg_beta * avg_loss + (1 - avg_beta) * loss_batch.item()
+			avg_loss = avg_beta * avg_loss + (1 - avg_beta) * loss_metric_val
 			
 			# Construct dynamic pbar dict
 			pbar_dict = {'loss': avg_loss / (1 - avg_beta ** (batch_idx + 1))}
@@ -150,12 +175,16 @@ class Learner(ABC):
 				
 			if hasattr(model_core, 'feature_sim_loss') and model_core.feature_sim_loss:
 				pbar_dict['feat_sim'] = loss_feat_sim_batch.item()
+			if hasattr(model_core, 'spectral_feature_sim_loss') and model_core.spectral_feature_sim_loss:
+				pbar_dict['spec_feat_sim'] = loss_spec_feat_sim_batch.item()
+			if hasattr(model_core, 'hierarchical_adv') and model_core.hierarchical_adv and hasattr(model_core, 'adv_weight') and model_core.adv_weight > 0:
+				pbar_dict['adv'] = loss_adv_batch.item()
 			
 			pbar.set_postfix(**pbar_dict)
 			# pbar.set_postfix(loss=loss.item())
 			pbar.update()
 
-			loss += loss_batch.item()
+			loss += loss_metric_val
 			if return_diff: 
 				diff += diff_batch.item()
 				loss_cl_spat_avg += loss_cl_spat.item()
@@ -163,6 +192,8 @@ class Learner(ABC):
 				obt_loss_avg += obt_batch.item()
 				loss_gen_avg += loss_gen_batch.item()
 				loss_feat_sim_avg += loss_feat_sim_batch.item() # Accumulate loss_feat_sim_avg
+				loss_spec_feat_sim_avg += loss_spec_feat_sim_batch.item()
+				loss_adv_avg += loss_adv_batch.item()
 			
 			if self.debug and self.debug_log_path and epoch is not None:
 				# Log 4 times per epoch: at 25%, 50%, 75%, and 100% (approx)
@@ -188,9 +219,11 @@ class Learner(ABC):
 			obt_loss_avg /= len(pbar)
 			loss_gen_avg /= len(pbar)
 			loss_feat_sim_avg /= len(pbar) # Average loss_feat_sim_avg
+			loss_spec_feat_sim_avg /= len(pbar)
+			loss_adv_avg /= len(pbar)
 
 		if return_diff: 
-			return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, obt_loss_avg, loss_gen_avg, loss_feat_sim_avg # Return loss_feat_sim_avg
+			return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, obt_loss_avg, loss_gen_avg, loss_feat_sim_avg, loss_spec_feat_sim_avg, loss_adv_avg # Return loss_feat_sim_avg
 		else:
 			return loss
 
@@ -207,6 +240,8 @@ class Learner(ABC):
 				obt_loss_avg = 0
 				loss_gen_avg = 0
 				loss_feat_sim_avg = 0
+				loss_spec_feat_sim_avg = 0
+				loss_adv_avg = 0
 				cka_avg = 0
 
 				if analyze_rank:
@@ -224,19 +259,37 @@ class Learner(ABC):
 				total_samples = 0
 
 				if gen_metrics:
-					metrics_collection = None
+					metrics_collection = {'spatial': None, 'spectral': None}
 
 			for data in dataset:
 				mic_sig_batch = data[0]
+
+				spec_feats_batch = None
+				if len(data) > 2 and isinstance(data[-2], dict) and 'feature_matrix' in data[-2]:
+					spec_feats_batch = {k: v.to(self.device) for k, v in data[-2].items()}
+
 				in_batch, = self.data_preprocess(mic_sig_batch, None)
 
 				with torch.cuda.amp.autocast(enabled=self.use_amp):
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch = self.model(in_batch, gen_metrics=gen_metrics) 
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch, loss_spec_feat_sim_batch, loss_adv_batch = self.model(in_batch, gen_metrics=gen_metrics, precalc_spec_feats=spec_feats_batch) 
 
 				loss_batch = loss_batch.mean() 
 				diff_batch = diff_batch.mean()
 
-				loss += loss_batch.item()
+				model_core = getattr(self.model, 'module', self.model)
+				loss_metric_val = loss_batch.item()
+				if getattr(model_core, 'hierarchical_adv', False) and hasattr(model_core, 'tdoa_adversary_head') and getattr(model_core, 'adv_weight', 0) > 0:
+					active_count = 0
+					if getattr(model_core, 'rec_loss', False): active_count += 1
+					if (getattr(model_core, 'contrastive_learning', False) or getattr(model_core, 'contrastive_learning_data_aug', False)) and loss_cl_spat.item() != 0: active_count += 2
+					nepoch = getattr(model_core, 'nepoch', 0)
+					if (getattr(model_core, 'obt', False) or getattr(model_core, 'hsic', False)) and obt_batch.item() > 0: active_count += 1
+					if getattr(model_core, 'feature_sim_loss', False): active_count += 1
+					if getattr(model_core, 'spectral_feature_sim_loss', False): active_count += 1
+					active_count += 1 # for loss_adv
+					loss_metric_val -= (2 * loss_adv_batch.item() * getattr(model_core, 'adv_weight', 0)) / active_count
+
+				loss += loss_metric_val
 				if return_diff: 
 					diff += diff_batch.item()
 					loss_cl_spat_avg += loss_cl_spat.mean().item()
@@ -244,6 +297,8 @@ class Learner(ABC):
 					obt_loss_avg += obt_batch.mean().item()
 					loss_gen_avg += loss_gen_batch.mean().item()
 					loss_feat_sim_avg += loss_feat_sim_batch.mean().item() # Accumulate
+					loss_spec_feat_sim_avg += loss_spec_feat_sim_batch.mean().item()
+					loss_adv_avg += loss_adv_batch.mean().item()
 					
 					if 'embed_spec' in vis_batch and 'embed_spat' in vis_batch:
 						e_spec = vis_batch['embed_spec'].reshape(-1, vis_batch['embed_spec'].shape[-1])
@@ -278,27 +333,53 @@ class Learner(ABC):
 						
 						total_samples += batch_size
 
-					if gen_metrics and 'metrics' in vis_batch:
-						m = vis_batch['metrics']
-						
-						if metrics_collection is None:
-							# Initialize recursively
-							def init_collection(structure):
-								if isinstance(structure, dict):
-									return {k: init_collection(v) for k, v in structure.items()}
-								else:
-									return [] # List for accumulation
-							metrics_collection = init_collection(m)
+					if gen_metrics:
+						if 'metrics' in vis_batch:
+							m = vis_batch['metrics']
+							
+							if metrics_collection['spatial'] is None:
+								# Initialize recursively
+								def init_collection(structure):
+									if isinstance(structure, dict):
+										return {k: init_collection(v) for k, v in structure.items()}
+									else:
+										return [] # List for accumulation
+								metrics_collection['spatial'] = init_collection(m)
 
-						def update_collection(collection, data):
-							if isinstance(data, dict):
-								for k, v in data.items():
-									if k in collection:
-										update_collection(collection[k], v)
-							else:
-								collection.append(data.cpu())
-						
-						update_collection(metrics_collection, m)
+							def update_collection(collection, data):
+								if isinstance(data, dict):
+									for k, v in data.items():
+										if k in collection:
+											update_collection(collection[k], v)
+								elif isinstance(data, list):
+									collection.append([item.cpu() if hasattr(item, 'cpu') else item for item in data])
+								else:
+									collection.append(data.cpu() if hasattr(data, 'cpu') else data)
+							
+							update_collection(metrics_collection['spatial'], m)
+
+						if 'spec_metrics' in vis_batch:
+							m_spec = vis_batch['spec_metrics']
+							
+							if metrics_collection['spectral'] is None:
+								def init_collection(structure):
+									if isinstance(structure, dict):
+										return {k: init_collection(v) for k, v in structure.items()}
+									else:
+										return [] # List for accumulation
+								metrics_collection['spectral'] = init_collection(m_spec)
+
+							def update_collection(collection, data):
+								if isinstance(data, dict):
+									for k, v in data.items():
+										if k in collection:
+											update_collection(collection[k], v)
+								elif isinstance(data, list):
+									collection.append([item.cpu() if hasattr(item, 'cpu') else item for item in data])
+								else:
+									collection.append(data.cpu() if hasattr(data, 'cpu') else data)
+							
+							update_collection(metrics_collection['spectral'], m_spec)
 
 			loss /= len(dataset)
 			if return_diff: 
@@ -308,6 +389,8 @@ class Learner(ABC):
 				obt_loss_avg /= len(dataset)
 				loss_gen_avg /= len(dataset)
 				loss_feat_sim_avg /= len(dataset)
+				loss_spec_feat_sim_avg /= len(dataset)
+				loss_adv_avg /= len(dataset)
 				cka_avg /= len(dataset)
 
 			if return_diff: 
@@ -345,7 +428,7 @@ class Learner(ABC):
 					result_batch = self.pretrain_evaluate(pred_batch=vis_batch['pred'], gt_batch=vis_batch['tar'], mask_batch=vis_batch['mask'])
 					return loss, diff, vis_batch, result_batch # only return visual data of the last batch
 				else:
-					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, cka_avg, obt_loss_avg, loss_gen_avg, loss_feat_sim_avg, rank_analysis, metrics_collection if gen_metrics else None
+					return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, cka_avg, obt_loss_avg, loss_gen_avg, loss_feat_sim_avg, loss_spec_feat_sim_avg, loss_adv_avg, rank_analysis, metrics_collection if gen_metrics else None
 
 			else:
 				return loss
@@ -376,7 +459,7 @@ class Learner(ABC):
 			in_batch, gt_batch = self.data_preprocess(mic_sig_batch, gt_batch)
 
 			with torch.cuda.amp.autocast(enabled=self.use_amp):
-				pred_batch, embed_batch = self.model(in_batch)
+				pred_batch, embed_batch, _ = self.model(in_batch)
 				loss_batch = self.loss(pred_batch = pred_batch, gt_batch = gt_batch)
 
 			if self.use_amp:
@@ -428,7 +511,7 @@ class Learner(ABC):
 				in_batch, gt_batch = self.data_preprocess(mic_sig_batch, gt_batch)
 
 				with torch.cuda.amp.autocast(enabled=self.use_amp):
-					pred_batch, embed_batch = self.model(in_batch)
+					pred_batch, embed_batch, _ = self.model(in_batch)
 					loss_batch = self.loss(pred_batch=pred_batch, gt_batch=gt_batch)
 
 				loss += loss_batch.item()

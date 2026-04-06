@@ -51,7 +51,9 @@ if os.path.exists(config_path):
                 args.spec_dembed = args_dict.get('spec_dembed', 512)
                 args.spat_dembed = args_dict.get('spat_dembed', 256)
                 args.spectral_enc_input = args_dict.get('spectral_enc_input', 'all')
-                print(f"Loaded config from {config_path}: spec_dembed={args.spec_dembed}, spat_dembed={args.spat_dembed}, spectral_enc_input={args.spectral_enc_input}")
+                args.hierarchical = args_dict.get('hierarchical', False)
+                args.split_spatial_encoder = args_dict.get('split_spatial_encoder', False)
+                print(f"Loaded config from {config_path}: spec_dembed={args.spec_dembed}, spat_dembed={args.spat_dembed}, spectral_enc_input={args.spectral_enc_input}, hierarchical={args.hierarchical}, split_spatial_encoder={args.split_spatial_encoder}")
             else:
                 print("Warning: config.json structure unexpected. Using defaults/args.")
     except Exception as e:
@@ -110,11 +112,13 @@ print('nt, nf: ', nt, nf)
 # Network
 dlabel = 1
 net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, 
-	downstream_token=args.ds_token, downstream_head=args.ds_head, downstream_embed = args.ds_embed, downstream_dlabel=dlabel, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input)
+	downstream_token=args.ds_token, downstream_head=args.ds_head, downstream_embed = args.ds_embed, downstream_dlabel=dlabel, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, hierarchical=getattr(args, 'hierarchical', False), split_spatial_encoder=getattr(args, 'split_spatial_encoder', False), diff_feat_selection=getattr(args, 'diff_feat_selection', False))
 layer_keys = ['spec_encoder', 'spat_encoder', 'decoder', 'mlp_head','spec_encoder.patch_embed','spec_encoder.embed','spat_encoder.patch_embed','spat_encoder.embed']
 nparam, nparam_sum = get_nparams(net, param_key_list=layer_keys)
 print('# Parameters (M):', round(nparam_sum, 2), [key+': '+str(round(nparam[key], 2)) for key in nparam.keys()])
 nreim = 2
+if len(args.ds_task) > 0:
+    net.task = args.ds_task[0]
 flops_forward_eval, _ = get_FLOPs(net, input_shape=(1, nmic, nf, nt, nreim), duration=T)
 print(f"FLOPs_forward: {flops_forward_eval:.2f}G/s")
 
@@ -136,6 +140,7 @@ if (args.ds_train):
 	init_state_dict = copy.deepcopy(net.state_dict())
 
 	for task in args.ds_task:
+		net.task = task
 		set_seed(args.seed)
 		task_time_dir = dirs['log_task'].replace('TASK', task)
 
@@ -434,6 +439,7 @@ if (args.ds_test):
 		mins_data = []
 		maxs_data = []
 	for task in args.ds_task:
+		net.task = task
 		set_seed(args.seed)
 		task_time_dir = dirs['log_task'].replace('TASK', task)
 		nepoch = args.ds_setting[task]['nepoch']

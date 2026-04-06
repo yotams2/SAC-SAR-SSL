@@ -63,7 +63,8 @@ class RealMicSigDataset(Dataset):
                  nmic_selected: int = 2, 
                  prob_mode:List[str] = ['duration', 'micpair'], 
                  dataset_sz = None,
-                 remove_spkoverlap = False
+                 remove_spkoverlap = False,
+                 load_spec_feats = False
                  ):
         super().__init__()
         
@@ -78,6 +79,7 @@ class RealMicSigDataset(Dataset):
         self.mic_dist_range = mic_dist_range
         self.nmic_selected = nmic_selected
         self.remove_spkoverlap = remove_spkoverlap
+        self.load_spec_feats = load_spec_feats
         
     def __len__(self):
         return self.dataset_sz
@@ -163,7 +165,46 @@ class RealMicSigDataset(Dataset):
         if self.fs != fs:
             mic_signals = scipy.signal.resample_poly(mic_signals, self.fs, fs)
 
-        return [mic_signals]
+        return_data = [mic_signals]
+        
+        if getattr(self, 'load_spec_feats', False):
+            import os
+            import torch
+            import torch.nn.functional as F
+            pt_file = str(data_path).replace('.wav', '_spec_feats.pt').replace('.flac', '_spec_feats.pt')
+            
+            # Determine expected shape
+            nsample_desired_16k = int(self.T * 16000)
+            hop_length = 256
+            nt = (nsample_desired_16k - 512) // hop_length + 1
+            
+            spec_feats = None
+            if os.path.exists(pt_file):
+                try:
+                    spec_feats_full = torch.load(pt_file, map_location='cpu')
+                    st_16k = int((st / fs) * 16000) if 'st' in locals() else 0
+                    k = st_16k // hop_length
+                    
+                    fm = spec_feats_full['feature_matrix'][:, k : k + nt]
+                    vp = spec_feats_full['voiced_prob'][k : k + nt]
+                    
+                    if fm.shape[-1] < nt:
+                        pad_len = nt - fm.shape[-1]
+                        fm = F.pad(fm, (0, pad_len))
+                        vp = F.pad(vp, (0, pad_len))
+                        
+                    spec_feats = {'feature_matrix': fm, 'voiced_prob': vp}
+                except Exception as e:
+                    print(f"Error loading {pt_file}: {e}")
+            
+            if spec_feats is None:
+                spec_feats = {
+                    'feature_matrix': torch.zeros((16, nt), dtype=torch.float32),
+                    'voiced_prob': torch.zeros((nt,), dtype=torch.float32)
+                }
+            return_data.append(spec_feats)
+
+        return return_data
 
 
 class RealMANDataset(RealMicSigDataset):

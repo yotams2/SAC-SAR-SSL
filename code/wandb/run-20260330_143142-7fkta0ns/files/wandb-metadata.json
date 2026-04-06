@@ -1,0 +1,61 @@
+{
+  "os":  "Linux-5.4.0-109-generic-x86_64-with-glibc2.10",
+  "python":  "CPython 3.8.13",
+  "startedAt":  "2026-03-30T11:31:42.020830Z",
+  "args":  [
+    "--pretrain",
+    "--simu-exp",
+    "--gpu-id",
+    "0,",
+    "--description",
+    "NO RECONSTRUCTION. new version of feature_sim_loss, split spatial encoder, 5 features total (coherences, gcc max, tdoa), NOW REALLY ADDED BN in projection head, temp 0.15/0.15, sigma 0.5/1 room/doa, 50000 training samples",
+    "--num-train-samples",
+    "50000",
+    "--no-rec-loss",
+    "--feature-sim-loss",
+    "--gen-metrics",
+    "--hierarchical",
+    "--hierarchical-feature-sim-doa-temperature",
+    "0.15",
+    "--hierarchical-feature-sim-room-temperature",
+    "0.15",
+    "--split-spatial-encoder",
+    "--time",
+    "03301429"
+  ],
+  "program":  "run_pretrain.py",
+  "codePath":  "code/run_pretrain.py",
+  "codePathLocal":  "run_pretrain.py",
+  "git":  {
+    "remote":  "https://github.com/Audio-WestlakeU/SAR-SSL.git",
+    "commit":  "c18e58086b5ca0adb4e5b50f5f7bb306501cbc36"
+  },
+  "email":  "yotams2@mail.tau.ac.il",
+  "root":  "/storage/yotam/SAR-SSL/SAR-SSL/code",
+  "host":  "yotam-sar-ssl-3-0-2",
+  "executable":  "/storage/yotam/venvs/sar_ssl_venv/bin/python",
+  "cpu_count":  96,
+  "cpu_count_logical":  192,
+  "gpu":  "NVIDIA H100 80GB HBM3",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "1886863912960",
+      "used":  "605729689600"
+    }
+  },
+  "memory":  {
+    "total":  "1081884033024"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA H100 80GB HBM3",
+      "memoryTotal":  "85520809984",
+      "cudaCores":  16896,
+      "architecture":  "Hopper",
+      "uuid":  "GPU-372edb97-475c-823d-218b-48df621f13ac"
+    }
+  ],
+  "cudaVersion":  "12.2",
+  "writerId":  "z2vszj9u21dtspwnmp2ti1xejh8bcuhj"
+}

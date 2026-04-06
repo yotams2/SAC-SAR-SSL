@@ -69,15 +69,25 @@ class opt_pretrain():
         parser.add_argument('--description', '--d', type=str, default=None, help='Description of the experiment to be saved in description.txt')
         parser.add_argument('--num-train-samples', type=int, default=None, help='Number of training samples to override directory counting')
         parser.add_argument('--feature-sim-loss', action='store_true', default=False, help='Enable Feature Similarity Loss')
+        parser.add_argument('--diff-feat-selection', action='store_true', default=False, help='Enable Differentiable Feature Selection for Feature Similarity Loss')
+        parser.add_argument('--diff-feat-selection-lambda', type=float, default=0.01, help='L1 sparsity penalty lambda for Differentiable Feature Selection')
         parser.add_argument('--feature-sim-loss-weight', type=float, default=1.0, help='Weight for Feature Similarity Loss (default: 1.0)')
         parser.add_argument('--gen-metrics', action='store_true', default=False, help='Generate metrics histograms (default: False)')
         parser.add_argument('--hierarchical', action='store_true', default=False, help='Enable hierarchical spatial encoder (split embedding) (default: False)')
+        parser.add_argument('--split-spatial-encoder', action='store_true', default=False, help='Enable split spatial encoder (2 completely separate encoders)')
         parser.add_argument('--feature-sim-sigma', type=float, default=1.0, help='Sigma for Feature Similarity Loss (default: 1.0)')
         parser.add_argument('--feature-sim-temperature', type=float, default=0.3, help='Temperature for Feature Similarity Loss (default: 0.3)')
         parser.add_argument('--hierarchical-feature-sim-room-temperature', type=float, default=0.2, help='Room Temperature for Hierarchical Feature Similarity Loss (default: 0.2)')
         parser.add_argument('--hierarchical-feature-sim-room-sigma', type=float, default=1.0, help='Room Sigma for Hierarchical Feature Similarity Loss (default: 1.0)')
         parser.add_argument('--hierarchical-feature-sim-doa-temperature', type=float, default=0.4, help='DOA Temperature for Hierarchical Feature Similarity Loss (default: 0.4)')
         parser.add_argument('--hierarchical-feature-sim-doa-sigma', type=float, default=0.5, help='DOA Sigma for Hierarchical Feature Similarity Loss (default: 0.4)')
+        parser.add_argument('--hierarchical-adv', action='store_true', default=False, help='Enable adversarial unlearning of TDOA for hierarchical separated embeddings')
+        parser.add_argument('--adv-weight', type=float, default=0.1, help='Weight for adversarial unlearning of TDOA (default: 0.1)')
+        parser.add_argument('--spectral-feature-sim-loss', action='store_true', default=False, help='Enable Spectral Feature Similarity Loss')
+        parser.add_argument('--spectral-feature-sim-weight', type=float, default=1.0, help='Weight for Spectral Feature Similarity Loss (default: 1.0)')
+        parser.add_argument('--spectral-feature-sim-sigma', type=float, default=1.0, help='Sigma for Spectral Feature Similarity Loss (default: 1.0)')
+        parser.add_argument('--spectral-feature-sim-temperature', type=float, default=0.3, help='Temperature for Spectral Feature Similarity Loss (default: 0.3)')
+        parser.add_argument('--fixed-feature-weights-path', type=str, default=None, help='Path to features_importance.json to fix feature weights during training')
         parser.add_argument('--exp-dir', type=str, default='exp', help='Experiment directory name (default: exp)')
 
         parser.add_argument('--no-rec-loss', action='store_true', default=False, help='Disable reconstruction loss (default: False)')
@@ -89,6 +99,10 @@ class opt_pretrain():
         assert args.test_mode in ['all', 'ins'], 'Test mode is undefined'
         assert args.pretrain_mode in ['masked', 'autoenc'], 'Pretraining mode is undefined'
         assert args.spectral_enc_input in ['all', 'mono'], 'Spectral encoder input is undefined'
+        assert not (args.diff_feat_selection and args.fixed_feature_weights_path), '--diff-feat-selection and --fixed-feature-weights-path cannot be used together'
+        assert not args.hierarchical_adv or (args.hierarchical or args.split_spatial_encoder), '--hierarchical-adv requires --hierarchical or --split-spatial-encoder'
+        if args.split_spatial_encoder:
+            assert args.feature_sim_loss, '--split-spatial-encoder requires --feature-sim-loss'
 
         self.time = args.time
         self.work_dir = args.work_dir
@@ -97,6 +111,10 @@ class opt_pretrain():
         self.clda = args.contrastive_learning_data_aug
         self.da = args.data_aug
         self.clda_s = args.contrastive_learning_data_aug_stronger
+        self.diff_feat_selection = args.diff_feat_selection
+        self.diff_feat_selection_lambda = args.diff_feat_selection_lambda
+        self.fixed_feature_weights_path = args.fixed_feature_weights_path
+        self.split_spatial_encoder = args.split_spatial_encoder
 
         args.acoustic_setting = self.acoustic_setting
         
@@ -219,6 +237,7 @@ class opt_downstream():
         parser.add_argument('--ds-real-sim-ratio', type=int, nargs='+', default=[1, 1], metavar='DSRealSimRatio', help='downstream number ratio between real data and simulated data (default: [1, 1])')
         parser.add_argument('--spec-dembed', type=int, default=512, metavar='SpecDembed', help='spectral embedding dimension (default: 512)')
         parser.add_argument('--spat-dembed', type=int, default=256, metavar='SpatDembed', help='spatial embedding dimension (default: 256)')
+        parser.add_argument('--split-spatial-encoder', action='store_true', default=False, help='Enable split spatial encoder (2 completely separate encoders)')
         parser.add_argument('--spectral-enc-input', type=str, default='all', metavar='SpecEncInput', help="input to spectral encoder: 'all' or 'mono' (default: all)")
         parser.add_argument('--pretrain-mode', type=str, default='masked', help='Pretraining mode: masked or autoenc (default: masked)')
 
@@ -243,6 +262,7 @@ class opt_downstream():
         self.ds_head = args.ds_head
         self.ds_embed = args.ds_embed
         self.ds_nsimroom = args.ds_nsimroom
+        self.split_spatial_encoder = args.split_spatial_encoder
 
         self.ds_specifics = {'task': args.ds_task}
         if self.simu_exp:

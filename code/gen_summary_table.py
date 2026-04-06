@@ -20,14 +20,6 @@ def main():
         "12281234": "CCSR + Feat Sim",
         "01061410": "Autoenc + Pseudo-Hierarchical Feat Sim",
         "01081544": "Autoenc + Feat Sim wo. ILD and HF_LF, temp 0.1",
-        "01111059": "Autoenc + Pseudo-Hierarchical Feat Sim wo. ILD and HF_LF, doa_temp 0.3, room_temp 0.07",
-        "01111117": "Autoenc + Pseudo-Hierarchical Feat Sim, mono spectral,  wo. ILD and HF_LF, doa_temp 0.3, room_temp 0.07",
-        "01122345": "Autoenc + Feat Sim w. Newest Features (decay slope etc), temp 0.1",
-        "01131440": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 1/1, temp 0.3/0.07",
-        "01141100": "Autoenc + Feat Sim w. Newest Features (decay slope etc), Hierarchical, sigma 0.4/1.6, temp 0.3/0.07",
-        "01151136": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.1/0.07",
-        "01161203": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
-        "01190956": "Autoenc + Feat Sim w. Some Of The Newest Features (decay slope etc), OBT, Hierarchical, sigma 0.4/0.5*sqrt(dim), temp 0.4/0.2",
         "01231932": "Autoenc ONLY",
         "01261622": "CCSR + Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.5",
         "01271707": "CCSR + New Version of Feat Sim w. 5 features (coherences, gcc max, tdoa), BN, sigma 1, temp 0.07",
@@ -36,7 +28,22 @@ def main():
         "02021006": "AE + FeatSim",
         "02041034": "CCSR Run 2",
         "02041438": "No Pretrain",
-        "02121359": "Only FeatSim"
+        "02121359": "Only FeatSim",
+        "02241046": "Retry Only FeatSim",
+        "02251839": "Spatial FeatSim + Spectral FeatSim, sigma 1/1, temp 0.3/0.3",
+        "03041251": "Hierarchical Feat Sim, temp 0.15/0.15, sigma 0.5/1 room/doa",
+        "03051222": "Hierarchical Feat Sim, temp 0.15/0.15, sigma 0.5/1 room/doa, OBT",
+        "03081455": "Hierarchical Feat Sim, 1 shared layer, temp 0.15/0.15, sigma 0.5/1 doa/room, spat_dembed 128",
+        "03101553": "Hierarchical Feat Sim, 0 shared layers, temp 0.15/0.15, sigma 0.5/1 doa/room, spat_dembed 128",
+        "03151553": "Only FeatSim + Differetintiable Feature Weighting",
+        "03161349": "Only FeatSim + Differetintiable Feature Weighting with L1 applied on sigmoid",
+        "03181907": "Only FeatSim + Differetintiable Feature Weighting with softmax and tau=3",
+        "03191118": "Only FeatSim + Differetintiable Feature Weighting with softmax and tau=6",
+        "03231109": "Only FeatSim + Differetintiable Feature Weighting with anchored TDOA",
+        "03251037": "Only FeatSim + Fixed feature weights from run with fixed TDOA",
+        "03251936": "Hierarchical Feat Sim, temp 0.15/0.15, sigma 0.5/1 room/doa, adv. separation",
+        "03301114": "Hierarchical Feat Sim, temp 0.15/0.15, sigma 0.5/1 room/doa, adv. separation",
+        "03301429": "Hierarchical Feat Sim, temp 0.15/0.15, sigma 0.5/1 room/doa, split spatial encoder"
     }
     
     models = args.m

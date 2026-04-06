@@ -32,7 +32,8 @@ class RandomRealDataset(Dataset):
         dataset_list = ['LOCATA', 'MCWSJ', 'LibriCSS', 'AMI', 'AISHELL4', 'M2MeT', 'RealMAN', # RealSig
 					    'DCASE', 'MIR', 'Mesh', 'ACE', 'dEchorate', 'BUTReverb'], # RealRIR
         dataset_probs = None, 
-        sound_speed = 343.0):
+        sound_speed = 343.0,
+        load_spec_feats = False):
         # RealSig
         # train duration (hours): [33, 74, 83, 101, 4124, 835979, 514811], 
         # train duration (hours, utterance level) [0.07, 1.3, 2.0, 3.4, 74, 95, 111]
@@ -62,7 +63,8 @@ class RandomRealDataset(Dataset):
                     prob_mode = prob_mode,
                     dataset_sz = None, 
                     remove_spkoverlap = remove_spkoverlap,
-                    sound_speed = sound_speed)
+                    sound_speed = sound_speed,
+                    load_spec_feats = load_spec_feats)
                
                 self.dataset_list += [dataset]
             elif dataset_name in ['DCASE', 'MIR', 'Mesh', 'ACE', 'dEchorate', 'BUTReverb']:
@@ -73,6 +75,7 @@ class RandomRealDataset(Dataset):
                     fs = fs,
                     dataset_sz = ds_sz[stage],
                     transforms = None,
+                    load_spec_feats = load_spec_feats
                 )
                 self.dataset_list += [dataset_rir]
 
@@ -115,7 +118,7 @@ class FixMicSigDataset(Dataset):
         2. for pretraining with microphone signals generated with real RIR
         3. for fine-tuning with only simulated data
 	"""
-    def __init__(self, data_dir, fs, load_anno, dataset_sz, load_dp=False, transforms=None, sort=False):
+    def __init__(self, data_dir, fs, load_anno, dataset_sz, load_dp=False, transforms=None, sort=False, load_spec_feats=False):
 
         self.data_paths = []
         
@@ -144,6 +147,7 @@ class FixMicSigDataset(Dataset):
         self.load_dp = load_dp
         self.transforms = transforms
         self.data_dir = data_dir
+        self.load_spec_feats = load_spec_feats
 
     def __len__(self):
         return self.dataset_sz
@@ -171,6 +175,10 @@ class FixMicSigDataset(Dataset):
                 'C50': info['C50'].astype(np.float32),
                 'ABS': np.array(0.161*vol/sur/info['T60_edc']).astype(np.float32),
                 }
+            if 'src_idx' in info:
+                annos['src_idx'] = np.array(info['src_idx']).astype(np.float32)
+            if 'SNR' in info:
+                annos['SNR'] = np.array(info['SNR']).astype(np.float32)
             return_data += [annos]
 
         if self.load_dp:
@@ -183,13 +191,47 @@ class FixMicSigDataset(Dataset):
                     dp_sig = t(dp_sig)
             return_data += [dp_sig]
 
+        if getattr(self, 'load_spec_feats', False):
+            import os
+            import torch
+            pt_file = str(file_name).replace('.wav', '_spec_feats.pt')
+            
+            nsample_desired_16k = mic_sig.shape[0] if fs == 16000 else int((mic_sig.shape[0] / fs) * 16000)
+            hop_length = 256
+            nt = (nsample_desired_16k - 512) // hop_length + 1
+            
+            spec_feats = None
+            if os.path.exists(pt_file):
+                try:
+                    spec_feats_full = torch.load(pt_file, map_location='cpu')
+                    st_16k = 0
+                    k = st_16k // hop_length
+                    fm = spec_feats_full['feature_matrix'][:, k : k + nt]
+                    vp = spec_feats_full['voiced_prob'][k : k + nt]
+                    if fm.shape[-1] < nt:
+                        pad_len = nt - fm.shape[-1]
+                        import torch.nn.functional as F
+                        fm = F.pad(fm, (0, pad_len))
+                        vp = F.pad(vp, (0, pad_len))
+                    spec_feats = {'feature_matrix': fm, 'voiced_prob': vp}
+                except Exception as e:
+                    print(f"Error loading {pt_file}: {e}")
+            
+            if spec_feats is None:
+                spec_feats = {
+                    'feature_matrix': torch.zeros((16, nt), dtype=torch.float32),
+                    'voiced_prob': torch.zeros((nt,), dtype=torch.float32)
+                }
+            return_data.append(spec_feats)
+
         return_data += [idx]
         return return_data
+
  
 class FixMicSigDatasetLOCATA(Dataset):
     """ Load fixed presaved microphone signals from LOCATA dataset
 	"""
-    def __init__(self, data_dir, fs, load_anno, dataset_sz, transforms=None):
+    def __init__(self, data_dir, fs, load_anno, dataset_sz, transforms=None, load_spec_feats=False):
 
         self.data_paths = []
         
@@ -208,6 +250,7 @@ class FixMicSigDatasetLOCATA(Dataset):
         self.fs = fs
         self.load_anno = load_anno
         self.transforms = transforms
+        self.load_spec_feats = load_spec_feats
 
     def __len__(self):
         return self.dataset_sz
@@ -234,7 +277,44 @@ class FixMicSigDatasetLOCATA(Dataset):
                 'C50': np.array(np.NAN),
                 'ABS': np.array(np.NAN),
                 }
+            if 'src_idx' in info:
+                annos['src_idx'] = np.array(info['src_idx']).astype(np.float32)
+            if 'SNR' in info:
+                annos['SNR'] = np.array(info['SNR']).astype(np.float32)
             return_data += [annos]
+
+        if getattr(self, 'load_spec_feats', False):
+            import os
+            import torch
+            pt_file = str(file_name).replace('.wav', '_spec_feats.pt')
+            
+            nsample_desired_16k = mic_sig.shape[0] if fs == 16000 else int((mic_sig.shape[0] / fs) * 16000)
+            hop_length = 256
+            nt = (nsample_desired_16k - 512) // hop_length + 1
+            
+            spec_feats = None
+            if os.path.exists(pt_file):
+                try:
+                    spec_feats_full = torch.load(pt_file, map_location='cpu')
+                    st_16k = 0
+                    k = st_16k // hop_length
+                    fm = spec_feats_full['feature_matrix'][:, k : k + nt]
+                    vp = spec_feats_full['voiced_prob'][k : k + nt]
+                    if fm.shape[-1] < nt:
+                        pad_len = nt - fm.shape[-1]
+                        import torch.nn.functional as F
+                        fm = F.pad(fm, (0, pad_len))
+                        vp = F.pad(vp, (0, pad_len))
+                    spec_feats = {'feature_matrix': fm, 'voiced_prob': vp}
+                except Exception as e:
+                    print(f"Error loading {pt_file}: {e}")
+            
+            if spec_feats is None:
+                spec_feats = {
+                    'feature_matrix': torch.zeros((16, nt), dtype=torch.float32),
+                    'voiced_prob': torch.zeros((nt,), dtype=torch.float32)
+                }
+            return_data.append(spec_feats)
 
         return return_data
 
@@ -250,14 +330,16 @@ class RandomMicSigDataset(Dataset):
         stage,
         load_anno, 
         dataset_sz, 
-        transforms=None):
+        transforms=None,
+        load_spec_feats=False):
 
         realdataset = FixMicSigDatasetLOCATA(
             data_dir = os.path.join(real_sig_dir, stage),
             load_anno = load_anno,
             dataset_sz = None,
             fs = fs,
-            transforms = transforms
+            transforms = transforms,
+            load_spec_feats = load_spec_feats
             )
 
         simdataset = FixMicSigDataset(
@@ -265,7 +347,8 @@ class RandomMicSigDataset(Dataset):
             load_anno = load_anno,
             dataset_sz = None,
             fs = fs,
-            transforms = transforms
+            transforms = transforms,
+            load_spec_feats = load_spec_feats
             )
         
         assert real_sim_ratio in [[0,1], [1,0], [1,1]], real_sim_ratio

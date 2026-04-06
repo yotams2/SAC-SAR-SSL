@@ -218,10 +218,19 @@ class EmbedEncoder(nn.Module):
                     cls_token = self.cls_token.expand(nbatch, -1, -1)
                     embed = torch.cat((embed, cls_token), dim=1)
                 
-                embed = self.embed.forward(embed, add_same_one)  # (nbatch, npatch, dembed)
+                # Unwrap hidden states
+                embed_outputs = self.embed.forward(embed, add_same_one)  # (nbatch, npatch, dembed), hidden_states
                 
-                if isinstance(embed, tuple):
-                    embed = torch.cat(embed, dim=-1)
+                if isinstance(embed_outputs, tuple):
+                    if len(embed_outputs) == 3: # Hierarchical Conformer
+                        embed = torch.cat([embed_outputs[0], embed_outputs[1]], dim=-1)
+                        hidden_states = embed_outputs[2]
+                    else: # Standard Encoder
+                        embed = embed_outputs[0]
+                        hidden_states = embed_outputs[1]
+                else:
+                    embed = embed_outputs
+                    hidden_states = [embed_outputs]
         
         if len(self.model) == 1:
             if (self.model[0] == 'crnn') | (self.model[0] == 'crnn-sim') | (self.model[0] == 'tcrnn'):
@@ -263,7 +272,10 @@ class EmbedEncoder(nn.Module):
             else:
                 pass
 
-        return embed
+        if 'hidden_states' not in locals():
+            hidden_states = [embed]
+
+        return embed, hidden_states
 
 class EmbedDecoder(nn.Module):
 
@@ -351,9 +363,27 @@ class EmbedDecoder(nn.Module):
         return embed
 
  
+class SplitEmbedEncoder(nn.Module):
+    def __init__(self, sig_shape, patch_shape, dembed, model, mode, use_cls, device):
+        super().__init__()
+        self.doa_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=dembed, model=model, mode=mode, use_cls=use_cls, device=device, hierarchical=False)
+        self.room_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=dembed, model=model, mode=mode, use_cls=use_cls, device=device, hierarchical=False)
+        
+    def forward(self, embed, add_same_one=False):
+        embed_doa, hs_doa = self.doa_encoder(embed, add_same_one)
+        embed_room, hs_room = self.room_encoder(embed, add_same_one)
+        
+        embed_combined = torch.cat([embed_doa, embed_room], dim=-1)
+        
+        hidden_states = []
+        for h_doa, h_room in zip(hs_doa, hs_room):
+            hidden_states.append(torch.cat([h_doa, h_room], dim=-1))
+            
+        return embed_combined, hidden_states
+
 class SARSSL(nn.Module): 
 
-    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, feature_sim_loss_weight=1.0, feature_sim_sigma=1.0, feature_sim_temperature=0.3, hierarchical_feature_sim_room_temperature=0.2, hierarchical_feature_sim_room_sigma=1.0, hierarchical_feature_sim_doa_temperature=0.4, hierarchical_feature_sim_doa_sigma=0.4, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False, feature_stats=None, hierarchical=False, rec_loss=True, **kwargs):#vis=False):
+    def __init__(self, sig_shape=[256,256,2,2], patch_shape=(256,1), patch_mode='T', nmasked_patch=128*1, pretrain=True, pretrain_mode='masked', use_cls=False, downstream_token='all', downstream_head='mlp', downstream_embed='spec_spat', downstream_dlabel=1, device='cpu', pretrain_frozen_encoder=False, contrastive_learning=False, num_utterances=300, contrastive_learning_data_aug=False, obt=False, hsic=False, feature_sim_loss=False, diff_feat_selection=False, diff_feat_selection_lambda=0.01, feature_sim_loss_weight=1.0, feature_sim_sigma=1.0, feature_sim_temperature=0.3, hierarchical_feature_sim_room_temperature=0.2, hierarchical_feature_sim_room_sigma=1.0, hierarchical_feature_sim_doa_temperature=0.4, hierarchical_feature_sim_doa_sigma=0.4, spectral_feature_sim_loss=False, spectral_feature_sim_weight=1.0, spectral_feature_sim_sigma=1.0, spectral_feature_sim_temperature=0.3, nepoch=30, spec_dembed=512, spat_dembed=256, spectral_enc_input='all', debug=False, feature_stats=None, spectral_feature_stats=None, hierarchical=False, rec_loss=True, **kwargs):#vis=False):
         # patch_shape: size of each patch, (nf, nt)
         # patch_shape=(16,16), maskedpatch_mode='TF',
         # patch_shape=(256,1), maskedpatch_mode='T'
@@ -385,6 +415,8 @@ class SARSSL(nn.Module):
         self.spectral_enc_input = spectral_enc_input
         self.debug = debug
         self.feature_sim_loss = feature_sim_loss
+        self.diff_feat_selection = diff_feat_selection
+        self.diff_feat_selection_lambda = diff_feat_selection_lambda
         self.feature_sim_loss_weight = feature_sim_loss_weight
         self.feature_sim_sigma = feature_sim_sigma
         self.feature_sim_temperature = feature_sim_temperature
@@ -392,11 +424,19 @@ class SARSSL(nn.Module):
         self.hierarchical_feature_sim_room_sigma = hierarchical_feature_sim_room_sigma
         self.hierarchical_feature_sim_doa_temperature = hierarchical_feature_sim_doa_temperature
         self.hierarchical_feature_sim_doa_sigma = hierarchical_feature_sim_doa_sigma
+        self.spectral_feature_sim_loss = spectral_feature_sim_loss
+        self.spectral_feature_sim_weight = spectral_feature_sim_weight
+        self.spectral_feature_sim_sigma = spectral_feature_sim_sigma
+        self.spectral_feature_sim_temperature = spectral_feature_sim_temperature
         self.hierarchical = hierarchical
+        self.split_spatial_encoder = kwargs.get('split_spatial_encoder', False)
+        self.hierarchical_adv = kwargs.get('hierarchical_adv', False)
+        self.adv_weight = kwargs.get('adv_weight', 0.1)
         self.rec_loss = rec_loss
         
         # Fixed normalization parameters
         self.feature_stats = feature_stats if feature_stats is not None else {} # Dictionary containing 'p1' and 'p99' for each feature
+        self.spectral_feature_stats = spectral_feature_stats if spectral_feature_stats is not None else {}
 
         self.patch_split = at_module.PatchSplit(patch_shape=patch_shape, f_first=f_first)
         self.patch_recover = at_module.PatchRecover(output_shape=(nf, nt), patch_shape=patch_shape, f_first=f_first)
@@ -476,8 +516,12 @@ class SARSSL(nn.Module):
             else:
                  self.spec_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=spec_dembed, model=spec_model, 
                                             mode='spec', use_cls=use_cls, device=self.device)
-            self.spat_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=spat_dembed, model=spat_model, 
-                                            mode='spat', use_cls=use_cls, device=self.device, hierarchical=self.hierarchical)
+            if self.split_spatial_encoder:
+                self.spat_encoder = SplitEmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=spat_dembed, model=spat_model, 
+                                                mode='spat', use_cls=use_cls, device=self.device)
+            else:
+                self.spat_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=spat_dembed, model=spat_model, 
+                                                mode='spat', use_cls=use_cls, device=self.device, hierarchical=self.hierarchical)
 
         elif self.in_ver == 'single_ch_each_patch':
             self.spec_encoder = EmbedEncoder(sig_shape=[nf*nmic, nt, nreim, 1], patch_shape=patch_shape, dembed=int(spec_dembed/nmic), model=spec_model,
@@ -492,7 +536,7 @@ class SARSSL(nn.Module):
                 spec_dembed = spec_dembed + 1 
                 spat_dembed = spat_dembed + 1         
             
-            if self.hierarchical:
+            if self.hierarchical or self.split_spatial_encoder:
                  dec_dembed = spec_dembed + spat_dembed * 2
             else:
                  dec_dembed = spec_dembed + spat_dembed
@@ -520,16 +564,18 @@ class SARSSL(nn.Module):
             if self.feature_sim_loss:
                 # Projection head for Feature Similarity Loss
                 # Projects spatial embedding to a latent space for similarity comparison
-                if self.hierarchical:
+                if self.hierarchical or self.split_spatial_encoder:
                     # Two projection heads, each taking the full embedding dimension (since we duplicated output)
                     split_dim = spat_dembed
                     self.feat_sim_proj_doa = nn.Sequential(
                         nn.Linear(split_dim, split_dim),
+                        nn.BatchNorm1d(split_dim),
                         nn.ReLU(),
                         nn.Linear(split_dim, 128)
                     )
                     self.feat_sim_proj_room = nn.Sequential(
                         nn.Linear(split_dim, split_dim),
+                        nn.BatchNorm1d(split_dim),
                         nn.ReLU(),
                         nn.Linear(split_dim, 128)
                     )
@@ -541,7 +587,31 @@ class SARSSL(nn.Module):
                         nn.Linear(spat_dembed, 128) # Smaller dim for similarity
                     )
 
-        
+            if self.spectral_feature_sim_loss:
+                # Same as above but for spectral features
+                self.feat_sim_proj_spec = nn.Sequential(
+                    nn.Linear(spec_dembed, spec_dembed),
+                    nn.BatchNorm1d(spec_dembed),
+                    nn.ReLU(),
+                    nn.Linear(spec_dembed, 128)
+                )
+                
+            if self.feature_sim_loss and (self.diff_feat_selection or kwargs.get('fixed_feature_weights', False)):
+                # Define candidate spatial features
+                self.candidate_features = [
+                    'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 
+                    'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90',
+                    'tdoa', 'ild_mean'
+                ]
+                self.anchored_features = ['tdoa']
+                # Learnable weights initialized to 1.0
+                self.spatial_feature_weights = nn.Parameter(torch.ones(len(self.candidate_features)))
+
+            if self.hierarchical_adv and (self.hierarchical or self.split_spatial_encoder) and self.adv_weight > 0:
+                from common.adversarial import GradientReversalLayer, TDOAAdversaryHead
+                self.grl = GradientReversalLayer(lambda_adv=1.0)
+                self.tdoa_adversary_head = TDOAAdversaryHead(in_features=spat_dembed)
+
         elif pretrain_frozen_encoder:
             self.patch_mask = at_module.PatchMask(patch_mode=patch_mode, nmasked_patch=nmasked_patch, npatch_shape=npatch_shape, device=self.device)
             
@@ -557,7 +627,7 @@ class SARSSL(nn.Module):
 
         else:
             # specify downstream embedding
-            real_spat_dembed = spat_dembed * 2 if self.hierarchical else spat_dembed
+            real_spat_dembed = spat_dembed
             if self.embed_use4ds == 'spec_spat':
                 dembed_ds = spec_dembed + real_spat_dembed
             elif self.embed_use4ds == 'spec':
@@ -592,7 +662,7 @@ class SARSSL(nn.Module):
             self.downstream_dlabel = downstream_dlabel
             self.ds_token = downstream_token
 
-    def forward(self, x, indices=None, epoch=None, gen_metrics=False):
+    def forward(self, x, indices=None, epoch=None, gen_metrics=False, precalc_spec_feats=None):
         nbatch, nmic, nf, nt, nreim = x.shape
         
         if self.pretrain:
@@ -611,10 +681,10 @@ class SARSSL(nn.Module):
                      dpatch = vec_patch.shape[2]
                      nch = 2 # nreim
                      vec_patch_flat_spec = vec_patch[:, :, :, :, 0].reshape(nbatch, npatch, -1) # (nbatch, npatch, dpatch*nreim)
-                     embed_spec = self.spec_encoder.forward(vec_patch_flat_spec)
+                     embed_spec = self.spec_encoder.forward(vec_patch_flat_spec)[0]
                 else:
-                     embed_spec = self.spec_encoder.forward(vec_patch_flat)
-                embed_spat = self.spat_encoder.forward(vec_patch_flat, add_same_one=False)
+                     embed_spec = self.spec_encoder.forward(vec_patch_flat)[0]
+                embed_spat = self.spat_encoder.forward(vec_patch_flat, add_same_one=False)[0]
                 
                 # Decoding
                 embed = torch.cat([embed_spec, embed_spat], dim=2)
@@ -646,9 +716,9 @@ class SARSSL(nn.Module):
 
                 ## Single-channel masking 
                 npatch = vec_patch.shape[1]
-                mask_dense_expand = mask_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
-                mask_patch_dense_expand = mask_patch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
-                mask_ch_dense_expand = mask_ch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
+                mask_dense_expand = mask_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1).to(vec_patch.device)
+                mask_patch_dense_expand = mask_patch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1).to(vec_patch.device)
+                mask_ch_dense_expand = mask_ch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1).to(vec_patch.device)
                 vec_patch_mask = vec_patch * mask_dense_expand  # (nbatch, npatch, dpatch, 2, nmic)
 
                 ## Embedding encoding
@@ -656,7 +726,7 @@ class SARSSL(nn.Module):
                     ## spectral encoder
                     vec_patch_mask_reshape_spec = vec_patch * (1-mask_patch_dense_expand) * mask_ch_dense_expand + vec_patch * mask_patch_dense_expand * (1-mask_ch_dense_expand) # (nbatch, npatch, d_patch, 2, nmic)
                     vec_patch_mask_reshape_spec = vec_patch_mask_reshape_spec.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*2*nmic)
-                    embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape_spec)  # (nbatch, npatch, dembed)
+                    embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape_spec)[0]  # (nbatch, npatch, dembed)
                     
                     ## spatial encoder
                     # decoupling 1 (f-wise random)
@@ -678,20 +748,20 @@ class SARSSL(nn.Module):
                     
                     vec_patch_mask_reshape_spat = vec_patch * mask_patch_dense_expand  # (nbatch, npatch, d_patch, 2, nreim)
                     vec_patch_mask_reshape_spat = vec_patch_mask_reshape_spat.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*nch)
-                    embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape_spat, add_same_one=False)  # (nbatch, npatch, dembed)
+                    embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape_spat, add_same_one=False)[0]  # (nbatch, npatch, dembed)
                     
                 elif self.in_ver == 'single_ch_each_patch': # each patch only has single-channel signal
                     vec_patch_mask_reshape = torch.cat([vec_patch_mask[:,:,:,:,0], vec_patch_mask[:,:,:,:,1]], dim=1) # (nbatch, npatch*nmic, dpatch, nreim)
                     vec_patch_mask_reshape = vec_patch_mask_reshape.reshape(nbatch, npatch*nmic, -1)  # (nbatch, npatch*nmic, dpatch*nreim)
-                    embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape)  # (nbatch, npatch*nmic, dembed/nmic)
+                    embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape)[0]  # (nbatch, npatch*nmic, dembed/nmic)
                     embed_spec = torch.cat([embed_spec[:, 0:npatch, :], embed_spec[:, npatch:npatch*2, :]], dim=2) # (nbatch, npatch, dembed)
-                    embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape)  # (nbatch, npatch*nmic, dembed/nmic)
+                    embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape)[0]  # (nbatch, npatch*nmic, dembed/nmic)
                     embed_spat = torch.cat([embed_spat[:, 0:npatch, :], embed_spat[:, npatch:npatch*2, :]], dim=2) # (nbatch, npatch, dembed)
 
                 elif self.in_ver == 'same': # without additional spectral/spatial masking operation 
                     vec_patch_mask_reshape = vec_patch_mask.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*nch)
-                    embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape)
-                    embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape, add_same_one=False)  # (nbatch, npatch, dembed)
+                    embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape)[0]
+                    embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape, add_same_one=False)[0]  # (nbatch, npatch, dembed)
             
                 ## Embedding decoding
                 embed = torch.cat([embed_spec, embed_spat], dim=2)
@@ -772,7 +842,7 @@ class SARSSL(nn.Module):
                     if self.hsic:
                         # Minimize HSIC (independence)
                         obt_loss = at_module.hsic(z_spat_v, z_spec_v)
-                    elif self.hierarchical:
+                    elif self.hierarchical or self.split_spatial_encoder:
                         # Center
                         dim = z_spat_v.shape[-1]//2
                         z_spat_doa_v = z_spat_v[:, :dim] - z_spat_v[:, :dim].mean(dim=0)
@@ -819,11 +889,19 @@ class SARSSL(nn.Module):
                 with torch.no_grad():
                     feats = at_module.spatial_features_from_stft(x_complex, sample_rate=16000)
                 
-                loss_feat_sim, feat_sim_metrics = self.feature_similarity_loss_hierarchical(embed_spat, feats, return_metrics=gen_metrics) if self.hierarchical else self.feature_similarity_loss(embed_spat, feats, return_metrics=gen_metrics)
+                loss_feat_sim, feat_sim_metrics = self.feature_similarity_loss_hierarchical(embed_spat, feats, return_metrics=gen_metrics) if (self.hierarchical or self.split_spatial_encoder) else self.feature_similarity_loss(embed_spat, feats, return_metrics=gen_metrics)
                 loss_feat_sim = loss_feat_sim * self.feature_sim_loss_weight
                 
-                if self.feature_sim_loss:
-                    losses.append(loss_feat_sim)
+                if self.diff_feat_selection:
+                    # L1 Regularization Penalty (exclude anchored features)
+                    anchored_feats = getattr(self, 'anchored_features', [])
+                    learnable_weights = torch.stack([w for i, w in enumerate(self.spatial_feature_weights) if self.candidate_features[i] not in anchored_feats])
+                    l1_penalty = self.diff_feat_selection_lambda * torch.sum(torch.abs(learnable_weights))
+                    loss_feat_sim = loss_feat_sim + l1_penalty
+                    if self.debug:
+                        debug_stats['l1_penalty'] = l1_penalty.item()
+                
+                losses.append(loss_feat_sim)
                 
                 if gen_metrics:
                     data_vis['metrics'] = feat_sim_metrics
@@ -831,6 +909,43 @@ class SARSSL(nn.Module):
                 if self.debug:
                     debug_stats['loss_feat_sim'] = loss_feat_sim.item()
             
+            if self.spectral_feature_sim_loss:
+                x_complex = torch.view_as_complex(x) # [B, nmic, nf, nt]
+                with torch.no_grad():
+                    if precalc_spec_feats is not None:
+                        feats_spec = precalc_spec_feats
+                    else:
+                        feats_spec = at_module.spectral_features_from_stft(x_complex, sample_rate=16000)
+                
+                loss_spec_feat_sim, spec_feat_sim_metrics = self.spectral_feature_similarity_loss(embed_spec, feats_spec, return_metrics=gen_metrics)
+                loss_spec_feat_sim = loss_spec_feat_sim * self.spectral_feature_sim_weight
+                losses.append(loss_spec_feat_sim)
+
+                if gen_metrics:
+                    data_vis['spec_metrics'] = spec_feat_sim_metrics
+
+                if self.debug:
+                    debug_stats['loss_spec_feat_sim'] = loss_spec_feat_sim.item()
+
+            if self.hierarchical_adv and hasattr(self, 'tdoa_adversary_head') and self.adv_weight > 0:
+                z_spat_mean = embed_spat.mean(dim=1)
+                z_room = z_spat_mean[:, embed_spat.shape[-1]//2:]
+                
+                z_room_grl = self.grl(z_room)
+                predicted_tdoa = self.tdoa_adversary_head(z_room_grl)
+                
+                if 'feats' not in locals():
+                    x_complex = torch.view_as_complex(x)
+                    with torch.no_grad():
+                        feats = at_module.spatial_features_from_stft(x_complex, sample_rate=16000)
+                
+                target_tdoa = feats['tdoa'] * 10000 # scale to ~1
+                loss_adv = F.mse_loss(predicted_tdoa, target_tdoa)
+                losses.append(loss_adv * self.adv_weight)
+                
+                if self.debug:
+                    debug_stats['loss_adv'] = loss_adv.item()
+
             loss = sum(losses) / len(losses)
 
             if self.debug:
@@ -865,8 +980,12 @@ class SARSSL(nn.Module):
             
             if 'loss_feat_sim' not in locals():
                 loss_feat_sim = torch.tensor(0.0, device=self.device)
+            if 'loss_spec_feat_sim' not in locals():
+                loss_spec_feat_sim = torch.tensor(0.0, device=self.device)
+            if 'loss_adv' not in locals():
+                loss_adv = torch.tensor(0.0, device=self.device)
 
-            return loss, diff, data_vis, loss_cl_spat, loss_cl_spec, obt_loss, loss_gen, loss_feat_sim
+            return loss, diff, data_vis, loss_cl_spat, loss_cl_spec, obt_loss, loss_gen, loss_feat_sim, loss_spec_feat_sim, loss_adv
 
 
         elif self.pretrain_frozen_encoder:
@@ -880,9 +999,9 @@ class SARSSL(nn.Module):
 
             ## Single-channel masking 
             npatch = vec_patch.shape[1]
-            mask_dense_expand = mask_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
-            mask_patch_dense_expand = mask_patch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
-            mask_ch_dense_expand = mask_ch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1)
+            mask_dense_expand = mask_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1).to(vec_patch.device)
+            mask_patch_dense_expand = mask_patch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1).to(vec_patch.device)
+            mask_ch_dense_expand = mask_ch_dense[:, :, :, np.newaxis, :].expand(-1, -1, -1, 2, -1).to(vec_patch.device)
             vec_patch_mask = vec_patch * mask_dense_expand  # (nbatch, npatch, dpatch, 2, nmic)
 
             ## Embedding encoding
@@ -892,12 +1011,12 @@ class SARSSL(nn.Module):
                 vec_patch_mask_reshape_spec = vec_patch * (1-mask_patch_dense_expand) * mask_ch_dense_expand # only unmasked channel
                 # vec_patch_mask_reshape_spec = vec_patch * mask_patch_dense_expand * (1-mask_ch_dense_expand) # only masked channel
                 vec_patch_mask_reshape_spec = vec_patch_mask_reshape_spec.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*2*nmic)
-                embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape_spec)  # (nbatch, npatch, dembed)
+                embed_spec = self.spec_encoder.forward(vec_patch_mask_reshape_spec)[0]  # (nbatch, npatch, dembed)
 
                 ## spatial information
                 vec_patch_mask_reshape_spat = vec_patch * mask_patch_dense_expand  # (nbatch, npatch, d_patch, 2, nreim)
                 vec_patch_mask_reshape_spat = vec_patch_mask_reshape_spat.reshape(nbatch, npatch, -1)  # (nbatch, npatch, dpatch*nch)
-                embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape_spat, add_same_one=False)  # (nbatch, npatch, dembed)
+                embed_spat = self.spat_encoder.forward(vec_patch_mask_reshape_spat, add_same_one=False)[0]  # (nbatch, npatch, dembed)
 
             ## Embedding decoding
             embed = torch.cat([embed_spec, embed_spat], dim=2)
@@ -937,7 +1056,7 @@ class SARSSL(nn.Module):
             
             data_vis['mask'], data_vis['pred'], data_vis['tar'] = self.vis_results(mask_patches=mask, pred_patches=pred, tar_patches=tar)
             
-            return loss, loss*0.0, data_vis, torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device)
+            return loss, loss*0.0, data_vis, torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device)
         else:
             ## Patch (frame) spliting
             data = x.permute(0, 2, 3, 4, 1) # (nbatch, nf, nt, nreim, nmic)
@@ -951,35 +1070,56 @@ class SARSSL(nn.Module):
                 
                 if self.spectral_enc_input == 'mono':
                     vec_patch_spec = vec_patch[:, :, :, :, 0].reshape(nbatch, npatch, -1)
-                    embed_spec = self.spec_encoder.forward(vec_patch_spec)
+                    embed_spec, hs_spec = self.spec_encoder.forward(vec_patch_spec)
                 else:
-                    embed_spec = self.spec_encoder.forward(vec_patch_reshape)  # (nbatch, npatch, dembed)
+                    embed_spec, hs_spec = self.spec_encoder.forward(vec_patch_reshape)  # (nbatch, npatch, dembed)
                 
-                embed_spat = self.spat_encoder.forward(vec_patch_reshape, add_same_one=False)  # (nbatch, npatch, dembed)
+                embed_spat, hs_spat = self.spat_encoder.forward(vec_patch_reshape, add_same_one=False)  # (nbatch, npatch, dembed)
 
             elif self.in_ver == 'single_ch_each_patch':
                 vec_patch_reshape = torch.cat([vec_patch[:,:,:,:,0], vec_patch[:,:,:,:,1]], dim=1) # (nbatch, npatch*nmic, dpatch, nreim)
                 vec_patch_reshape = vec_patch_reshape.reshape(nbatch, npatch*nmic, -1)  # (nbatch, npatch*nmic, dpatch*nreim)
-                embed_spec = self.spec_encoder.forward(vec_patch_reshape)  # (nbatch, npatch*nmic, dembed/nmic)
+                embed_spec, hs_spec = self.spec_encoder.forward(vec_patch_reshape)  # (nbatch, npatch*nmic, dembed/nmic)
                 embed_spec = torch.cat([embed_spec[:, 0:npatch, :], embed_spec[:, npatch:npatch*2, :]], dim=2) # (nbatch, npatch, dembed)
-                embed_spat = self.spat_encoder.forward(vec_patch_reshape)  # (nbatch, npatch*nmic, dembed/nmic)
+                hs_spec = [torch.cat([h[:, 0:npatch, :], h[:, npatch:npatch*2, :]], dim=2) for h in hs_spec]
+                
+                embed_spat, hs_spat = self.spat_encoder.forward(vec_patch_reshape)  # (nbatch, npatch*nmic, dembed/nmic)
                 embed_spat = torch.cat([embed_spat[:, 0:npatch, :], embed_spat[:, npatch:npatch*2, :]], dim=2) # (nbatch, npatch, dembed)
+                hs_spat = [torch.cat([h[:, 0:npatch, :], h[:, npatch:npatch*2, :]], dim=2) for h in hs_spat]
 
             ## Downstream processing
+            if self.hierarchical or self.split_spatial_encoder:
+                dim = embed_spat.shape[-1] // 2
+                if getattr(self, 'task', None) == 'TDOA':
+                    embed_spat = embed_spat[:, :, :dim]
+                    if isinstance(hs_spat, list):
+                        hs_spat = [h[:, :, :dim] for h in hs_spat]
+                else:
+                    embed_spat = embed_spat[:, :, dim:]
+                    if isinstance(hs_spat, list):
+                        hs_spat = [h[:, :, dim:] for h in hs_spat]
+
+            hidden_states = []
             if self.use_cls:
                 if self.ds_token == 'cls':
                     embed = torch.cat([embed_spec[:, -1:, :], embed_spat[:, -1:, :]], dim=-1)
+                    hidden_states = [torch.cat([hs1[:, -1:, :], hs2[:, -1:, :]], dim=-1) for hs1, hs2 in zip(hs_spec, hs_spat)]
                 elif self.ds_token == 'all':
                     embed = torch.cat([embed_spec[:, :-1, :], embed_spat[:, :-1, :]], dim=-1)
+                    hidden_states = [torch.cat([hs1[:, :-1, :], hs2[:, :-1, :]], dim=-1) for hs1, hs2 in zip(hs_spec, hs_spat)]
             else:
                 if self.embed_use4ds == 'spec_spat':
                     embed = torch.cat([embed_spec, embed_spat], dim=2)
+                    hidden_states = [torch.cat([hs1, hs2], dim=2) for hs1, hs2 in zip(hs_spec, hs_spat)]
                 elif self.embed_use4ds == 'spec':
                     embed = embed_spec+0.0
+                    hidden_states = hs_spec
                 elif self.embed_use4ds == 'spat':
                     embed = embed_spat+0.0
+                    hidden_states = hs_spat
                 elif self.embed_use4ds == 'noinfo':
                     embed = torch.zeros_like(embed_spec, device=self.device).detach()
+                    hidden_states = [torch.zeros_like(h, device=self.device).detach() for h in hs_spec]
 
             pred = torch.mean(embed, dim=1) # (nbatch, dembed*n)
             if self.downstream_head == 'mlp':
@@ -996,7 +1136,7 @@ class SARSSL(nn.Module):
 
             elif self.downstream_head == 'crnn_out': 
                 pred = self.pred_head(x, pred)
-            return pred, torch.mean(embed, dim=1)
+            return pred, torch.mean(embed, dim=1), hidden_states
 
     def gen_loss(self, pred_patches, tar_patches, mask_idx, tar_unmaskch_patches=None):
         """ Calculate the generative loss from predited masked patches and target patches 
@@ -1188,14 +1328,16 @@ class SARSSL(nn.Module):
         z_proj = self.feat_sim_proj(z) # [B, 128]      
         
         # 2. & 3. Calculate Loss using helper
-        # Features: ipd_cos, ipd_sin, ild, coherence, tdoa
-        #feature_keys = ['ild_mean', 'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio', 'tdoa']
-        # feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90', 'mod_low_high_ratio', 'early_late_ratio_mean', 'early_late_ratio_median']
-        # feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90']
-        feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa']
-        #sigma = 0.5 * np.sqrt(len(feature_keys))
+        # If Differentiable Feature Selection is Enabled OR we are using fixed weights:
+        if (hasattr(self, 'diff_feat_selection') and self.diff_feat_selection) or getattr(self, 'fixed_feature_weights', False):
+            feature_keys = self.candidate_features
+            learned_weights = self.spatial_feature_weights
+        else:
+            feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa']
+            learned_weights = None
+
         sigma = self.feature_sim_sigma
-        loss, metrics = self._calc_single_feat_sim_loss(z_proj, spatial_features, feature_keys, temperature, sigma, eps, return_metrics)
+        loss, metrics = self._calc_single_feat_sim_loss(z_proj, spatial_features, feature_keys, temperature, sigma, eps, return_metrics, learned_weights)
 
         return loss, metrics
 
@@ -1252,17 +1394,165 @@ class SARSSL(nn.Module):
                 'doa': metrics_doa,
                 'room': metrics_room
             }
-            
         return loss, metrics
 
-    def _calc_single_feat_sim_loss(self, z_proj, spatial_features, feature_keys, temperature, sigma, eps, return_metrics):
+    def spectral_feature_similarity_loss(self, embed_spec, spectral_features_dict, eps=1e-8, return_metrics=False):
+        """
+        Calculate Spectral Feature Similarity Loss on a frame-by-frame basis.
+        
+        Args:
+            embed_spec: [B, T, dembed]
+            spectral_features_dict: dict of 'feature_matrix' [B, 16, T] and 'voiced_prob' [B, T]
+        """
+        device = embed_spec.device
+        temperature = self.spectral_feature_sim_temperature
+        sigma = self.spectral_feature_sim_sigma
+        
+        B, T, dembed = embed_spec.shape
+        
+        # 1. Prepare target features
+        feature_matrix = spectral_features_dict['feature_matrix'] # [B, 16, T]
+        voiced_prob = spectral_features_dict['voiced_prob'] # [B, T]
+        
+        num_features = feature_matrix.shape[1]
+        feature_norm = torch.zeros_like(feature_matrix)
+        
+        feature_names = [
+            'F0', 'Energy', 'ZCR', 'Spectral_Centroid', 'Spectral_Spread', 
+            'Spectral_Skewness', 'Spectral_Kurtosis', 'Spectral_Rolloff', 
+            'Spectral_Flux', 'Spectral_Flatness', 'MFCC_1', 'MFCC_2', 
+            'MFCC_3', 'MFCC_4', 'MFCC_5', 'MFCC_6'
+        ]
+        
+        if return_metrics:
+             raw_values = {name: [] for name in feature_names}
+             norm_values = {name: [] for name in feature_names}
+        
+        # Normalize features
+        if 'mean' in self.spectral_feature_stats and 'std' in self.spectral_feature_stats:
+             means = self.spectral_feature_stats['mean'] # [16]
+             stds = self.spectral_feature_stats['std'] # [16]
+             for i in range(num_features):
+                  val = feature_matrix[:, i, :]
+                  mean = means[i]
+                  std = stds[i]
+                  v_norm = (val - mean) / (3 * std + 1e-6)
+                  feature_norm[:, i, :] = torch.clamp(v_norm, -1.0, 1.0)
+        else:
+             feature_norm = feature_matrix
+
+        # 2. Project embeddings
+        # Reshape for projection
+        z_flat = embed_spec.reshape(B * T, dembed)
+        z_proj_flat = self.feat_sim_proj_spec(z_flat) # [B*T, 128]
+        z_proj = z_proj_flat.view(B, T, 128)
+        
+        z_norm = F.normalize(z_proj, dim=-1) # [B, T, 128]
+        
+        diag = torch.eye(B, device=device, dtype=torch.bool)
+        mask = ~diag
+        
+        loss_frames = []
+        if return_metrics:
+            metrics_frames = {
+                'raw': raw_values,
+                'norm': norm_values,
+                'sim_weights': [],
+                'cue_dist': [],
+                'sim': []
+            }
+        
+        # 3. Calculate frame-by-frame loss
+        for t in range(T):
+             # Features at time t
+             f_t = feature_norm[:, :, t] # [B, 16]
+             v_p_t = voiced_prob[:, t] # [B]
+             
+             # Calculate pairwise squared differences [B, B, 16]
+             f_t_exp1 = f_t.unsqueeze(1).expand(B, B, num_features)
+             f_t_exp2 = f_t.unsqueeze(0).expand(B, B, num_features)
+             sq_diff = (f_t_exp1 - f_t_exp2) ** 2
+             
+             # Soft-mask the F0 (index 0) using joint voiced probabilities
+             joint_v_prob = v_p_t.unsqueeze(1) * v_p_t.unsqueeze(0) # [B, B]
+             sq_diff[:, :, 0] = sq_diff[:, :, 0] * joint_v_prob
+             
+             # Sum of squared differences
+             cue_dist_sq = sq_diff.sum(dim=-1) # [B, B]
+             cue_dist = torch.sqrt(cue_dist_sq + eps)
+             
+             w = torch.exp(- (cue_dist / sigma) ** 2)
+             
+             # Embedding similarity
+             z_t = z_norm[:, t, :] # [B, 128]
+             sim = torch.matmul(z_t, z_t.T) / temperature # [B, B]
+             
+             exp_sim = torch.exp(sim) * mask
+             den = exp_sim.sum(dim=1, keepdim=True) + eps
+             log_prob = sim - torch.log(den)
+             
+             w_mask = w * mask
+             w_sum = w_mask.sum(dim=1, keepdim=True) + eps
+             w_norm = w_mask / w_sum
+             
+             loss_t = - (w_norm * log_prob).sum(dim=1)
+             loss_frames.append(loss_t.mean())
+             
+             if return_metrics:
+                 for i, name in enumerate(feature_names):
+                     metrics_frames['raw'][name].append(f_t[:, i].detach())
+                     metrics_frames['norm'][name].append(feature_norm[:, i, t].detach())
+                 metrics_frames['sim_weights'].append(w.detach())
+                 metrics_frames['cue_dist'].append(cue_dist.detach())
+                 metrics_frames['sim'].append(sim.detach())
+                 
+        total_loss = torch.stack(loss_frames).mean()
+        
+        metrics = None
+        if return_metrics:
+            # Stack the lists into tensors across time dimension (if desired) or keep as lists
+            # We'll just return the dictionary of lists directly, the plotting code can handle lists of tensors.
+            metrics = metrics_frames
+            
+        return total_loss, metrics
+
+    def get_active_spatial_feature_weights(self):
+        """Calculate and return active spatial feature weights."""
+        if hasattr(self, 'spatial_feature_weights'):
+            if getattr(self, 'fixed_feature_weights', False):
+                # When weights are fixed, they are loaded as-is from JSON (already passed through sigmoid/softmax basically)
+                w_sig = self.spatial_feature_weights
+            else:
+                w_sig = torch.sigmoid(self.spatial_feature_weights)
+            
+            anchored_feats = getattr(self, 'anchored_features', [])
+            
+            w_active = []
+            for i, feat in enumerate(self.candidate_features):
+                if feat in anchored_feats:
+                    # Anchored features have a fixed weight of 1
+                    w_active.append(torch.tensor(1.0, device=self.spatial_feature_weights.device))
+                else:
+                    w_active.append(w_sig[i])
+            return torch.stack(w_active)
+        return None
+
+    def _calc_single_feat_sim_loss(self, z_proj, spatial_features, feature_keys, temperature, sigma, eps, return_metrics, learned_weights=None):
         """Helper to calculate cue-weighted contrastive loss for a single set of features."""
         
         kv_pairs = []
         raw_values = {}
         norm_values = {}
         
-        for k in feature_keys:
+        if learned_weights is not None:
+            #  w_sig = torch.sigmoid(learned_weights)
+            w_active = self.get_active_spatial_feature_weights()
+            if w_active is None:
+                K = len(feature_keys)
+                tau = 6.0
+                w_active = K * torch.softmax(learned_weights / tau, dim=0)
+        
+        for i, k in enumerate(feature_keys):
             val = spatial_features[k] # [B]
             if return_metrics:
                 raw_values[k] = val.detach()
@@ -1275,6 +1565,9 @@ class SARSSL(nn.Module):
                 val_norm = torch.clamp(val_norm, -1.0, 1.0)
             else:
                 val_norm = val
+                
+            if learned_weights is not None:
+                val_norm = val_norm * w_active[i]
                  
             kv_pairs.append(val_norm.unsqueeze(1))
              
@@ -1458,12 +1751,12 @@ class MCConformer(nn.Module):
         
         ## Embedding encoding
         if (self.dembed['spec'] > 0) & (self.dembed['spat'] == 0):
-            embed = self.spec_encoder.forward(vec_patch_reshape)  # (nbatch, npatch, dembed_spec)
+            embed = self.spec_encoder.forward(vec_patch_reshape)[0]  # (nbatch, npatch, dembed_spec)
         elif (self.dembed['spec'] == 0) & (self.dembed['spat'] > 0):
-            embed = self.spat_encoder.forward(vec_patch_reshape, add_same_one=False)  # (nbatch, npatch, dembed_spat)
+            embed = self.spat_encoder.forward(vec_patch_reshape, add_same_one=False)[0]  # (nbatch, npatch, dembed_spat)
         elif (self.dembed['spec'] > 0) & (self.dembed['spat'] > 0):
-            embed_spec = self.spec_encoder.forward(vec_patch_reshape)  # (nbatch, npatch, dembed_spec)
-            embed_spat = self.spat_encoder.forward(vec_patch_reshape, add_same_one=False)  # (nbatch, npatch, dembed_spat)
+            embed_spec = self.spec_encoder.forward(vec_patch_reshape)[0]  # (nbatch, npatch, dembed_spec)
+            embed_spat = self.spat_encoder.forward(vec_patch_reshape, add_same_one=False)[0]  # (nbatch, npatch, dembed_spat)
             embed = torch.cat([embed_spec, embed_spat], dim=2) # (nbatch, npatch, dembed_spec+dembed_spat)
 
         ## Embedding decoding
