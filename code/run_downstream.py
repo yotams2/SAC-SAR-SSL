@@ -412,6 +412,27 @@ if (args.ds_train):
 							'ensemble_epoch':ensemble_epochs})
 		os.remove(task_time_dir+'/' + result_name_temporal)
 
+		downstream_res_list = []
+		for trial_idx in range(ntrials):
+			downstream_res_list.append({
+				'task': task,
+				'trial_idx': trial_idx,
+				'lr_idx': int(best_lr_idx),
+				'bs_idx': int(best_bs_idx),
+				'loss_test': float(test_losses[best_lr_idx, best_bs_idx, trial_idx]),
+				'metric_test': float(test_metrics[best_lr_idx, best_bs_idx, trial_idx])
+			})
+
+		if len(downstream_res_list) > 0:
+			res_file = os.path.join(task_time_dir, 'downstream_test_res_{}{}.json'.format(args.ds_trainmode, "_real" if not args.simu_exp else ""))
+			try:
+				with open(res_file, 'w') as f:
+					json.dump(downstream_res_list, f, indent=4)
+				print(f"Saved downstream test results to {res_file}")
+			except Exception as e:
+				print(f"Failed to save downstream test results: {e}")
+
+
 
 if (args.ds_test):
 

@@ -95,6 +95,7 @@ class Learner(ABC):
 			loss_feat_sim_avg = 0 # Initialize loss_feat_sim_avg
 			loss_spec_feat_sim_avg = 0
 			loss_adv_avg = 0
+			factorized_losses_avg = {}
 
 		optimizer.zero_grad()
 		pbar = tqdm(enumerate(dataset), total=len(dataset), leave=False) 
@@ -110,13 +111,20 @@ class Learner(ABC):
 			if len(data) > 2 and isinstance(data[-2], dict) and 'feature_matrix' in data[-2]:
 				spec_feats_batch = {k: v.to(self.device) for k, v in data[-2].items()}
 
+			gt_spatial_features = None
+			if len(data) > 2:
+				for item in data[1:-1]:
+					if isinstance(item, dict) and 'TDOA' in item:
+						gt_spatial_features = {k: v.to(self.device).float() for k, v in item.items()}
+						break
+
 			in_batch, = self.data_preprocess(mic_sig_batch, None)
 
 			with torch.cuda.amp.autocast(enabled=self.use_amp):
 				if 'indices' in locals():
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch, loss_spec_feat_sim_batch, loss_adv_batch = self.model(in_batch, indices=indices, epoch=epoch, precalc_spec_feats=spec_feats_batch) # Unpack loss_feat_sim_batch
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch, loss_spec_feat_sim_batch, loss_adv_batch = self.model(in_batch, indices=indices, epoch=epoch, precalc_spec_feats=spec_feats_batch, gt_spatial_features=gt_spatial_features) # Unpack loss_feat_sim_batch
 				else:
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch, loss_spec_feat_sim_batch, loss_adv_batch = self.model(in_batch, epoch=epoch, precalc_spec_feats=spec_feats_batch) # Unpack loss_feat_sim_batch
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch, loss_spec_feat_sim_batch, loss_adv_batch = self.model(in_batch, epoch=epoch, precalc_spec_feats=spec_feats_batch, gt_spatial_features=gt_spatial_features) # Unpack loss_feat_sim_batch
 			loss_batch = loss_batch.mean() # for multiple gpus
 			diff_batch = diff_batch.mean()
 			loss_cl_spat = loss_cl_spat.mean()
@@ -127,13 +135,76 @@ class Learner(ABC):
 			loss_spec_feat_sim_batch = loss_spec_feat_sim_batch.mean()
 			loss_adv_batch = loss_adv_batch.mean()
 
-			if self.use_amp:
-				self.scaler.scale(loss_batch).backward()
-				self.scaler.step(optimizer)
-				self.scaler.update()
+			model_core = getattr(self.model, 'module', self.model)
+			
+			if getattr(model_core, 'use_pcgrad', False) and 'factorized_losses' in vis_batch:
+				from common.utils import pcgrad_backward
+				other_active = []
+				# Load any other active losses from the pre-training loop
+				for name, val in [('cl_spat', loss_cl_spat), ('cl_spec', loss_cl_spec), ('obt', obt_batch), 
+								  ('gen', loss_gen_batch), ('spec_feat_sim', loss_spec_feat_sim_batch), ('adv', loss_adv_batch)]:
+					if isinstance(val, torch.Tensor) and val.requires_grad:
+						other_active.append((name, val))
+				
+				# 1 high-level task for 'feature_sim_loss' (which encompasses all factorized losses), plus the other high-level tasks
+				num_high_level = 1 + len(other_active)
+				
+				factorized_keys = list(vis_batch['factorized_losses'].keys())
+				num_factorized = len(factorized_keys)
+
+				loss_dict = {}
+				# Load factorized SAC losses, explicitly scaled down by the factorized count AND the high-level task count, applying feature_sim_loss_weight
+				feat_weight = getattr(model_core, 'feature_sim_loss_weight', 1.0)
+				for k, v in vis_batch['factorized_losses'].items():
+					if isinstance(v, torch.Tensor) and v.requires_grad:
+						loss_dict[k] = (v.mean() * feat_weight) / (num_factorized * num_high_level)
+						
+				# Load the other active high-level losses, scaled by the high-level task count
+				for name, val in other_active:
+					weight = 1.0
+					if name == 'spec_feat_sim':
+						weight = getattr(model_core, 'spectral_feature_sim_weight', 1.0)
+					elif name == 'adv':
+						weight = getattr(model_core, 'adv_weight', 1.0)
+					loss_dict[name] = (val.mean() * weight) / num_high_level
+
+				# Recover L1 penalty locally because it was embedded inside the bypassed loss_feat_sim scalar
+				l1_penalty = None
+				if getattr(model_core, 'diff_feat_selection', False):
+					anchored_feats = getattr(model_core, 'anchored_features', [])
+					if hasattr(model_core, 'spatial_feature_weights'):
+						learnable_weights = torch.stack([w for i, w in enumerate(model_core.spatial_feature_weights) if model_core.candidate_features[i] not in anchored_feats])
+						if len(learnable_weights) > 0:
+							l1_penalty = model_core.diff_feat_selection_lambda * torch.sum(torch.abs(learnable_weights))
+						
+				if self.use_amp:
+					loss_dict = {k: self.scaler.scale(v) for k, v in loss_dict.items()}
+					
+				from contextlib import nullcontext
+				sync_context = self.model.no_sync() if hasattr(self.model, 'no_sync') else nullcontext()
+				
+				with sync_context:
+					pcgrad_backward(loss_dict, optimizer, self.model.parameters())
+					
+				if l1_penalty is not None:
+					if self.use_amp:
+						self.scaler.scale(l1_penalty).backward()
+					else:
+						l1_penalty.backward()
+				
+				if self.use_amp:
+					self.scaler.step(optimizer)
+					self.scaler.update()
+				else:
+					optimizer.step()
 			else:
-				loss_batch.backward()
-				optimizer.step()
+				if self.use_amp:
+					self.scaler.scale(loss_batch).backward()
+					self.scaler.step(optimizer)
+					self.scaler.update()
+				else:
+					loss_batch.backward()
+					optimizer.step()
 
 			optimizer.zero_grad()
 			
@@ -180,6 +251,15 @@ class Learner(ABC):
 			if hasattr(model_core, 'hierarchical_adv') and model_core.hierarchical_adv and hasattr(model_core, 'adv_weight') and model_core.adv_weight > 0:
 				pbar_dict['adv'] = loss_adv_batch.item()
 			
+			if 'factorized_losses' in vis_batch:
+				for k, v in vis_batch['factorized_losses'].items():
+					val = v.item()
+					pbar_dict['sac_' + k.replace('loss_', '')] = val
+					if k not in factorized_losses_avg:
+						factorized_losses_avg[k] = val
+					else:
+						factorized_losses_avg[k] += val
+
 			pbar.set_postfix(**pbar_dict)
 			# pbar.set_postfix(loss=loss.item())
 			pbar.update()
@@ -194,6 +274,24 @@ class Learner(ABC):
 				loss_feat_sim_avg += loss_feat_sim_batch.item() # Accumulate loss_feat_sim_avg
 				loss_spec_feat_sim_avg += loss_spec_feat_sim_batch.item()
 				loss_adv_avg += loss_adv_batch.item()
+			
+			import os
+			is_sweep = os.environ.get("TAU_SWEEP", "0") == "1"
+			print_condition = (batch_idx % 20 == 0) if is_sweep else (batch_idx == len(dataset) - 1)
+			
+			if 'diagnostics' in vis_batch and print_condition:
+				diag = vis_batch['diagnostics']
+				if len(diag) > 0:
+					global_uni = sum(d['Uniformity'] for d in diag.values()) / len(diag)
+					global_ali = sum(d['Alignment'] for d in diag.values()) / len(diag)
+					global_er = sum(d.get('EffectiveRank', 0.0) for d in diag.values()) / len(diag)
+					print(f"\n  [Diagnostics] Uniformity: {global_uni:.4f}, Alignment_Top10: {global_ali:.4f}, EffectiveRank: {global_er:.4f}")
+					import builtins
+					if hasattr(builtins, 'PROBE_CALLBACK'):
+						builtins.PROBE_CALLBACK(global_uni, global_ali, global_er)
+					if is_sweep:
+						for k, v in diag.items():
+							print(f"  [{k}] Uniformity: {v['Uniformity']:.4f}, Alignment: {v['Alignment']:.4f}, EffectiveRank: {v.get('EffectiveRank', 0.0):.4f}")
 			
 			if self.debug and self.debug_log_path and epoch is not None:
 				# Log 4 times per epoch: at 25%, 50%, 75%, and 100% (approx)
@@ -221,6 +319,9 @@ class Learner(ABC):
 			loss_feat_sim_avg /= len(pbar) # Average loss_feat_sim_avg
 			loss_spec_feat_sim_avg /= len(pbar)
 			loss_adv_avg /= len(pbar)
+			for k in factorized_losses_avg:
+				factorized_losses_avg[k] /= len(pbar)
+			vis_batch['factorized_losses_avg'] = factorized_losses_avg
 
 		if return_diff: 
 			return loss, diff, vis_batch, loss_cl_spat_avg, loss_cl_spec_avg, obt_loss_avg, loss_gen_avg, loss_feat_sim_avg, loss_spec_feat_sim_avg, loss_adv_avg # Return loss_feat_sim_avg
@@ -243,6 +344,7 @@ class Learner(ABC):
 				loss_spec_feat_sim_avg = 0
 				loss_adv_avg = 0
 				cka_avg = 0
+				factorized_losses_avg = {}
 
 				if analyze_rank:
 					rank_analysis = None
@@ -268,10 +370,17 @@ class Learner(ABC):
 				if len(data) > 2 and isinstance(data[-2], dict) and 'feature_matrix' in data[-2]:
 					spec_feats_batch = {k: v.to(self.device) for k, v in data[-2].items()}
 
+				gt_spatial_features = None
+				if len(data) > 2:
+					for item in data[1:-1]:
+						if isinstance(item, dict) and 'TDOA' in item:
+							gt_spatial_features = {k: v.to(self.device).float() for k, v in item.items()}
+							break
+
 				in_batch, = self.data_preprocess(mic_sig_batch, None)
 
 				with torch.cuda.amp.autocast(enabled=self.use_amp):
-					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch, loss_spec_feat_sim_batch, loss_adv_batch = self.model(in_batch, gen_metrics=gen_metrics, precalc_spec_feats=spec_feats_batch) 
+					loss_batch, diff_batch, vis_batch, loss_cl_spat, loss_cl_spec, obt_batch, loss_gen_batch, loss_feat_sim_batch, loss_spec_feat_sim_batch, loss_adv_batch = self.model(in_batch, gen_metrics=gen_metrics, precalc_spec_feats=spec_feats_batch, gt_spatial_features=gt_spatial_features) 
 
 				loss_batch = loss_batch.mean() 
 				diff_batch = diff_batch.mean()
@@ -300,6 +409,14 @@ class Learner(ABC):
 					loss_spec_feat_sim_avg += loss_spec_feat_sim_batch.mean().item()
 					loss_adv_avg += loss_adv_batch.mean().item()
 					
+					if 'factorized_losses' in vis_batch:
+						for k, v in vis_batch['factorized_losses'].items():
+							val = v.item()
+							if k not in factorized_losses_avg:
+								factorized_losses_avg[k] = val
+							else:
+								factorized_losses_avg[k] += val
+
 					if 'embed_spec' in vis_batch and 'embed_spat' in vis_batch:
 						e_spec = vis_batch['embed_spec'].reshape(-1, vis_batch['embed_spec'].shape[-1])
 						e_spat = vis_batch['embed_spat'].reshape(-1, vis_batch['embed_spat'].shape[-1])
@@ -392,6 +509,10 @@ class Learner(ABC):
 				loss_spec_feat_sim_avg /= len(dataset)
 				loss_adv_avg /= len(dataset)
 				cka_avg /= len(dataset)
+				for k in factorized_losses_avg:
+					factorized_losses_avg[k] /= len(dataset)
+				if 'factorized_losses' in vis_batch:
+					vis_batch['factorized_losses_avg'] = factorized_losses_avg
 
 			if return_diff: 
 				rank_analysis = {}

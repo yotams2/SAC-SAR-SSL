@@ -1,7 +1,0 @@
-T: 4.112, nt: 256, nf: 256
-Traceback (most recent call last):
-  File "run_pretrain.py", line 346, in <module>
-    net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, feature_sim_loss_weight=args.feature_sim_loss_weight, feature_sim_sigma=args.feature_sim_sigma, feature_sim_temperature=args.feature_sim_temperature, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug, hierarchical=args.hierarchical, rec_loss=args.rec_loss)
-  File "/storage/yotam/SAR-SSL/SAR-SSL/code/model.py", line 383, in __init__
-    self.rec_loss = rec_loss
-NameError: name 'rec_loss' is not defined

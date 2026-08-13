@@ -17,6 +17,57 @@ from sklearn.manifold import TSNE
 from sklearn.datasets import load_iris
 from sklearn.decomposition import PCA
 
+def pcgrad_backward(loss_dict, optimizer, parameters):
+    losses = list(loss_dict.values())
+    num_tasks = len(losses)
+    params = [p for p in parameters if p.requires_grad]
+    
+    task_grads = []
+    optimizer.zero_grad()
+    
+    # 1. Compute gradients for each task independently
+    for i, loss in enumerate(losses):
+        retain = (i < num_tasks - 1)
+        loss.backward(retain_graph=retain)
+        
+        grad_vec = []
+        for p in params:
+            if p.grad is not None:
+                grad_vec.append(p.grad.data.clone().flatten())
+            else:
+                grad_vec.append(torch.zeros_like(p.data).flatten())
+        
+        task_grads.append(torch.cat(grad_vec))
+        optimizer.zero_grad()
+
+    # 2. PCGrad Projection
+    task_indices = list(range(num_tasks))
+    random.shuffle(task_indices)
+
+    modified_grads = []
+    for i in task_indices:
+        grad_i = task_grads[i].clone()
+        other_indices = [j for j in task_indices if j != i]
+        random.shuffle(other_indices)
+        
+        for j in other_indices:
+            grad_j = task_grads[j]
+            dot_product = torch.dot(grad_i, grad_j)
+            
+            if dot_product < 0:
+                grad_j_norm_sq = torch.dot(grad_j, grad_j) + 1e-8
+                grad_i -= (dot_product / grad_j_norm_sq) * grad_j
+                
+        modified_grads.append(grad_i)
+
+    # 3. Sum modified gradients and assign back to model
+    total_modified_grad = torch.stack(modified_grads).sum(dim=0)
+    offset = 0
+    for p in params:
+        numel = p.numel()
+        p.grad = total_modified_grad[offset : offset + numel].view_as(p.data).clone()
+        offset += numel
+
 
 def plot_learning_curve(loss_dict, save_path):
     """ Plot learning curve

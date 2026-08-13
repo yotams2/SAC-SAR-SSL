@@ -17,7 +17,7 @@ from common.CRNN import crnn, crnn_sim, tcrnn
 
 class EmbedEncoder(nn.Module):
 
-    def __init__(self, sig_shape, patch_shape, dembed, model=['cnn', 'conformer'], mode='spat', use_cls=False, device='cpu', hierarchical=False):
+    def __init__(self, sig_shape, patch_shape, dembed, model=['cnn', 'conformer'], mode='spat', use_cls=False, device='cpu', hierarchical=False, hierarchical_w_stop_grad=False, hierarchical_w_ch_att=False, hierarchical_stop_grad_branch='room'):
         super(EmbedEncoder, self).__init__()
 
         self.sig_shape = sig_shape
@@ -26,6 +26,9 @@ class EmbedEncoder(nn.Module):
         self.device = device
         self.model = model
         self.use_cls = use_cls
+        self.hierarchical_w_stop_grad = hierarchical_w_stop_grad
+        self.hierarchical_w_ch_att = hierarchical_w_ch_att
+        self.hierarchical_stop_grad_branch = hierarchical_stop_grad_branch
             
         nf, nt, nreim, nmic = sig_shape
         nch = nreim*nmic
@@ -91,7 +94,7 @@ class EmbedEncoder(nn.Module):
                 if model[1] == 'transformer':
                     self.embed = TransformerEncoder(d_model=self.dembed, nlayer=mhsa_nlayer, nhead=4, d_ff=self.dembed*4, dropout=0.1)
                 elif model[1] == 'conformer':
-                    self.embed = ConformerEncoder(encoder_dim=self.dembed, num_layers=mhsa_nlayer, num_attention_heads=4, feed_forward_expansion_factor=4, hierarchical=hierarchical)
+                    self.embed = ConformerEncoder(encoder_dim=self.dembed, num_layers=mhsa_nlayer, num_attention_heads=4, feed_forward_expansion_factor=4, hierarchical=hierarchical, hierarchical_w_stop_grad=hierarchical_w_stop_grad, hierarchical_w_ch_att=self.hierarchical_w_ch_att, hierarchical_stop_grad_branch=self.hierarchical_stop_grad_branch)
 
         elif len(model) == 1:
             if model[0] == 'crnn':
@@ -429,10 +432,19 @@ class SARSSL(nn.Module):
         self.spectral_feature_sim_sigma = spectral_feature_sim_sigma
         self.spectral_feature_sim_temperature = spectral_feature_sim_temperature
         self.hierarchical = hierarchical
+        self.hierarchical_w_stop_grad = kwargs.get('hierarchical_w_stop_grad', False)
+        self.hierarchical_w_ch_att = kwargs.get('hierarchical_w_ch_att', False)
+        self.hierarchical_stop_grad_branch = kwargs.get('hierarchical_stop_grad_branch', 'room')
         self.split_spatial_encoder = kwargs.get('split_spatial_encoder', False)
         self.hierarchical_adv = kwargs.get('hierarchical_adv', False)
         self.adv_weight = kwargs.get('adv_weight', 0.1)
         self.rec_loss = rec_loss
+        self.factorized_sac = kwargs.get('factorized_sac', False)
+        self.use_pcgrad = kwargs.get('use_pcgrad', False)
+        self.normalization_mode = kwargs.get('normalization_mode', 'z_norm')
+        self.oracle_supcon = kwargs.get('oracle_supcon', False)
+        self.use_cross_attention = kwargs.get('use_cross_attention', False)
+        self.family_specific_bn = kwargs.get('family_specific_bn', False)
         
         # Fixed normalization parameters
         self.feature_stats = feature_stats if feature_stats is not None else {} # Dictionary containing 'p1' and 'p99' for each feature
@@ -521,7 +533,7 @@ class SARSSL(nn.Module):
                                                 mode='spat', use_cls=use_cls, device=self.device)
             else:
                 self.spat_encoder = EmbedEncoder(sig_shape=sig_shape, patch_shape=patch_shape, dembed=spat_dembed, model=spat_model, 
-                                                mode='spat', use_cls=use_cls, device=self.device, hierarchical=self.hierarchical)
+                                                mode='spat', use_cls=use_cls, device=self.device, hierarchical=self.hierarchical, hierarchical_w_stop_grad=self.hierarchical_w_stop_grad, hierarchical_w_ch_att=self.hierarchical_w_ch_att, hierarchical_stop_grad_branch=self.hierarchical_stop_grad_branch)
 
         elif self.in_ver == 'single_ch_each_patch':
             self.spec_encoder = EmbedEncoder(sig_shape=[nf*nmic, nt, nreim, 1], patch_shape=patch_shape, dembed=int(spec_dembed/nmic), model=spec_model,
@@ -564,7 +576,29 @@ class SARSSL(nn.Module):
             if self.feature_sim_loss:
                 # Projection head for Feature Similarity Loss
                 # Projects spatial embedding to a latent space for similarity comparison
-                if self.hierarchical or self.split_spatial_encoder:
+                if getattr(self, 'use_cross_attention', False):
+                    if self.oracle_supcon:
+                        self.family_indices = {'tdoa': ['TDOA'], 'room': ['T60', 'DRR', 'C50', 'ABS']}
+                    else:
+                        self.family_indices = {'tdoa': ['tdoa'], 'room': ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max']}
+                    self.num_active_families = len(self.family_indices)
+                    self.family_queries = nn.Parameter(torch.empty(self.num_active_families, spat_dembed))
+                    nn.init.normal_(self.family_queries, std=0.02)
+                    self.cross_attention = nn.MultiheadAttention(embed_dim=spat_dembed, num_heads=8, batch_first=True)
+                    
+                    if getattr(self, 'family_specific_bn', False):
+                        self.feat_sim_proj_lin1 = nn.Linear(spat_dembed, spat_dembed)
+                        self.feat_sim_proj_bns = nn.ModuleList([nn.BatchNorm1d(spat_dembed) for _ in range(self.num_active_families)])
+                        self.feat_sim_proj_relu = nn.ReLU()
+                        self.feat_sim_proj_lin2 = nn.Linear(spat_dembed, 128)
+                    else:
+                        self.feat_sim_proj = nn.Sequential(
+                            nn.Linear(spat_dembed, spat_dembed),
+                            nn.BatchNorm1d(spat_dembed),
+                            nn.ReLU(),
+                            nn.Linear(spat_dembed, 128)
+                        )
+                elif self.hierarchical or self.split_spatial_encoder:
                     # Two projection heads, each taking the full embedding dimension (since we duplicated output)
                     split_dim = spat_dembed
                     self.feat_sim_proj_doa = nn.Sequential(
@@ -598,12 +632,16 @@ class SARSSL(nn.Module):
                 
             if self.feature_sim_loss and (self.diff_feat_selection or kwargs.get('fixed_feature_weights', False)):
                 # Define candidate spatial features
-                self.candidate_features = [
-                    'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 
-                    'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90',
-                    'tdoa', 'ild_mean'
-                ]
-                self.anchored_features = ['tdoa']
+                if self.oracle_supcon:
+                    self.candidate_features = ['TDOA', 'T60', 'DRR', 'C50', 'ABS']
+                    self.anchored_features = ['TDOA']
+                else:
+                    self.candidate_features = [
+                        'coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 
+                        'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90',
+                        'tdoa', 'ild_mean'
+                    ]
+                    self.anchored_features = ['tdoa']
                 # Learnable weights initialized to 1.0
                 self.spatial_feature_weights = nn.Parameter(torch.ones(len(self.candidate_features)))
 
@@ -662,7 +700,7 @@ class SARSSL(nn.Module):
             self.downstream_dlabel = downstream_dlabel
             self.ds_token = downstream_token
 
-    def forward(self, x, indices=None, epoch=None, gen_metrics=False, precalc_spec_feats=None):
+    def forward(self, x, indices=None, epoch=None, gen_metrics=False, precalc_spec_feats=None, gt_spatial_features=None):
         nbatch, nmic, nf, nt, nreim = x.shape
         
         if self.pretrain:
@@ -888,8 +926,18 @@ class SARSSL(nn.Module):
 
                 with torch.no_grad():
                     feats = at_module.spatial_features_from_stft(x_complex, sample_rate=16000)
+
+                if self.oracle_supcon:
+                    if gt_spatial_features is not None:
+                        feats.update(gt_spatial_features)
+                    else:
+                        for k in ['TDOA', 'T60', 'DRR', 'C50', 'ABS']:
+                            feats[k] = torch.zeros(nbatch, device=x.device)
                 
-                loss_feat_sim, feat_sim_metrics = self.feature_similarity_loss_hierarchical(embed_spat, feats, return_metrics=gen_metrics) if (self.hierarchical or self.split_spatial_encoder) else self.feature_similarity_loss(embed_spat, feats, return_metrics=gen_metrics)
+                if getattr(self, 'use_cross_attention', False):
+                    loss_feat_sim, feat_sim_metrics = self.sac_loss_cross_attention(embed_spat, feats, eps=1e-8, return_metrics=True)
+                else:
+                    loss_feat_sim, feat_sim_metrics = self.feature_similarity_loss_hierarchical(embed_spat, feats, return_metrics=True) if (self.hierarchical or self.split_spatial_encoder) else self.feature_similarity_loss(embed_spat, feats, return_metrics=True)
                 loss_feat_sim = loss_feat_sim * self.feature_sim_loss_weight
                 
                 if self.diff_feat_selection:
@@ -905,6 +953,25 @@ class SARSSL(nn.Module):
                 
                 if gen_metrics:
                     data_vis['metrics'] = feat_sim_metrics
+
+                if feat_sim_metrics is not None:
+                     if 'diagnostics' in feat_sim_metrics:
+                         data_vis['diagnostics'] = feat_sim_metrics['diagnostics']
+                     elif 'doa' in feat_sim_metrics and 'room' in feat_sim_metrics:
+                         doa_diag = feat_sim_metrics['doa'].get('diagnostics', {}) if feat_sim_metrics['doa'] else {}
+                         room_diag = feat_sim_metrics['room'].get('diagnostics', {}) if feat_sim_metrics['room'] else {}
+                         # prefix keys
+                         doa_diag = {f'DOA_{k}': v for k, v in doa_diag.items()}
+                         room_diag = {f'ROOM_{k}': v for k, v in room_diag.items()}
+                         data_vis['diagnostics'] = {**doa_diag, **room_diag}
+                         
+                     if getattr(self, 'factorized_sac', False):
+                         if 'factorized_losses' in feat_sim_metrics:
+                             data_vis['factorized_losses'] = feat_sim_metrics['factorized_losses']
+                         elif 'doa' in feat_sim_metrics and 'room' in feat_sim_metrics:
+                             doa_losses = feat_sim_metrics['doa'].get('factorized_losses', {}) if feat_sim_metrics['doa'] else {}
+                             room_losses = feat_sim_metrics['room'].get('factorized_losses', {}) if feat_sim_metrics['room'] else {}
+                             data_vis['factorized_losses'] = {**doa_losses, **room_losses}
 
                 if self.debug:
                     debug_stats['loss_feat_sim'] = loss_feat_sim.item()
@@ -1333,7 +1400,10 @@ class SARSSL(nn.Module):
             feature_keys = self.candidate_features
             learned_weights = self.spatial_feature_weights
         else:
-            feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa']
+            if getattr(self, 'oracle_supcon', False):
+                feature_keys = ['TDOA', 'T60', 'DRR', 'C50', 'ABS']
+            else:
+                feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa']
             learned_weights = None
 
         sigma = self.feature_sim_sigma
@@ -1358,12 +1428,12 @@ class SARSSL(nn.Module):
         if room_sigma is None:
             room_sigma = self.hierarchical_feature_sim_room_sigma
 
-        # doa_features = ['ild_mean', 'coherence_mean', 'tdoa']
-        # room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'hf_lf_ratio']
-        doa_features = ['tdoa']
-        # room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90', 'mod_low_high_ratio', 'early_late_ratio_mean', 'early_late_ratio_median']
-        # room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'iacc_max', 'decay_slope_median', 'decay_slope_p10', 'decay_slope_p90']
-        room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max']
+        if getattr(self, 'oracle_supcon', False):
+            doa_features = ['TDOA']
+            room_features = ['T60', 'DRR', 'C50', 'ABS']
+        else:
+            doa_features = ['tdoa']
+            room_features = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max']
         # 1. Aggregate and split embeddings
         if embed_spat.dim() == 3:
             z = embed_spat.mean(dim=1) # [B, dembed]
@@ -1394,6 +1464,111 @@ class SARSSL(nn.Module):
                 'doa': metrics_doa,
                 'room': metrics_room
             }
+        return loss, metrics
+
+    def sac_loss_cross_attention(self, embed_spat, spatial_features, eps=1e-8, return_metrics=False):
+        device = embed_spat.device
+        B = embed_spat.shape[0]
+        
+        Q = self.family_queries.unsqueeze(0).expand(B, -1, -1)
+        attn_output, _ = self.cross_attention(query=Q, key=embed_spat, value=embed_spat)
+        
+        if getattr(self, 'family_specific_bn', False):
+            x = self.feat_sim_proj_lin1(attn_output) # [B, num_families, spat_dembed]
+            x_normed = []
+            for i in range(self.num_active_families):
+                x_normed.append(self.feat_sim_proj_bns[i](x[:, i, :]))
+            x = torch.stack(x_normed, dim=1)
+            x = self.feat_sim_proj_relu(x)
+            Z_families = self.feat_sim_proj_lin2(x)
+        else:
+            attn_output_flat = attn_output.reshape(B * self.num_active_families, -1)
+            z_flat = self.feat_sim_proj(attn_output_flat)
+            Z_families = z_flat.reshape(B, self.num_active_families, -1)
+        
+        total_loss = 0.0
+        family_names = list(self.family_indices.keys())
+        
+        metrics = {'factorized_losses': {}, 'diagnostics': {}}
+        
+        import math
+        for k in range(self.num_active_families):
+            fam_name = family_names[k]
+            feature_keys = self.family_indices[fam_name]
+            
+            c_family_list = []
+            for key in feature_keys:
+                 val = spatial_features[key]
+                 if key in self.feature_stats:
+                     stats = self.feature_stats[key]
+                     val_norm = (val - stats['mean']) / (3 * stats['std'] + 1e-6)
+                     val_norm = torch.clamp(val_norm, -1.0, 1.0)
+                 else:
+                     val_norm = val
+                 c_family_list.append(val_norm.unsqueeze(1))
+                 
+            c_family = torch.cat(c_family_list, dim=1) # [B, num_features_in_family]
+            z_family = Z_families[:, k, :]
+            
+            cue_dist = torch.cdist(c_family, c_family, p=2)
+            
+            if self.feature_stats is not None and 'family_medians' in self.feature_stats:
+                median_dist = self.feature_stats['family_medians'].get(fam_name, None)
+                if median_dist is not None:
+                    local_sigma = median_dist / math.sqrt(math.log(2.0))
+                else:
+                    local_sigma = self.feature_sim_sigma * math.sqrt(len(feature_keys))
+            else:
+                local_sigma = self.feature_sim_sigma * math.sqrt(len(feature_keys))
+                
+            w = torch.exp(-(cue_dist / local_sigma) ** 2)
+            z_norm = F.normalize(z_family, dim=-1)
+            sim = torch.matmul(z_norm, z_norm.T) / self.feature_sim_temperature
+            
+            diag_mask = torch.eye(B, device=device, dtype=torch.bool)
+            off_diag = ~diag_mask
+            
+            exp_sim = torch.exp(sim) * off_diag.float()
+            den = exp_sim.sum(dim=1, keepdim=True) + eps
+            log_prob = sim - torch.log(den)
+            
+            w_masked = w * off_diag.float()
+            w_sum = w_masked.sum(dim=1, keepdim=True) + eps
+            w_norm = w_masked / w_sum
+            
+            loss_per_sample = -(w_norm * log_prob).sum(dim=1)
+            loss_family = loss_per_sample.mean()
+            
+            metrics['factorized_losses'][f'loss_{fam_name}'] = loss_family
+            
+            # Diagnostics: Uniformity and Alignment_Top10 (Reusing sim for zero computational overhead)
+            cos_sim = sim * self.feature_sim_temperature
+            sq_dist = 2.0 - 2.0 * cos_sim
+            sq_dist_flat = sq_dist[off_diag]
+            uniformity = torch.log(torch.exp(-2.0 * sq_dist_flat).mean()).item()
+            
+            w_flat = w[off_diag]
+            topk_k = max(1, int(0.1 * w_flat.numel()))
+            _, topk_idx = torch.topk(w_flat, topk_k)
+            ali_top10 = cos_sim[off_diag][topk_idx].mean().item()
+            
+            # Add effective rank:
+            z_centered = z_family - z_family.mean(dim=0)
+            cov = (z_centered.T @ z_centered) / (B - 1)
+            eigenvalues = torch.linalg.eigvalsh(cov)
+            eigenvalues = torch.relu(eigenvalues) + 1e-8
+            p = eigenvalues / eigenvalues.sum()
+            effective_rank = torch.exp(-torch.sum(p * torch.log(p))).item()
+            
+            metrics['diagnostics'][fam_name] = {
+                'Uniformity': uniformity,
+                'Alignment': ali_top10,
+                'EffectiveRank': effective_rank
+            }
+            
+            total_loss += loss_family
+            
+        loss = total_loss / self.num_active_families
         return loss, metrics
 
     def spectral_feature_similarity_loss(self, embed_spec, spectral_features_dict, eps=1e-8, return_metrics=False):
@@ -1458,6 +1633,7 @@ class SARSSL(nn.Module):
                 'raw': raw_values,
                 'norm': norm_values,
                 'sim_weights': [],
+                'sim_weights_norm': [],
                 'cue_dist': [],
                 'sim': []
             }
@@ -1503,6 +1679,7 @@ class SARSSL(nn.Module):
                      metrics_frames['raw'][name].append(f_t[:, i].detach())
                      metrics_frames['norm'][name].append(feature_norm[:, i, t].detach())
                  metrics_frames['sim_weights'].append(w.detach())
+                 metrics_frames['sim_weights_norm'].append(w_norm.detach())
                  metrics_frames['cue_dist'].append(cue_dist.detach())
                  metrics_frames['sim'].append(sim.detach())
                  
@@ -1558,11 +1735,15 @@ class SARSSL(nn.Module):
                 raw_values[k] = val.detach()
              
             if k in self.feature_stats:
-                stats = self.feature_stats[k]
-                mean = stats['mean']
-                std = stats['std']
-                val_norm = (val - mean) / (3 * std + 1e-6)
-                val_norm = torch.clamp(val_norm, -1.0, 1.0)
+                if getattr(self, 'normalization_mode', 'z_norm') == 'cdf':
+                    val_rank = torch.argsort(torch.argsort(val)).float() / (val.size(0) - 1.0 + 1e-6)
+                    val_norm = val_rank * 2.0 - 1.0
+                else:
+                    stats = self.feature_stats[k]
+                    mean = stats['mean']
+                    std = stats['std']
+                    val_norm = (val - mean) / (3 * std + 1e-6)
+                    val_norm = torch.clamp(val_norm, -1.0, 1.0)
             else:
                 val_norm = val
                 
@@ -1574,59 +1755,119 @@ class SARSSL(nn.Module):
             if return_metrics:
                 norm_values[k] = val_norm.detach()
         
-        cues = torch.cat(kv_pairs, dim=1) # [B, num_features]
-        
         device = z_proj.device
         B = z_proj.shape[0]
 
-        z_norm = F.normalize(z_proj, dim=-1)
-        sim = torch.matmul(z_norm, z_norm.T) / temperature
-        cue_dist = torch.cdist(cues, cues, p=2)
-        w = torch.exp(- (cue_dist / sigma) ** 2)
+        if getattr(self, 'factorized_sac', False):
+            z_norm = F.normalize(z_proj, dim=-1)
+            sim = torch.matmul(z_norm, z_norm.T) / temperature
+            diag = torch.eye(B, device=device, dtype=torch.bool)
+            mask = ~diag
+            
+            exp_sim = torch.exp(sim) * mask
+            den = exp_sim.sum(dim=1, keepdim=True) + eps # [B, 1]
+            log_prob = sim - torch.log(den) # [B, B]
+            
+            total_loss = 0.0
+            factorized_losses = {}
+            for i, k in enumerate(feature_keys):
+                val_norm = kv_pairs[i] # [B, 1]
+                cue_dist_k = torch.cdist(val_norm, val_norm, p=2)
+                w_k = torch.exp(- (cue_dist_k / sigma) ** 2)
+                
+                w_mask_k = w_k * mask
+                w_sum_k = w_mask_k.sum(dim=1, keepdim=True) + eps
+                w_norm_k = w_mask_k / w_sum_k # [B, B]
+                
+                loss_per_sample_k = - (w_norm_k * log_prob).sum(dim=1)
+                loss_k = loss_per_sample_k.mean()
+                
+                if learned_weights is not None:
+                    loss_k = loss_k * w_active[i]
+                
+                factorized_losses[f'loss_{k}'] = loss_k
+                total_loss += loss_k
+                
+            loss = total_loss / len(feature_keys)
+            
+            # Pack individual losses into metrics
+            
+            metrics = None
+            if return_metrics:
+                metrics = {
+                    'raw': raw_values,
+                    'norm': norm_values,
+                    'sim_weights': None,
+                    'sim_weights_norm': None,
+                    'cue_dist': None,
+                    'sim': sim.detach(),
+                    'factorized_losses': factorized_losses
+                }
+            else:
+                metrics = {'factorized_losses': factorized_losses}
+            
+            return loss, metrics
+        else:
+            cues = torch.cat(kv_pairs, dim=1) # [B, num_features]
+            
+            z_norm = F.normalize(z_proj, dim=-1)
+            sim = torch.matmul(z_norm, z_norm.T) / temperature
+            cue_dist = torch.cdist(cues, cues, p=2)
+            w = torch.exp(- (cue_dist / sigma) ** 2)
 
-        diag = torch.eye(B, device=device, dtype=torch.bool)
-        mask = ~diag
+            diag = torch.eye(B, device=device, dtype=torch.bool)
+            mask = ~diag
 
-        # sim_max = sim.max(dim=1, keepdim=True).values.detach()
-        # sim = sim - sim_max
+            # 1. Prepare Denominator for Softmax (sum over k != i)
+            # We use masking to ensure we don't sum the diagonal
+            exp_sim = torch.exp(sim) * mask
+            den = exp_sim.sum(dim=1, keepdim=True) + eps # [B, 1]
+            
+            # 2. Calculate Log-Probability: log( exp(s_ij) / sum(exp(s_ik)) )
+            # log(a/b) = log(a) - log(b) = s_ij - log(den)
+            log_prob = sim - torch.log(den) # [B, B]
 
-        # exp_sim = torch.exp(sim) * mask
+            # 3. Normalize the Weights (sum over j != i should be 1)
+            w_mask = w * mask
+            w_sum = w_mask.sum(dim=1, keepdim=True) + eps
+            w_norm = w_mask / w_sum # [B, B]
+
+            # 4. Calculate SupCon Loss: Weighted Sum of Log-Probs
+            # L_i = - sum_j ( w_norm_ij * log_prob_ij )
+            loss_per_sample = - (w_norm * log_prob).sum(dim=1)
+            loss = loss_per_sample.mean()
+            
+            # Diagnostics (Zero computational overhead)
+            cos_sim = sim * temperature
+            sq_dist = 2.0 - 2.0 * cos_sim
+            sq_dist_flat = sq_dist[mask]
+            uniformity = torch.log(torch.exp(-2.0 * sq_dist_flat).mean()).item()
+            
+            w_flat = w[mask]
+            topk_k = max(1, int(0.1 * w_flat.numel()))
+            _, topk_idx = torch.topk(w_flat, topk_k)
+            ali_top10 = cos_sim[mask][topk_idx].mean().item()
+            
+            # Add effective rank:
+            z_centered = z_proj - z_proj.mean(dim=0)
+            cov = (z_centered.T @ z_centered) / (z_proj.size(0) - 1)
+            eigenvalues = torch.linalg.eigvalsh(cov)
+            eigenvalues = torch.relu(eigenvalues) + 1e-8
+            p = eigenvalues / eigenvalues.sum()
+            effective_rank = torch.exp(-torch.sum(p * torch.log(p))).item()
+            
+            diagnostics = {'Global': {'Uniformity': uniformity, 'Alignment': ali_top10, 'EffectiveRank': effective_rank}}
         
-        # num = (exp_sim * w).sum(dim=1)
-        # den = exp_sim.sum(dim=1) + eps
-
-        # num = num + eps
-        # loss_per_sample = -torch.log(num / den)
-        # loss = loss_per_sample.mean()
-
-        # 1. Prepare Denominator for Softmax (sum over k != i)
-        # We use masking to ensure we don't sum the diagonal
-        exp_sim = torch.exp(sim) * mask
-        den = exp_sim.sum(dim=1, keepdim=True) + eps # [B, 1]
-        
-        # 2. Calculate Log-Probability: log( exp(s_ij) / sum(exp(s_ik)) )
-        # log(a/b) = log(a) - log(b) = s_ij - log(den)
-        log_prob = sim - torch.log(den) # [B, B]
-
-        # 3. Normalize the Weights (sum over j != i should be 1)
-        w_mask = w * mask
-        w_sum = w_mask.sum(dim=1, keepdim=True) + eps
-        w_norm = w_mask / w_sum # [B, B]
-
-        # 4. Calculate SupCon Loss: Weighted Sum of Log-Probs
-        # L_i = - sum_j ( w_norm_ij * log_prob_ij )
-        loss_per_sample = - (w_norm * log_prob).sum(dim=1)
-        loss = loss_per_sample.mean()
-        
-        metrics = None
+        metrics = {'diagnostics': diagnostics}
         if return_metrics:
-            metrics = {
+            metrics.update({
                 'raw': raw_values,
                 'norm': norm_values,
                 'sim_weights': w.detach(),
+                'sim_weights_norm': w_norm.detach(),
                 'cue_dist': cue_dist.detach(),
                 'sim': sim.detach()
-            }
+            })
             
         return loss, metrics
 

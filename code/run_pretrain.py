@@ -173,128 +173,78 @@ import model as at_model
 from common.utils import set_seed, set_random_seed, create_learning_rate_schedule, get_nparams, get_FLOPs, save_config_to_file, vis_time_fre_data, plot_learning_curve, vis_TSNE, cross_validation_datadir
 from common.utils_module import spatial_features_from_stft, spectral_features_from_stft
 
-def calculate_feature_stats(dataloader, device, learner, fs):
+def calculate_feature_stats(dataloader, device, learner, fs, oracle_supcon=False):
 	print("Calculating global feature statistics...")
-	ild_values = []
-	tdoa_values = []
-	coherence_values = []
-	coherence_low_values = []
-	coherence_mid_values = []
-	coherence_high_values = []
-	gcc_values = []
-	hf_lf_values = []
-	iacc_values = []
-	decay_median_values = []
-	decay_p10_values = []
-	decay_p90_values = []
-	mod_ratio_values = []
-	elr_mean_values = []
-	elr_median_values = []
 	num_batches_for_std = 50
 	
-	# Helper for stats
-	def get_stats(tensor_list):
-		all_vals = torch.cat(tensor_list)
-		mean = torch.mean(all_vals).item()
-		std = torch.std(all_vals).item()
-		return mean, std
-
+	feature_collections = {}
+	
 	with torch.no_grad():
 		for i, data in enumerate(dataloader):
 			if i >= num_batches_for_std:
 				break
 			mic_sig_batch = data[0].to(device)
-			# Calculate STFT using learner's stft module
-			# learner.stft returns [B, F, T, C]
+			
+			gt_spatial_features = {}
+			if len(data) > 2:
+				for item in data[1:-1]:
+					if isinstance(item, dict) and 'TDOA' in item:
+						gt_spatial_features = {k: v.to(device).float() for k, v in item.items()}
+						break
+			
 			stft = learner.stft(mic_sig_batch) 
-			stft = stft.permute(0, 3, 1, 2) # [B, C, F, T]
+			stft = stft.permute(0, 3, 1, 2)
 			feats = spatial_features_from_stft(stft, fs, max_ipd_freq=1500.0)
-			ild_values.append(feats['ild_mean'])
-			tdoa_values.append(feats['tdoa'])
-			# collect banded coherence features
-			coherence_values.append(feats['coherence_mean'])
-			coherence_low_values.append(feats['coherence_low'])
-			coherence_mid_values.append(feats['coherence_mid'])
-			coherence_high_values.append(feats['coherence_high'])
-			# collect GCC-PHAT peak and HF/LF ratio
-			gcc_values.append(feats['gcc_phat_max'])
-			hf_lf_values.append(feats['hf_lf_ratio'])
+			
+			if oracle_supcon and gt_spatial_features:
+				feats.update(gt_spatial_features)
 
-			# New features
-			iacc_values.append(feats['iacc_max'])
-			decay_median_values.append(feats['decay_slope_median'])
-			decay_p10_values.append(feats['decay_slope_p10'])
-			decay_p90_values.append(feats['decay_slope_p90'])
-			mod_ratio_values.append(feats['mod_low_high_ratio'])
-			elr_mean_values.append(feats['early_late_ratio_mean'])
-			elr_median_values.append(feats['early_late_ratio_median'])
+			for key, val in feats.items():
+				if isinstance(val, torch.Tensor) and val.dim() == 1 and not torch.is_complex(val):
+					if key not in feature_collections:
+						feature_collections[key] = []
+					feature_collections[key].append(val)
 
 	feature_stats = {}
-	if len(ild_values) > 0:
-		# ILD
-		mean_ild, std_ild = get_stats(ild_values)
-		feature_stats['ild_mean'] = {'mean': mean_ild, 'std': std_ild}
-		print(f"ILD Mean: {mean_ild:.4f}, STD: {std_ild:.4f}")
-
-		# TDOA
-		mean_tdoa, std_tdoa = get_stats(tdoa_values)
-		feature_stats['tdoa'] = {'mean': mean_tdoa, 'std': std_tdoa}
-		print(f"TDOA Mean: {mean_tdoa:.6f}, STD: {std_tdoa:.6f}")
-
-		# Coherence
-		mean_coh, std_coh = get_stats(coherence_values)
-		feature_stats['coherence_mean'] = {'mean': mean_coh, 'std': std_coh}
-		print(f"Coherence Mean: {mean_coh:.4f}, STD: {std_coh:.4f}")
-
-		mean_coh_low, std_coh_low = get_stats(coherence_low_values)
-		feature_stats['coherence_low'] = {'mean': mean_coh_low, 'std': std_coh_low}
-		print(f"Coherence Low (<500Hz) Mean: {mean_coh_low:.4f}, STD: {std_coh_low:.4f}")
-
-		mean_coh_mid, std_coh_mid = get_stats(coherence_mid_values)
-		feature_stats['coherence_mid'] = {'mean': mean_coh_mid, 'std': std_coh_mid}
-		print(f"Coherence Mid (500-2500Hz) Mean: {mean_coh_mid:.4f}, STD: {std_coh_mid:.4f}")
-
-		mean_coh_high, std_coh_high = get_stats(coherence_high_values)
-		feature_stats['coherence_high'] = {'mean': mean_coh_high, 'std': std_coh_high}
-		print(f"Coherence High (>2500Hz) Mean: {mean_coh_high:.4f}, STD: {std_coh_high:.4f}")
-
-		mean_gcc, std_gcc = get_stats(gcc_values)
-		feature_stats['gcc_phat_max'] = {'mean': mean_gcc, 'std': std_gcc}
-		print(f"GCC-PHAT Max Mean: {mean_gcc:.4f}, STD: {std_gcc:.4f}")
-
-		mean_hf_lf, std_hf_lf = get_stats(hf_lf_values)
-		feature_stats['hf_lf_ratio'] = {'mean': mean_hf_lf, 'std': std_hf_lf}
-		print(f"HF/LF Ratio (log10) Mean: {mean_hf_lf:.4f}, STD: {std_hf_lf:.4f}")
-
-		# New Features Stats
-		mean_iacc, std_iacc = get_stats(iacc_values)
-		feature_stats['iacc_max'] = {'mean': mean_iacc, 'std': std_iacc}
-		print(f"IACC Max Mean: {mean_iacc:.4f}, STD: {std_iacc:.4f}")
-
-		mean_decay_med, std_decay_med = get_stats(decay_median_values)
-		feature_stats['decay_slope_median'] = {'mean': mean_decay_med, 'std': std_decay_med}
-		print(f"Decay Slope Median Mean: {mean_decay_med:.4f}, STD: {std_decay_med:.4f}")
-
-		mean_decay_p10, std_decay_p10 = get_stats(decay_p10_values)
-		feature_stats['decay_slope_p10'] = {'mean': mean_decay_p10, 'std': std_decay_p10}
-		print(f"Decay Slope P10 Mean: {mean_decay_p10:.4f}, STD: {std_decay_p10:.4f}")
-
-		mean_decay_p90, std_decay_p90 = get_stats(decay_p90_values)
-		feature_stats['decay_slope_p90'] = {'mean': mean_decay_p90, 'std': std_decay_p90}
-		print(f"Decay Slope P90 Mean: {mean_decay_p90:.4f}, STD: {std_decay_p90:.4f}")
-
-		mean_mod, std_mod = get_stats(mod_ratio_values)
-		feature_stats['mod_low_high_ratio'] = {'mean': mean_mod, 'std': std_mod}
-		print(f"Modulation Ratio Mean: {mean_mod:.4f}, STD: {std_mod:.4f}")
-
-		mean_elr, std_elr = get_stats(elr_mean_values)
-		feature_stats['early_late_ratio_mean'] = {'mean': mean_elr, 'std': std_elr}
-		print(f"ELR Mean Mean: {mean_elr:.4f}, STD: {std_elr:.4f}")
-
-		mean_elr_med, std_elr_med = get_stats(elr_median_values)
-		feature_stats['early_late_ratio_median'] = {'mean': mean_elr_med, 'std': std_elr_med}
-		print(f"ELR Median Mean: {mean_elr_med:.4f}, STD: {std_elr_med:.4f}")
-
+	if len(feature_collections) > 0:
+		for key, tensor_list in feature_collections.items():
+			all_vals = torch.cat(tensor_list)
+			mean = torch.mean(all_vals).item()
+			std = torch.std(all_vals).item()
+			feature_stats[key] = {'mean': mean, 'std': std}
+			print(f"{key} Mean: {mean:.6f}, STD: {std:.6f}")
+            
+		feature_stats['family_medians'] = {}
+		families = {'tdoa': ['tdoa'], 'room': ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max']}
+		if oracle_supcon:
+			families = {'tdoa': ['TDOA'], 'room': ['T60', 'DRR', 'C50', 'ABS']}
+        
+		for fam_name, feats in families.items():
+			valid_feats = [f for f in feats if f in feature_collections]
+			if len(valid_feats) > 0:
+				c_family_list = []
+				for key in valid_feats:
+					val = torch.cat(feature_collections[key])
+					stats = feature_stats[key]
+					val_norm = (val - stats['mean']) / (3 * stats['std'] + 1e-6)
+					val_norm = torch.clamp(val_norm, -1.0, 1.0)
+					c_family_list.append(val_norm.unsqueeze(1))
+				c_family = torch.cat(c_family_list, dim=1)
+                
+				N = c_family.shape[0]
+				if N > 2000:
+					subset_indices = torch.randperm(N)[:2000]
+					c_family_subset = c_family[subset_indices]
+				else:
+					c_family_subset = c_family
+                
+				cue_dist = torch.cdist(c_family_subset, c_family_subset, p=2)
+				B_sub = c_family_subset.shape[0]
+				diag_mask_med = torch.eye(B_sub, device=cue_dist.device, dtype=torch.bool)
+				off_diag_dist = cue_dist[~diag_mask_med]
+				median_dist = off_diag_dist.median().item()
+				feature_stats['family_medians'][fam_name] = median_dist
+				print(f"Family {fam_name} Median Dist: {median_dist:.6f}")
 	else:
 		print("Warning: Could not calculate feature statistics.")
 		
@@ -410,9 +360,9 @@ print(f"T: {T:.3f}, nt: {nt}, nf: {nf}")
 # Network
 if args.pretrain | args.test:
 	fixed_fw = getattr(args, 'fixed_feature_weights_path', None) is not None
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, diff_feat_selection=args.diff_feat_selection, diff_feat_selection_lambda=args.diff_feat_selection_lambda, feature_sim_loss_weight=args.feature_sim_loss_weight, feature_sim_sigma=args.feature_sim_sigma, feature_sim_temperature=args.feature_sim_temperature, hierarchical_feature_sim_room_temperature=args.hierarchical_feature_sim_room_temperature, hierarchical_feature_sim_room_sigma=args.hierarchical_feature_sim_room_sigma, hierarchical_feature_sim_doa_temperature=args.hierarchical_feature_sim_doa_temperature, hierarchical_feature_sim_doa_sigma=args.hierarchical_feature_sim_doa_sigma, spectral_feature_sim_loss=args.spectral_feature_sim_loss, spectral_feature_sim_weight=args.spectral_feature_sim_weight, spectral_feature_sim_sigma=args.spectral_feature_sim_sigma, spectral_feature_sim_temperature=args.spectral_feature_sim_temperature, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug, hierarchical=args.hierarchical, split_spatial_encoder=args.split_spatial_encoder, hierarchical_adv=args.hierarchical_adv, adv_weight=args.adv_weight, rec_loss=args.rec_loss, fixed_feature_weights=fixed_fw)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=True, device=device, contrastive_learning=args.contrastive_learning, num_utterances=args.num_utterances_cl, contrastive_learning_data_aug=args.contrastive_learning_data_aug, obt=args.obt, hsic=args.hsic, feature_sim_loss=args.feature_sim_loss, diff_feat_selection=args.diff_feat_selection, diff_feat_selection_lambda=args.diff_feat_selection_lambda, feature_sim_loss_weight=args.feature_sim_loss_weight, feature_sim_sigma=args.feature_sim_sigma, feature_sim_temperature=args.feature_sim_temperature, hierarchical_feature_sim_room_temperature=args.hierarchical_feature_sim_room_temperature, hierarchical_feature_sim_room_sigma=args.hierarchical_feature_sim_room_sigma, hierarchical_feature_sim_doa_temperature=args.hierarchical_feature_sim_doa_temperature, hierarchical_feature_sim_doa_sigma=args.hierarchical_feature_sim_doa_sigma, spectral_feature_sim_loss=args.spectral_feature_sim_loss, spectral_feature_sim_weight=args.spectral_feature_sim_weight, spectral_feature_sim_sigma=args.spectral_feature_sim_sigma, spectral_feature_sim_temperature=args.spectral_feature_sim_temperature, nepoch=args.nepoch, pretrain_mode=args.pretrain_mode, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, debug=args.debug, hierarchical=args.hierarchical, hierarchical_w_stop_grad=getattr(args, 'hierarchical_w_stop_grad', False), hierarchical_w_ch_att=getattr(args, 'hierarchical_w_ch_att', False), hierarchical_stop_grad_branch=getattr(args, 'hierarchical_stop_grad_branch', 'room'), split_spatial_encoder=args.split_spatial_encoder, hierarchical_adv=args.hierarchical_adv, adv_weight=args.adv_weight, rec_loss=args.rec_loss, fixed_feature_weights=fixed_fw, factorized_sac=args.factorized_sac, use_pcgrad=args.use_pcgrad, normalization_mode=getattr(args, 'normalization_mode', 'z_norm'), oracle_supcon=getattr(args, 'oracle_supcon', False), use_cross_attention=getattr(args, 'use_cross_attention', False), family_specific_bn=getattr(args, 'family_specific_bn', False))
 if args.pretrain_frozen_encoder:
-	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, split_spatial_encoder=args.split_spatial_encoder)
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, pretrain_frozen_encoder=True, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, split_spatial_encoder=args.split_spatial_encoder, factorized_sac=args.factorized_sac, use_pcgrad=args.use_pcgrad, use_cross_attention=getattr(args, 'use_cross_attention', False), family_specific_bn=getattr(args, 'family_specific_bn', False))
 
 layer_keys = ['spec_encoder', 'spat_encoder', 'decoder', 'mlp_head','spec_encoder.patch_embed','spec_encoder.embed','spat_encoder.patch_embed','spat_encoder.embed']
 nparam, nparam_sum = get_nparams(net, param_key_list=layer_keys)
@@ -489,7 +439,7 @@ if args.pretrain:
 	if args.simu_exp:
 		dataset_pretrain = at_dataset.FixMicSigDataset( 
 			data_dir = dirs['micsig_simu_pretrain'], 
-			load_anno=False, 
+			load_anno=getattr(args, 'oracle_supcon', False), 
 			load_dp=False,
 			fs = fs,
 			dataset_sz=data_num['train'],
@@ -499,7 +449,7 @@ if args.pretrain:
 			)
 		dataset_preval = at_dataset.FixMicSigDataset( 
 			data_dir = dirs['micsig_simu_preval'], 
-			load_anno=False, 
+			load_anno=getattr(args, 'oracle_supcon', False), 
 			load_dp=False,
 			fs = fs,
 			dataset_sz=data_num['val'],
@@ -654,7 +604,7 @@ if args.pretrain:
 		test_ace_writer = SummaryWriter(dirs['log_pretrain'] + '/test_ace/', 'test')
 
 	# Calculate global feature statistics
-	feature_stats = calculate_feature_stats(dataloader_pretrain, device, learner, fs)
+	feature_stats = calculate_feature_stats(dataloader_pretrain, device, learner, fs, oracle_supcon=getattr(args, 'oracle_supcon', False))
 	model_core = learner.model.module if hasattr(learner.model, 'module') else learner.model
 	model_core.feature_stats = feature_stats
 	
@@ -766,6 +716,9 @@ if args.pretrain:
 			
 			if args.feature_sim_loss:
 				log_dict['train/loss_feat_sim'] = loss_feat_sim_train
+			if 'factorized_losses_avg' in data_vis_train:
+				for k, v in data_vis_train['factorized_losses_avg'].items():
+					log_dict[f'train/sac_{k.replace("loss_", "")}'] = v
 			if args.spectral_feature_sim_loss:
 				log_dict['train/loss_spec_feat_sim'] = loss_spec_feat_sim_train
 			if getattr(args, 'hierarchical_adv', False):
@@ -784,6 +737,9 @@ if args.pretrain:
 					log_dict['val_sim/obt'] = obt_val_sim
 				if getattr(args, 'hierarchical_adv', False):
 					log_dict['val_sim/loss_adv'] = loss_adv_val_sim
+				if 'factorized_losses_avg' in data_vis_val_sim:
+					for k, v in data_vis_val_sim['factorized_losses_avg'].items():
+						log_dict[f'val_sim/sac_{k.replace("loss_", "")}'] = v
 			else:
 				log_dict.update({
 					'val_real/loss': loss_val_real,
@@ -798,6 +754,9 @@ if args.pretrain:
 					log_dict['val_real/obt'] = obt_val_real
 				if getattr(args, 'hierarchical_adv', False):
 					log_dict['val_real/loss_adv'] = loss_adv_val_real
+				if 'factorized_losses_avg' in data_vis_val_real:
+					for k, v in data_vis_val_real['factorized_losses_avg'].items():
+						log_dict[f'val_real/sac_{k.replace("loss_", "")}'] = v
 				
 				log_dict.update({
 					'test_locata/loss': loss_test_locata,
@@ -1096,7 +1055,7 @@ if (args.test):
 		# Dataset
 		dataset_pretest = at_dataset.FixMicSigDataset( 
 			data_dir = dirs['micsig_simu_pretest'], 
-			load_anno=False, 
+			load_anno=getattr(args, 'oracle_supcon', False), 
 			load_dp=False,
 			fs=fs,
 			dataset_sz=4000,
@@ -1106,7 +1065,7 @@ if (args.test):
 		dataloader_pretest = torch.utils.data.DataLoader(dataset=dataset_pretest, batch_size=args.bs[2], shuffle=False, **kwargs)
 
 		# Update model with test data stats for visualization purposes
-		feature_stats = calculate_feature_stats(dataloader_pretest, device, learner, fs)
+		feature_stats = calculate_feature_stats(dataloader_pretest, device, learner, fs, oracle_supcon=getattr(args, 'oracle_supcon', False))
 		model_core = getattr(learner.model, 'module', learner.model)
 		model_core.feature_stats = feature_stats
 		if args.spectral_feature_sim_loss:
@@ -1140,56 +1099,82 @@ if (args.test):
 				if 'raw' in m_data:
 					for k, v_list in m_data['raw'].items():
 						flat_v = _flatten_list(v_list)
-						data_cat = torch.cat(flat_v).numpy()
-						plt.figure()
-						plt.hist(data_cat, bins=50)
-						plt.title(f'{prefix}Raw {k}')
-						plt.savefig(os.path.join(out_dir, f'{prefix}raw_{k}.png'))
-						plt.close()
+						valid_v = [x for x in flat_v if x is not None]
+						if len(valid_v) > 0:
+							data_cat = torch.cat(valid_v).numpy()
+							plt.figure()
+							plt.hist(data_cat, bins=50)
+							plt.title(f'{prefix}Raw {k}')
+							plt.savefig(os.path.join(out_dir, f'{prefix}raw_{k}.png'))
+							plt.close()
 					
 				# 2. Normalized features
 				if 'norm' in m_data:
 					for k, v_list in m_data['norm'].items():
 						flat_v = _flatten_list(v_list)
-						data_cat = torch.cat(flat_v).numpy()
-						plt.figure()
-						plt.hist(data_cat, bins=50)
-						plt.title(f'{prefix}Normalized {k}')
-						plt.savefig(os.path.join(out_dir, f'{prefix}norm_{k}.png'))
-						plt.close()
+						valid_v = [x for x in flat_v if x is not None]
+						if len(valid_v) > 0:
+							data_cat = torch.cat(valid_v).numpy()
+							plt.figure()
+							plt.hist(data_cat, bins=50)
+							plt.title(f'{prefix}Normalized {k}')
+							plt.savefig(os.path.join(out_dir, f'{prefix}norm_{k}.png'))
+							plt.close()
 
 				# 3. Similarity Weights
 				if 'sim_weights' in m_data:
 					w_list = _flatten_list(m_data['sim_weights'])
-					w_all = torch.cat([x.flatten() for x in w_list]).numpy()
-					plt.figure()
-					plt.hist(w_all, bins=50)
-					plt.title(f'{prefix}Similarity Weights (w) - Global')
-					plt.savefig(os.path.join(out_dir, f'{prefix}sim_weights_global.png'))
-					plt.close()
-					
-					# Anchor Sim Weights
-					if len(w_list) > 0:
-						w_anchor = w_list[0][0, :].numpy() # [B]
+					valid_w_list = [x for x in w_list if x is not None]
+					if len(valid_w_list) > 0:
+						w_all = torch.cat([x.flatten() for x in valid_w_list]).numpy()
+						plt.figure()
+						plt.hist(w_all, bins=50)
+						plt.title(f'{prefix}Similarity Weights (w) - Global')
+						plt.savefig(os.path.join(out_dir, f'{prefix}sim_weights_global.png'))
+						plt.close()
+						
+						# Anchor Sim Weights
+						w_anchor = valid_w_list[0][0, :].numpy() # [B]
 						plt.figure()
 						plt.hist(w_anchor, bins=50)
 						plt.title(f'{prefix}Similarity Weights (w) - Anchor')
 						plt.savefig(os.path.join(out_dir, f'{prefix}sim_weights_anchor.png'))
 						plt.close()
+						
+				# 3.5 Normalized Similarity Weights
+				if 'sim_weights_norm' in m_data:
+					wn_list = _flatten_list(m_data['sim_weights_norm'])
+					valid_wn_list = [x for x in wn_list if x is not None]
+					if len(valid_wn_list) > 0:
+						wn_all = torch.cat([x.flatten() for x in valid_wn_list]).numpy()
+						plt.figure()
+						plt.hist(wn_all, bins=50)
+						plt.title(f'{prefix}Normalized Target Weights (w_norm) - Global')
+						plt.savefig(os.path.join(out_dir, f'{prefix}sim_weights_norm_global.png'))
+						plt.close()
+						
+						# Anchor Sim Weights Norm
+						wn_anchor = valid_wn_list[0][0, :].numpy() # [B]
+						plt.figure()
+						plt.hist(wn_anchor, bins=50)
+						plt.title(f'{prefix}Normalized Target Weights (w_norm) - Anchor')
+						plt.savefig(os.path.join(out_dir, f'{prefix}sim_weights_norm_anchor.png'))
+						plt.close()
 
 				# 4. Cue Dist
 				if 'cue_dist' in m_data:
 					cd_list = _flatten_list(m_data['cue_dist'])
-					cd_all = torch.cat([x.flatten() for x in cd_list]).numpy()
-					plt.figure()
-					plt.hist(cd_all, bins=50)
-					plt.title(f'{prefix}Cue Distance - Global')
-					plt.savefig(os.path.join(out_dir, f'{prefix}cue_dist_global.png'))
-					plt.close()
-					
-					# Anchor Cue Dist
-					if len(cd_list) > 0:
-						cd_anchor = cd_list[0][0, :].numpy() # [B]
+					valid_cd_list = [x for x in cd_list if x is not None]
+					if len(valid_cd_list) > 0:
+						cd_all = torch.cat([x.flatten() for x in valid_cd_list]).numpy()
+						plt.figure()
+						plt.hist(cd_all, bins=50)
+						plt.title(f'{prefix}Cue Distance - Global')
+						plt.savefig(os.path.join(out_dir, f'{prefix}cue_dist_global.png'))
+						plt.close()
+						
+						# Anchor Cue Dist
+						cd_anchor = valid_cd_list[0][0, :].numpy() # [B]
 						plt.figure()
 						plt.hist(cd_anchor, bins=50)
 						plt.title(f'{prefix}Cue Distance - Anchor')
@@ -1199,16 +1184,17 @@ if (args.test):
 				# 5. Sim
 				if 'sim' in m_data:
 					sim_list = _flatten_list(m_data['sim'])
-					sim_all = torch.cat([x.flatten() for x in sim_list]).numpy()
-					plt.figure()
-					plt.hist(sim_all, bins=50)
-					plt.title(f'{prefix}Similarity (sim) - Global')
-					plt.savefig(os.path.join(out_dir, f'{prefix}sim_global.png'))
-					plt.close()
-					
-					# Anchor Sim
-					if len(sim_list) > 0:
-						sim_anchor = sim_list[0][0, :].numpy() # [B]
+					valid_sim_list = [x for x in sim_list if x is not None]
+					if len(valid_sim_list) > 0:
+						sim_all = torch.cat([x.flatten() for x in valid_sim_list]).numpy()
+						plt.figure()
+						plt.hist(sim_all, bins=50)
+						plt.title(f'{prefix}Similarity (sim) - Global')
+						plt.savefig(os.path.join(out_dir, f'{prefix}sim_global.png'))
+						plt.close()
+						
+						# Anchor Sim
+						sim_anchor = valid_sim_list[0][0, :].numpy() # [B]
 						plt.figure()
 						plt.hist(sim_anchor, bins=50)
 						plt.title(f'{prefix}Similarity (sim) - Anchor')

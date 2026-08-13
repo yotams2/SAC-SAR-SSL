@@ -1,1 +1,52 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches & Data files
+.pytest_cache/
+.ipynb_checkpoints/
+*.npz
+*.npy
+*.pkl
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.h5
+
+# Wandb (Weights & Biases logs)
+wandb/
+**/wandb/
+
+# Experiments, logs, and metrics
+exp/
+exp_backup/
+experiment/
+experiments/
+metrics/
+
+# Data & Storage
 data/
+data_cl/
+data_room_classification/
+storage/
+
+# Analysis Results & Outputs
+analysis_results/
+analysis_results_widest/
+**/analysis_results/
+
+# Temporary / Backup directories & files
+scratch/
+tmp/
+tmp
+tmp.py
+debug_clda.py
+code_copy/
+code_copy_for_interspeech/
+
+# OS / Editor files
+.DS_Store
+.vscode/
+.idea/

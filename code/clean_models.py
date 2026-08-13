@@ -3,6 +3,9 @@ import sys
 import json
 import shutil
 import argparse
+import re
+
+import find_unused_models
 
 def get_lr_set(is_sim):
     """
@@ -37,47 +40,40 @@ def process_experiment_dir(exp_dir, dry_run, force):
     """
     print(f"\nProcessing experiment: {exp_dir}")
     
-    # 1. Determine Experiment Type (Sim vs Real)
-    subdirs = [d for d in os.listdir(exp_dir) if os.path.isdir(os.path.join(exp_dir, d))]
-    is_sim = False
-    for d in subdirs:
-        if "sim" in d:
-            is_sim = True
-            break
-    
-    lr_set = get_lr_set(is_sim)
-    print(f"Detected experiment type: {'Simulated' if is_sim else 'Real'}")
-    print(f"Using LR set: {lr_set}")
-
     # 2. Identify Result Files
     modes = ['finetune', 'lineareval']
-    winning_lrs = {} # mode -> winning_lr_value
+    types = ['sim', 'real']
+    winning_lrs = {} # (mode, dtype) -> winning_lr_value
 
     for mode in modes:
-        json_name = f"downstream_test_res_{mode}.json"
-        json_path = os.path.join(exp_dir, json_name)
-        
-        # Fallback for finetune if specific file doesn't exist
-        if mode == 'finetune' and not os.path.exists(json_path):
-             fallback_path = os.path.join(exp_dir, "downstream_test_res.json")
-             if os.path.exists(fallback_path):
-                 json_path = fallback_path
-        
-        if os.path.exists(json_path):
-            lr_idx = parse_result_json(json_path)
-            if lr_idx is not None:
-                if lr_idx < len(lr_set):
-                    winning_lr = lr_set[lr_idx]
-                    winning_lrs[mode] = winning_lr
-                    print(f"[{mode}] Found winning LR index {lr_idx} -> LR {winning_lr} (from {os.path.basename(json_path)})")
+        for dtype in types:
+            is_sim = (dtype == 'sim')
+            lr_set = get_lr_set(is_sim)
+            
+            suffix = "" if is_sim else "_real"
+            json_name = f"downstream_test_res_{mode}{suffix}.json"
+            json_path = os.path.join(exp_dir, json_name)
+            
+            # Fallback for finetune if specific file doesn't exist
+            if mode == 'finetune' and not os.path.exists(json_path):
+                 fallback_name = f"downstream_test_res{suffix}.json"
+                 fallback_path = os.path.join(exp_dir, fallback_name)
+                 if os.path.exists(fallback_path):
+                     json_path = fallback_path
+            
+            if os.path.exists(json_path):
+                lr_idx = parse_result_json(json_path)
+                if lr_idx is not None:
+                    if lr_idx < len(lr_set):
+                        winning_lr = lr_set[lr_idx]
+                        winning_lrs[(mode, dtype)] = winning_lr
+                        print(f"[{mode} - {dtype}] Found winning LR index {lr_idx} -> LR {winning_lr} (from {os.path.basename(json_path)})")
+                    else:
+                        print(f"[{mode} - {dtype}] Warning: lr_idx {lr_idx} out of bounds for LR set {lr_set}.")
                 else:
-                    print(f"[{mode}] Warning: lr_idx {lr_idx} out of bounds for LR set {lr_set}.")
+                    print(f"[{mode} - {dtype}] Could not extract lr_idx from {os.path.basename(json_path)}.")
             else:
-                print(f"[{mode}] Could not extract lr_idx from {os.path.basename(json_path)}.")
-        else:
-            # Silence this log for now to avoid clutter if modes don't exist
-            # print(f"[{mode}] No result JSON found (checked {json_name}).")
-            pass
+                pass
 
     if not winning_lrs:
         print("No winning LRs identified. Skipping this directory.")
@@ -101,11 +97,19 @@ def process_experiment_dir(exp_dir, dry_run, force):
         if not matched_mode:
             continue
             
-        if matched_mode not in winning_lrs:
-            # print(f"Skipping {item}: No winning LR identified for mode '{matched_mode}'.")
+        # Determine if it's sim or real
+        if '-sim_' in item:
+            dtype = 'sim'
+        elif '-real_' in item:
+            dtype = 'real'
+        else:
+            print(f"Warning: Could not determine if {item} is sim or real. Skipping.")
             continue
             
-        winning_lr = winning_lrs[matched_mode]
+        if (matched_mode, dtype) not in winning_lrs:
+            continue
+            
+        winning_lr = winning_lrs[(matched_mode, dtype)]
         
         # Parse LR from directory name
         # Format: finetune-all-mlp-800-0.0001-8-0-spat-sim_R8
@@ -145,24 +149,108 @@ def process_experiment_dir(exp_dir, dry_run, force):
             except Exception as e:
                 print(f"[Error Deleting] {p}: {e}")
 
+def clean_unused_models_func(dry_run, force):
+    """
+    Cleans up unused models by deleting their directories.
+    """
+    base_dir = "/storage/yotam/SAR-SSL/SAR-SSL"
+    exp_path = os.path.join(base_dir, "exp")
+    gen_summary_path = os.path.join(base_dir, "code/gen_summary_table.py")
+
+    used_models = find_unused_models.get_used_models(gen_summary_path)
+    
+    dirs_to_delete = []
+    if os.path.exists(exp_path):
+        for root, dirs, files in os.walk(exp_path):
+            for d in dirs:
+                if re.fullmatch(r'\d{8}', d):
+                    if d not in used_models:
+                        dirs_to_delete.append(os.path.join(root, d))
+    
+    print(f"Found {len(dirs_to_delete)} unused model directories to delete.")
+    
+    for p in sorted(dirs_to_delete):
+        if dry_run or not force:
+            print(f"[Would Delete] {p}")
+        else:
+            try:
+                shutil.rmtree(p)
+                print(f"[Deleted] {p}")
+            except Exception as e:
+                print(f"[Error Deleting] {p}: {e}")
+
+def clean_tar_files_func(target_dir, dry_run, force):
+    """
+    Cleans up intermediate modelX.tar files that are no longer needed after ensembling.
+    """
+    if target_dir is None:
+        base_dir = "/storage/yotam/SAR-SSL/SAR-SSL"
+        target_dir = os.path.join(base_dir, "exp")
+        
+    files_to_delete = []
+    if os.path.exists(target_dir):
+        for root, dirs, files in os.walk(target_dir):
+            for f in files:
+                if re.fullmatch(r'model\d+\.tar', f):
+                    files_to_delete.append(os.path.join(root, f))
+                    
+    print(f"Found {len(files_to_delete)} intermediate tar files to delete in {target_dir}.")
+    
+    for p in sorted(files_to_delete):
+        if dry_run or not force:
+            print(f"[Would Delete] {p}")
+        else:
+            try:
+                os.remove(p)
+                print(f"[Deleted] {p}")
+            except Exception as e:
+                print(f"[Error Deleting] {p}: {e}")
+
 def main():
     parser = argparse.ArgumentParser(description="Clean up model weights in experiment directory (or parent directory), keeping only winning LR trials.")
-    parser.add_argument("target_dir", type=str, help="Path to the experiment directory (e.g., .../exp/C50/12281023) or a parent directory.")
+    parser.add_argument("target_dir", type=str, nargs='?', default=None, help="Path to the experiment directory (e.g., .../exp/C50/12281023) or a parent directory. Optional if --clean-unused-models or --clean-tar-files is used.")
     parser.add_argument("--dry-run", action="store_true", help="Print what would be deleted without actually deleting.")
     parser.add_argument("--force", action="store_true", help="Actually execute the deletion. If not set, defaults to dry-run behavior.")
+    parser.add_argument("--clean-unused-models", action="store_true", help="Clean all unused models found by find_unused_models.py")
+    parser.add_argument("--clean-tar-files", action="store_true", help="Clean all intermediate modelX.tar files, keeping only latest, best, and ensemble models.")
     
     args = parser.parse_args()
     
-    target_dir = os.path.abspath(args.target_dir)
-    if not os.path.exists(target_dir):
-        print(f"Error: Directory {target_dir} does not exist.")
-        sys.exit(1)
-        
     if args.dry_run or not args.force:
         print("--- DRY RUN MODE (No files will be deleted) ---")
         print("Use --force to actually delete files.")
     else:
         print("--- DELETION MODE (Files WILL be deleted) ---")
+
+    if args.clean_unused_models:
+        print("--- CLEANING UNUSED MODELS ---")
+        clean_unused_models_func(args.dry_run, args.force)
+        
+        if args.dry_run or not args.force:
+            print("\nDone (Dry run). No changes made.")
+        else:
+            print("\nDone. Cleanup complete.")
+        return
+
+    if args.clean_tar_files:
+        print("--- CLEANING INTERMEDIATE TAR FILES ---")
+        clean_tar_files_func(args.target_dir, args.dry_run, args.force)
+        
+        if args.dry_run or not args.force:
+            print("\nDone (Dry run). No changes made.")
+        else:
+            print("\nDone. Cleanup complete.")
+        return
+        
+    if args.target_dir is None:
+        print("Error: target_dir is required unless --clean-unused-models or --clean-tar-files is specified.")
+        parser.print_help()
+        sys.exit(1)
+        
+    target_dir = os.path.abspath(args.target_dir)
+    if not os.path.exists(target_dir):
+        print(f"Error: Directory {target_dir} does not exist.")
+        sys.exit(1)
 
     # Check if target_dir is a single experiment or a parent
     # Criteria: Checks for 'downstream_test_res*.json' inside

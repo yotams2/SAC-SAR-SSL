@@ -106,7 +106,7 @@ def calculate_feature_stats(dataloader, device, fs, max_samples=200):
     
     return feature_stats
 
-def calculate_weights(features_batch, feature_stats, keys, sigma=1.0):
+def calculate_weights(features_batch, feature_stats, keys, sigma=1.0, normalization_mode='z_norm'):
     """
     Replicates the weight calculation logic from SARSSL model.
     W = exp( - (dist / sigma)^2 )
@@ -133,10 +133,14 @@ def calculate_weights(features_batch, feature_stats, keys, sigma=1.0):
             if val_isnan:
                  print(f"WARNING: Feature '{k}' contains NaNs in the batch!")
             
-            # Match model.py normalization: (val - mean) / (3 * std + 1e-6)
-            norm_val = (val - mu) / (3 * std + 1e-6)
-            # Match model.py clamping
-            norm_val = torch.clamp(norm_val, -1.0, 1.0)
+            if normalization_mode == 'cdf':
+                val_rank = torch.argsort(torch.argsort(val)).float() / (val.size(0) - 1.0 + 1e-6)
+                norm_val = val_rank * 2.0 - 1.0
+            else:
+                # Match model.py normalization: (val - mean) / (3 * std + 1e-6)
+                norm_val = (val - mu) / (3 * std + 1e-6)
+                # Match model.py clamping
+                norm_val = torch.clamp(norm_val, -1.0, 1.0)
             vecs.append(norm_val)
             
     if not vecs:
@@ -159,8 +163,13 @@ def calculate_weights(features_batch, feature_stats, keys, sigma=1.0):
     dist = torch.cdist(cues, cues, p=2) # (B, B)
     
     weights = torch.exp(- (dist / sigma) ** 2)
+    B = weights.shape[0]
+    mask = ~torch.eye(B, dtype=torch.bool, device=weights.device)
+    w_mask = weights * mask
+    w_sum = w_mask.sum(dim=1, keepdim=True) + 1e-8
+    w_norm = w_mask / w_sum
     
-    return weights, dist
+    return weights, w_norm, dist
 
 def plot_histograms(m_data, output_dir, prefix=''):
     """
@@ -197,6 +206,35 @@ def plot_histograms(m_data, output_dir, prefix=''):
                 plt.hist(w_anchor, bins=50)
                 plt.title(f'{prefix}Similarity Weights (w) - Anchor (No Self)')
                 plt.savefig(os.path.join(output_dir, f'{prefix}_sim_weights_anchor.png'))
+                plt.close()
+
+    # 1.5 Normalized Similarity Weights
+    if 'sim_weights_norm' in m_data:
+        wn_list = m_data['sim_weights_norm']
+        if len(wn_list) > 0:
+            # Global histogram
+            wn_all_list = []
+            for x in wn_list:
+                B = x.shape[0]
+                if B > 1:
+                    mask = ~torch.eye(B, dtype=torch.bool, device=x.device)
+                    wn_all_list.append(torch.masked_select(x, mask))
+            
+            if wn_all_list:
+                wn_all = torch.cat(wn_all_list).cpu().numpy()
+                plt.figure()
+                plt.hist(wn_all, bins=50)
+                plt.title(f'{prefix}Normalized Weights (w_norm) - Global (No Diag)')
+                plt.savefig(os.path.join(output_dir, f'{prefix}_sim_weights_norm_global.png'))
+                plt.close()
+            
+            # Anchor Sim Weights Norm
+            if wn_list[0].shape[0] > 1:
+                wn_anchor = wn_list[0][0, 1:].cpu().numpy()
+                plt.figure()
+                plt.hist(wn_anchor, bins=50)
+                plt.title(f'{prefix}Normalized Weights (w_norm) - Anchor (No Self)')
+                plt.savefig(os.path.join(output_dir, f'{prefix}_sim_weights_norm_anchor.png'))
                 plt.close()
 
     # 2. Cue Dist
@@ -286,7 +324,7 @@ def analyze(args):
     }
     
     all_weights = {k: [] for k in analysis_sets.keys()}
-    hist_data = {k: {'sim_weights': [], 'cue_dist': []} for k in analysis_sets.keys()}
+    hist_data = {k: {'sim_weights': [], 'sim_weights_norm': [], 'cue_dist': []} for k in analysis_sets.keys()}
     
     acoustic_diffs = {
         'tdoa': [],
@@ -337,17 +375,18 @@ def analyze(args):
             # Calculate weights for each set
             for set_name, keys in analysis_sets.items():
                 if set_name == 'hierarchical_weight_doa':
-                    sigma = 0.4
+                    sigma = args.hierarchical_feature_sim_doa_sigma
                 elif set_name == 'hierarchical_weight_room':
-                    sigma = 0.5 * np.sqrt(len(keys))
+                    sigma = args.hierarchical_feature_sim_room_sigma
                 else:
-                    sigma = 0.8
+                    sigma = args.feature_sim_sigma
                 if count == 0:
                     print(f"Set: {set_name}, Sigma: {sigma}")
-                weights, dist = calculate_weights(features, feature_stats, keys=keys, sigma=sigma)
+                weights, w_norm, dist = calculate_weights(features, feature_stats, keys=keys, sigma=sigma, normalization_mode=args.normalization_mode)
                 
                 # Store for histogram
                 hist_data[set_name]['sim_weights'].append(weights.cpu())
+                hist_data[set_name]['sim_weights_norm'].append(w_norm.cpu())
                 hist_data[set_name]['cue_dist'].append(dist.cpu())
 
                 # For the weight vs diff plot, we essentially want to see if High Weight => Low Diff
@@ -513,9 +552,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, default="/storage/yotam/SAR-SSL/SAR-SSL/data/MicSig/simu/pretrain/", help="Path to dataset")
     parser.add_argument("--output_dir", type=str, default="./analysis_results", help="Directory to save plots")
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--num_stat_samples", type=int, default=100, help="Number of batches for calculating stats")
     parser.add_argument("--num_analysis_batches", type=int, default=50, help="Number of batches to analyze")
+    parser.add_argument("--normalization_mode", type=str, default='z_norm', choices=['z_norm', 'cdf'], help="Feature normalization mode for spatial features")
+    parser.add_argument('--feature-sim-sigma', type=float, default=1.0)
+    parser.add_argument('--hierarchical-feature-sim-room-sigma', type=float, default=1.0)
+    parser.add_argument('--hierarchical-feature-sim-doa-sigma', type=float, default=0.4)
     
     args = parser.parse_args()
     analyze(args)

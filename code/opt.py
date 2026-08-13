@@ -8,7 +8,8 @@ class opt_pretrain():
         time_stamp = time.time()
         local_time = time.localtime(time_stamp)
         self.time = time.strftime('%m%d%H%M', local_time)
-        self.work_dir = os.getcwd() + '/../..' # r'~'
+        code_dir = os.path.dirname(os.path.abspath(__file__))
+        self.work_dir = code_dir + '/../..'
         self.work_dir = os.path.abspath(os.path.expanduser(self.work_dir))
         self.work_dir_local = os.path.abspath(os.path.expanduser(self.work_dir))
 
@@ -69,11 +70,17 @@ class opt_pretrain():
         parser.add_argument('--description', '--d', type=str, default=None, help='Description of the experiment to be saved in description.txt')
         parser.add_argument('--num-train-samples', type=int, default=None, help='Number of training samples to override directory counting')
         parser.add_argument('--feature-sim-loss', action='store_true', default=False, help='Enable Feature Similarity Loss')
+        parser.add_argument('--factorized_sac', action='store_true', default=False, help='Enable factorized SAC loss')
+        parser.add_argument('--oracle_supcon', action='store_true', default=False, help='If True, replaces analytical spatial features with ground-truth simulator values for the SAC loss to establish an upper bound.')
+        parser.add_argument('--use_pcgrad', action='store_true', default=False, help='Use PCGrad to combine losses safely')
         parser.add_argument('--diff-feat-selection', action='store_true', default=False, help='Enable Differentiable Feature Selection for Feature Similarity Loss')
         parser.add_argument('--diff-feat-selection-lambda', type=float, default=0.01, help='L1 sparsity penalty lambda for Differentiable Feature Selection')
         parser.add_argument('--feature-sim-loss-weight', type=float, default=1.0, help='Weight for Feature Similarity Loss (default: 1.0)')
         parser.add_argument('--gen-metrics', action='store_true', default=False, help='Generate metrics histograms (default: False)')
         parser.add_argument('--hierarchical', action='store_true', default=False, help='Enable hierarchical spatial encoder (split embedding) (default: False)')
+        parser.add_argument('--hierarchical-w-stop-grad', action='store_true', default=False, help='Enable hierarchical spatial encoder with stop-gradient on the room branch (default: False)')
+        parser.add_argument('--hierarchical-stop-grad-branch', type=str, default='room', choices=['doa', 'room'], help='Which branch to apply stop-gradient to: doa or room (default: room)')
+        parser.add_argument('--hierarchical-w-ch-att', action='store_true', default=False, help='Enable hierarchical spatial encoder with channel attention gates (default: False)')
         parser.add_argument('--split-spatial-encoder', action='store_true', default=False, help='Enable split spatial encoder (2 completely separate encoders)')
         parser.add_argument('--feature-sim-sigma', type=float, default=1.0, help='Sigma for Feature Similarity Loss (default: 1.0)')
         parser.add_argument('--feature-sim-temperature', type=float, default=0.3, help='Temperature for Feature Similarity Loss (default: 0.3)')
@@ -88,6 +95,9 @@ class opt_pretrain():
         parser.add_argument('--spectral-feature-sim-sigma', type=float, default=1.0, help='Sigma for Spectral Feature Similarity Loss (default: 1.0)')
         parser.add_argument('--spectral-feature-sim-temperature', type=float, default=0.3, help='Temperature for Spectral Feature Similarity Loss (default: 0.3)')
         parser.add_argument('--fixed-feature-weights-path', type=str, default=None, help='Path to features_importance.json to fix feature weights during training')
+        parser.add_argument('--normalization-mode', type=str, default='z_norm', choices=['z_norm', 'cdf'], help='Feature normalization mode for spatial features (default: z_norm)')
+        parser.add_argument('--use-cross-attention', action='store_true', default=False, help='Use cross attention and offline global median for SAC loss')
+        parser.add_argument('--family-specific-bn', action='store_true', default=False, help='Use family-specific BatchNorm1d for cross attention projection head')
         parser.add_argument('--exp-dir', type=str, default='exp', help='Experiment directory name (default: exp)')
 
         parser.add_argument('--no-rec-loss', action='store_true', default=False, help='Disable reconstruction loss (default: False)')
@@ -100,6 +110,8 @@ class opt_pretrain():
         assert args.pretrain_mode in ['masked', 'autoenc'], 'Pretraining mode is undefined'
         assert args.spectral_enc_input in ['all', 'mono'], 'Spectral encoder input is undefined'
         assert not (args.diff_feat_selection and args.fixed_feature_weights_path), '--diff-feat-selection and --fixed-feature-weights-path cannot be used together'
+        if args.hierarchical_w_stop_grad or args.hierarchical_w_ch_att:
+            args.hierarchical = True
         assert not args.hierarchical_adv or (args.hierarchical or args.split_spatial_encoder), '--hierarchical-adv requires --hierarchical or --split-spatial-encoder'
         if args.split_spatial_encoder:
             assert args.feature_sim_loss, '--split-spatial-encoder requires --feature-sim-loss'
@@ -113,8 +125,14 @@ class opt_pretrain():
         self.clda_s = args.contrastive_learning_data_aug_stronger
         self.diff_feat_selection = args.diff_feat_selection
         self.diff_feat_selection_lambda = args.diff_feat_selection_lambda
+        self.factorized_sac = args.factorized_sac
+        self.oracle_supcon = args.oracle_supcon
+        self.use_pcgrad = args.use_pcgrad
         self.fixed_feature_weights_path = args.fixed_feature_weights_path
         self.split_spatial_encoder = args.split_spatial_encoder
+        self.normalization_mode = args.normalization_mode
+        self.use_cross_attention = args.use_cross_attention
+        self.family_specific_bn = args.family_specific_bn
 
         args.acoustic_setting = self.acoustic_setting
         
@@ -188,7 +206,8 @@ class opt_downstream():
         time_stamp = time.time()
         local_time = time.localtime(time_stamp)
         self.time = time.strftime('%m%d%H%M', local_time)
-        self.work_dir = os.getcwd() + '/../..' # r'~'
+        code_dir = os.path.dirname(os.path.abspath(__file__))
+        self.work_dir = code_dir + '/../..'
         self.work_dir = os.path.abspath(os.path.expanduser(self.work_dir))
         self.work_dir_local = os.path.abspath(os.path.expanduser(self.work_dir))
 

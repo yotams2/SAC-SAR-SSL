@@ -6,7 +6,7 @@ class opt():
         time_stamp = time.time()
         local_time = time.localtime(time_stamp)
         self.time = time.strftime('%m%d', local_time)
-        self.work_dir = r'~'
+        self.work_dir = os.getcwd() + '/../..'
         self.work_dir = os.path.abspath(os.path.expanduser(self.work_dir))
 
         # acoustic setting

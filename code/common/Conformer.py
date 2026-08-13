@@ -12,6 +12,35 @@ from common.conformer.attention import MultiHeadedSelfAttentionModule
 from common.conformer.convolution import ConformerConvModule, Conv2dSubampling
 from common.conformer.modules import ResidualConnectionModule, Linear
 
+class ChannelAttentionGate(nn.Module):
+    def __init__(self, channel_dim, reduction_ratio=16):
+        super().__init__()
+        # Squeeze: Global Average Pooling across the time/sequence dimension
+        self.squeeze = nn.AdaptiveAvgPool1d(1) 
+        
+        # Excitation: Bottleneck MLP to learn channel weights
+        self.excitation = nn.Sequential(
+            nn.Linear(channel_dim, channel_dim // reduction_ratio, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(channel_dim // reduction_ratio, channel_dim, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        # x is [Batch, Time, Dim] in the Conformer
+        b, t, c = x.size()
+        
+        # Squeeze expects [Batch, Channels, Time] so we transpose
+        x_t = x.transpose(1, 2) # [b, c, t]
+        y = self.squeeze(x_t).view(b, c) 
+        
+        # Excitation
+        attn_weights = self.excitation(y) 
+        
+        # Reweight
+        attn_weights = attn_weights.view(b, 1, c) # broadcast over time
+        return x * attn_weights
+
 
 class ConformerBlock(nn.Module):
     """
@@ -132,9 +161,15 @@ class ConformerEncoder(nn.Module):
         conv_kernel_size: int = 31,
         half_step_residual: bool = True,
         hierarchical: bool = False,
+        hierarchical_w_stop_grad: bool = False,
+        hierarchical_w_ch_att: bool = False,
+        hierarchical_stop_grad_branch: str = 'room',
     ):
         super(ConformerEncoder, self).__init__()
         self.hierarchical = hierarchical
+        self.hierarchical_w_stop_grad = hierarchical_w_stop_grad
+        self.hierarchical_w_ch_att = hierarchical_w_ch_att
+        self.hierarchical_stop_grad_branch = hierarchical_stop_grad_branch
         # self.conv_subsample = Conv2dSubampling(in_channels=1, out_channels=encoder_dim)
         # self.input_projection = nn.Sequential(
         # Linear0(encoder_dim * (((input_dim - 1) // 2 - 1) // 2), encoder_dim),
@@ -190,6 +225,10 @@ class ConformerEncoder(nn.Module):
                     half_step_residual=half_step_residual,
                 ) for _ in range(num_separate_layers)
             ])
+
+            if self.hierarchical_w_ch_att:
+                self.doa_gate = ChannelAttentionGate(encoder_dim)
+                self.room_gate = ChannelAttentionGate(encoder_dim)
  
     def count_parameters(self) -> int:
         """ Count parameters of encoder """
@@ -235,15 +274,27 @@ class ConformerEncoder(nn.Module):
             hidden_states.append(outputs)
 
         if self.hierarchical:
-            outputs_doa = outputs
+            if self.hierarchical_w_ch_att:
+                outputs_doa = self.doa_gate(outputs)
+                outputs_room = self.room_gate(outputs)
+            else:
+                if self.hierarchical_w_stop_grad:
+                    if self.hierarchical_stop_grad_branch == 'doa':
+                        outputs_doa = outputs.detach()
+                        outputs_room = outputs
+                    else:
+                        outputs_doa = outputs
+                        outputs_room = outputs.detach()
+                else:
+                    outputs_doa = outputs
+                    outputs_room = outputs
+
             for layer in self.doa_layers:
                 outputs_doa = layer(outputs_doa)
                 if add_same_one:
                     outputs_one = torch.mean(outputs_doa, dim=1)
                     outputs_one = outputs_one[:, np.newaxis, :].expand(outputs_doa.shape[0], outputs_doa.shape[1], outputs_doa.shape[-1])
                     outputs_doa = outputs_doa + outputs_one
-
-            outputs_room = outputs
             for layer in self.room_layers:
                 outputs_room = layer(outputs_room)
                 if add_same_one:
