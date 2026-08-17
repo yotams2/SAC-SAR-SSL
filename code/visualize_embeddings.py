@@ -264,8 +264,8 @@ def run_visualization(exp_dir, regressive=False):
             emb_spec_mean = torch.mean(emb_spec, dim=1) 
             emb_spat_mean = torch.mean(emb_spat, dim=1) 
             
-            embeddings_spec.append(emb_spec_mean.cpu().numpy())
-            embeddings_spat.append(emb_spat_mean.cpu().numpy())
+            embeddings_spec.append(emb_spec_mean.float().cpu().numpy())
+            embeddings_spat.append(emb_spat_mean.float().cpu().numpy())
             
             indices = file_indices.numpy()
             if not regressive: 

@@ -11,6 +11,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate summary tables for downstream tasks.")
     parser.add_argument('--m', '--models', nargs='+', required=True, help="List of model timestamps (e.g., 12281023 12281234)")
     parser.add_argument('--t', '--tasks', nargs='+', default=['TDOA', 'T60', 'ABS', 'DRR'], help="List of tasks (e.g., TDOA DRR)")
+    parser.add_argument('--base_dir', type=str, default="/scratch/yotam/SAR-SSL/SAR-SSL/exp")
     
     args = parser.parse_args()
     
@@ -52,12 +53,13 @@ def main():
         "07062141": "CCSR + FeatSim with tau=0.2 sigma 0.295",
         "07082312": "CCSR + FeatSim with tau=0.5 sigma 0.613",
         "07172334": "CCSR + FeatSim with tau=0.4 sigma 0.62",
+        "08151521": "Only FeatSim with use_pfa_features"
     }
     
     models = args.m
     tasks = args.t
     
-    base_path = "/storage/yotam/SAR-SSL/SAR-SSL/exp"
+    base_path = args.base_dir
     output_dir = os.path.join(base_path, "summary_tables")
     os.makedirs(output_dir, exist_ok=True)
     

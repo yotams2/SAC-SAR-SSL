@@ -282,16 +282,16 @@ class Learner(ABC):
 			if 'diagnostics' in vis_batch and print_condition:
 				diag = vis_batch['diagnostics']
 				if len(diag) > 0:
-					global_uni = sum(d['Uniformity'] for d in diag.values()) / len(diag)
-					global_ali = sum(d['Alignment'] for d in diag.values()) / len(diag)
-					global_er = sum(d.get('EffectiveRank', 0.0) for d in diag.values()) / len(diag)
+					global_uni = float(sum(float(d['Uniformity']) for d in diag.values()) / len(diag))
+					global_ali = float(sum(float(d['Alignment']) for d in diag.values()) / len(diag))
+					global_er = float(sum(float(d.get('EffectiveRank', 0.0)) for d in diag.values()) / len(diag))
 					print(f"\n  [Diagnostics] Uniformity: {global_uni:.4f}, Alignment_Top10: {global_ali:.4f}, EffectiveRank: {global_er:.4f}")
 					import builtins
 					if hasattr(builtins, 'PROBE_CALLBACK'):
 						builtins.PROBE_CALLBACK(global_uni, global_ali, global_er)
 					if is_sweep:
 						for k, v in diag.items():
-							print(f"  [{k}] Uniformity: {v['Uniformity']:.4f}, Alignment: {v['Alignment']:.4f}, EffectiveRank: {v.get('EffectiveRank', 0.0):.4f}")
+							print(f"  [{k}] Uniformity: {float(v['Uniformity']):.4f}, Alignment: {float(v['Alignment']):.4f}, EffectiveRank: {float(v.get('EffectiveRank', 0.0)):.4f}")
 			
 			if self.debug and self.debug_log_path and epoch is not None:
 				# Log 4 times per epoch: at 25%, 50%, 75%, and 100% (approx)
@@ -304,7 +304,7 @@ class Learner(ABC):
 							f.write(f"Epoch {epoch}, Batch {batch_idx}/{total_batches}\n")
 							stats = vis_batch['debug_stats']
 							for k, v in stats.items():
-								f.write(f"  {k}: {v:.6f}\n")
+								f.write(f"  {k}: {float(v):.6f}\n")
 							f.write("-" * 20 + "\n")
 					except Exception as e:
 						print(f"Failed to write debug log: {e}")
@@ -417,11 +417,11 @@ class Learner(ABC):
 							else:
 								factorized_losses_avg[k] += val
 
-					if 'embed_spec' in vis_batch and 'embed_spat' in vis_batch:
+					if not getattr(self, 'use_amp', False) and 'embed_spec' in vis_batch and 'embed_spat' in vis_batch:
 						e_spec = vis_batch['embed_spec'].reshape(-1, vis_batch['embed_spec'].shape[-1])
 						e_spat = vis_batch['embed_spat'].reshape(-1, vis_batch['embed_spat'].shape[-1])
 						cka_val = self.cka(e_spec, e_spat)
-						cka_avg += cka_val.item()
+						cka_avg += float(cka_val.detach())
 
 					if analyze_rank and 'embed_spec' in vis_batch and 'embed_spat' in vis_batch:
 						# Assuming shape (nbatch, npatch, dembed)

@@ -354,7 +354,8 @@ def vis_TSNE(data, label):
                 label - (nins, )
     """
     plt.switch_backend('agg')
-    data_vis = TSNE(n_components=2, learning_rate=100).fit_transform(data)
+    data_float = np.asarray(data, dtype=np.float32)
+    data_vis = TSNE(n_components=2, learning_rate=100).fit_transform(data_float)
     # data_vis = TSNE(n_components=2, learning_rate=100, init='pca', random_state=0).fit_transform(data)
     plt.figure(figsize=(4, 3.2))
     p = plt.scatter(data_vis[:, 0], data_vis[:, 1], c=label, s=15, marker='o', cmap='plasma') # 'rainbow' 'plasma'
@@ -374,7 +375,7 @@ def vis_time_fre_data(data, ins_idx, eps=10e-5):
         nkey += 1
     idx = 0
     for key in keys:
-        show_data = data[key][ins_idx, ...].cpu() # (nf, nt, nmic) / (nf, nt, nreim, nmic)
+        show_data = data[key][ins_idx, ...].float().cpu() # (nf, nt, nmic) / (nf, nt, nreim, nmic)
         shape = show_data.shape
         nf = shape[0]
         nt = shape[1]

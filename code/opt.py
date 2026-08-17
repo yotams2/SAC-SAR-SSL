@@ -98,6 +98,8 @@ class opt_pretrain():
         parser.add_argument('--normalization-mode', type=str, default='z_norm', choices=['z_norm', 'cdf'], help='Feature normalization mode for spatial features (default: z_norm)')
         parser.add_argument('--use-cross-attention', action='store_true', default=False, help='Use cross attention and offline global median for SAC loss')
         parser.add_argument('--family-specific-bn', action='store_true', default=False, help='Use family-specific BatchNorm1d for cross attention projection head')
+        parser.add_argument('--use-pfa-features', action='store_true', default=False, help='Use the 11 PFA-selected spatial features for SAC loss')
+        parser.add_argument('--use-pfa-features-w-hueristic', '--use-pfa-features-w-heuristic', action='store_true', default=False, dest='use_pfa_features_w_hueristic', help='Use the 11 PFA-selected spatial features plus tdoa and gcc_phat_max for SAC loss')
         parser.add_argument('--exp-dir', type=str, default='exp', help='Experiment directory name (default: exp)')
 
         parser.add_argument('--no-rec-loss', action='store_true', default=False, help='Disable reconstruction loss (default: False)')
@@ -127,6 +129,8 @@ class opt_pretrain():
         self.diff_feat_selection_lambda = args.diff_feat_selection_lambda
         self.factorized_sac = args.factorized_sac
         self.oracle_supcon = args.oracle_supcon
+        self.use_pfa_features = args.use_pfa_features
+        self.use_pfa_features_w_hueristic = args.use_pfa_features_w_hueristic
         self.use_pcgrad = args.use_pcgrad
         self.fixed_feature_weights_path = args.fixed_feature_weights_path
         self.split_spatial_encoder = args.split_spatial_encoder

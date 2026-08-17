@@ -445,6 +445,8 @@ class SARSSL(nn.Module):
         self.oracle_supcon = kwargs.get('oracle_supcon', False)
         self.use_cross_attention = kwargs.get('use_cross_attention', False)
         self.family_specific_bn = kwargs.get('family_specific_bn', False)
+        self.use_pfa_features = kwargs.get('use_pfa_features', False)
+        self.use_pfa_features_w_hueristic = kwargs.get('use_pfa_features_w_hueristic', False)
         
         # Fixed normalization parameters
         self.feature_stats = feature_stats if feature_stats is not None else {} # Dictionary containing 'p1' and 'p99' for each feature
@@ -974,7 +976,7 @@ class SARSSL(nn.Module):
                              data_vis['factorized_losses'] = {**doa_losses, **room_losses}
 
                 if self.debug:
-                    debug_stats['loss_feat_sim'] = loss_feat_sim.item()
+                    debug_stats['loss_feat_sim'] = loss_feat_sim.detach()
             
             if self.spectral_feature_sim_loss:
                 x_complex = torch.view_as_complex(x) # [B, nmic, nf, nt]
@@ -992,7 +994,7 @@ class SARSSL(nn.Module):
                     data_vis['spec_metrics'] = spec_feat_sim_metrics
 
                 if self.debug:
-                    debug_stats['loss_spec_feat_sim'] = loss_spec_feat_sim.item()
+                    debug_stats['loss_spec_feat_sim'] = loss_spec_feat_sim.detach()
 
             if self.hierarchical_adv and hasattr(self, 'tdoa_adversary_head') and self.adv_weight > 0:
                 z_spat_mean = embed_spat.mean(dim=1)
@@ -1011,37 +1013,37 @@ class SARSSL(nn.Module):
                 losses.append(loss_adv * self.adv_weight)
                 
                 if self.debug:
-                    debug_stats['loss_adv'] = loss_adv.item()
+                    debug_stats['loss_adv'] = loss_adv.detach()
 
             loss = sum(losses) / len(losses)
 
             if self.debug:
                  # debug_stats already exists and has CL info
-                 debug_stats['loss_gen'] = loss_gen.item()
+                 debug_stats['loss_gen'] = loss_gen.detach()
                  
                  # Embeddings stats
                  if 'embed_spat' in locals():
-                     debug_stats['embed_spat_norm'] = torch.norm(embed_spat, dim=-1).mean().item()
-                     debug_stats['embed_spat_var'] = torch.var(embed_spat, dim=-1).mean().item()
+                     debug_stats['embed_spat_norm'] = torch.norm(embed_spat, dim=-1).mean().detach()
+                     debug_stats['embed_spat_var'] = torch.var(embed_spat, dim=-1).mean().detach()
                  
                  if 'embed_spec' in locals():
-                     debug_stats['embed_spec_norm'] = torch.norm(embed_spec, dim=-1).mean().item()
-                     debug_stats['embed_spec_var'] = torch.var(embed_spec, dim=-1).mean().item()
+                     debug_stats['embed_spec_norm'] = torch.norm(embed_spec, dim=-1).mean().detach()
+                     debug_stats['embed_spec_var'] = torch.var(embed_spec, dim=-1).mean().detach()
 
                  if 'z_spat' in locals():
-                     debug_stats['z_spat_norm'] = torch.norm(z_spat, dim=-1).mean().item()
-                     debug_stats['z_spat_var'] = torch.var(z_spat, dim=-1).mean().item()
+                     debug_stats['z_spat_norm'] = torch.norm(z_spat, dim=-1).mean().detach()
+                     debug_stats['z_spat_var'] = torch.var(z_spat, dim=-1).mean().detach()
 
                  if 'z_spec' in locals():
-                     debug_stats['z_spec_norm'] = torch.norm(z_spec, dim=-1).mean().item()
-                     debug_stats['z_spec_var'] = torch.var(z_spec, dim=-1).mean().item()
+                     debug_stats['z_spec_norm'] = torch.norm(z_spec, dim=-1).mean().detach()
+                     debug_stats['z_spec_var'] = torch.var(z_spec, dim=-1).mean().detach()
                      
                  if (self.contrastive_learning or self.contrastive_learning_data_aug) and indices is not None:
-                     debug_stats['loss_cl_spat'] = loss_cl_spat.item()
-                     debug_stats['loss_cl_spec'] = loss_cl_spec.item()
+                     debug_stats['loss_cl_spat'] = loss_cl_spat.detach()
+                     debug_stats['loss_cl_spec'] = loss_cl_spec.detach()
                      
                  if self.obt:
-                     debug_stats['obt_loss'] = obt_loss.item()
+                     debug_stats['obt_loss'] = obt_loss.detach()
                      
                  data_vis['debug_stats'] = debug_stats
             
@@ -1052,6 +1054,14 @@ class SARSSL(nn.Module):
             if 'loss_adv' not in locals():
                 loss_adv = torch.tensor(0.0, device=self.device)
 
+            def _tensorize_dict(d, device):
+                if isinstance(d, dict):
+                    return {k: _tensorize_dict(v, device) for k, v in d.items()}
+                elif isinstance(d, (float, int)):
+                    return torch.tensor(float(d), device=device)
+                return d
+
+            data_vis = _tensorize_dict(data_vis, self.device)
             return loss, diff, data_vis, loss_cl_spat, loss_cl_spec, obt_loss, loss_gen, loss_feat_sim, loss_spec_feat_sim, loss_adv
 
 
@@ -1402,6 +1412,18 @@ class SARSSL(nn.Module):
         else:
             if getattr(self, 'oracle_supcon', False):
                 feature_keys = ['TDOA', 'T60', 'DRR', 'C50', 'ABS']
+            elif getattr(self, 'use_pfa_features_w_hueristic', False):
+                feature_keys = [
+                    'coherence_mean', 'ipd_cos_mean', 'ipd_sin_mean', 'early_late_ratio_median',
+                    'decay_slope_median', 'hf_lf_ratio', 'ild_mean', 'mod_low_high_ratio',
+                    'coherence_low', 'coherence_var', 'decay_slope_p90', 'tdoa', 'gcc_phat_max'
+                ]
+            elif getattr(self, 'use_pfa_features', False):
+                feature_keys = [
+                    'coherence_mean', 'ipd_cos_mean', 'ipd_sin_mean', 'early_late_ratio_median',
+                    'decay_slope_median', 'hf_lf_ratio', 'ild_mean', 'mod_low_high_ratio',
+                    'coherence_low', 'coherence_var', 'decay_slope_p90'
+                ]
             else:
                 feature_keys = ['coherence_low', 'coherence_mid', 'coherence_high', 'gcc_phat_max', 'tdoa']
             learned_weights = None
@@ -1555,7 +1577,7 @@ class SARSSL(nn.Module):
             # Add effective rank:
             z_centered = z_family - z_family.mean(dim=0)
             cov = (z_centered.T @ z_centered) / (B - 1)
-            eigenvalues = torch.linalg.eigvalsh(cov)
+            eigenvalues = torch.linalg.eigvalsh(cov.float())
             eigenvalues = torch.relu(eigenvalues) + 1e-8
             p = eigenvalues / eigenvalues.sum()
             effective_rank = torch.exp(-torch.sum(p * torch.log(p))).item()
@@ -1851,7 +1873,7 @@ class SARSSL(nn.Module):
             # Add effective rank:
             z_centered = z_proj - z_proj.mean(dim=0)
             cov = (z_centered.T @ z_centered) / (z_proj.size(0) - 1)
-            eigenvalues = torch.linalg.eigvalsh(cov)
+            eigenvalues = torch.linalg.eigvalsh(cov.float())
             eigenvalues = torch.relu(eigenvalues) + 1e-8
             p = eigenvalues / eigenvalues.sum()
             effective_rank = torch.exp(-torch.sum(p * torch.log(p))).item()
