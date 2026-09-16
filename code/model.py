@@ -447,6 +447,7 @@ class SARSSL(nn.Module):
         self.family_specific_bn = kwargs.get('family_specific_bn', False)
         self.use_pfa_features = kwargs.get('use_pfa_features', False)
         self.use_pfa_features_w_hueristic = kwargs.get('use_pfa_features_w_hueristic', False)
+        self.use_pfa_features_k7 = kwargs.get('use_pfa_features_k7', False)
         
         # Fixed normalization parameters
         self.feature_stats = feature_stats if feature_stats is not None else {} # Dictionary containing 'p1' and 'p99' for each feature
@@ -1412,6 +1413,11 @@ class SARSSL(nn.Module):
         else:
             if getattr(self, 'oracle_supcon', False):
                 feature_keys = ['TDOA', 'T60', 'DRR', 'C50', 'ABS']
+            elif getattr(self, 'use_pfa_features_k7', False):
+                feature_keys = [
+                    'tdoa', 'gcc_phat_max', 'decay_slope_median', 'early_late_ratio_median',
+                    'iacc_max', 'ild_mean', 'mod_low_high_ratio'
+                ]
             elif getattr(self, 'use_pfa_features_w_hueristic', False):
                 feature_keys = [
                     'coherence_mean', 'ipd_cos_mean', 'ipd_sin_mean', 'early_late_ratio_median',

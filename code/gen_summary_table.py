@@ -11,7 +11,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate summary tables for downstream tasks.")
     parser.add_argument('--m', '--models', nargs='+', required=True, help="List of model timestamps (e.g., 12281023 12281234)")
     parser.add_argument('--t', '--tasks', nargs='+', default=['TDOA', 'T60', 'ABS', 'DRR'], help="List of tasks (e.g., TDOA DRR)")
-    parser.add_argument('--base_dir', type=str, default="/scratch/yotam/SAR-SSL/SAR-SSL/exp")
+    parser.add_argument('--base_dir', type=str, default="/storage/yotam/SAR-SSL/SAR-SSL/exp")
     
     args = parser.parse_args()
     
@@ -53,7 +53,10 @@ def main():
         "07062141": "CCSR + FeatSim with tau=0.2 sigma 0.295",
         "07082312": "CCSR + FeatSim with tau=0.5 sigma 0.613",
         "07172334": "CCSR + FeatSim with tau=0.4 sigma 0.62",
-        "08151521": "Only FeatSim with use_pfa_features"
+        "08151521": "Only FeatSim with use_pfa_features",
+        "09141115": "basic 5 features run with median sigma 0.892",
+        "09150004": "hybrid 13 features run with median sigma 1.5513",
+        "09151152": "basic 5 features run with tuned sigma 0.613 (production baseline)"
     }
     
     models = args.m
@@ -204,6 +207,12 @@ def main():
                         display_tuple = (val, std)
                         best = best_results.get(task)
                         row_data.append(format_val(display_tuple, best))
+                    elif "Seed-to-Seed" in title:
+                        val = np.mean(vals)
+                        seed_std = np.std(vals)
+                        display_tuple = (val, seed_std)
+                        best = best_results.get(task)
+                        row_data.append(format_val(display_tuple, best))
                     else:
                         # Mean
                         val = np.mean(vals)
@@ -263,11 +272,14 @@ def main():
         return table_lines
 
     lines.extend(generate_aligned_table("Table 1: Best Result (Finetune - Lowest Metric)", results_finetune, best_ft_min))
-    lines.extend(generate_aligned_table("Table 2: Average Performance (Finetune - Mean)", results_finetune, best_ft_avg))
+    lines.extend(generate_aligned_table("Table 2a: Average Performance (Finetune - Mean, Sample Std)", results_finetune, best_ft_avg))
+    lines.extend(generate_aligned_table("Table 2b: Seed-to-Seed Variability (Finetune - Mean, Seed Std)", results_finetune, best_ft_avg))
     lines.extend(generate_aligned_table("Table 3: Best Result (Linear Eval - Lowest Metric)", results_linear, best_lin_min))
-    lines.extend(generate_aligned_table("Table 4: Average Performance (Linear Eval - Mean)", results_linear, best_lin_avg))
+    lines.extend(generate_aligned_table("Table 4a: Average Performance (Linear Eval - Mean, Sample Std)", results_linear, best_lin_avg))
+    lines.extend(generate_aligned_table("Table 4b: Seed-to-Seed Variability (Linear Eval - Mean, Seed Std)", results_linear, best_lin_avg))
     lines.extend(generate_aligned_table("Table 5: Best Result (Real Data - Lowest Metric)", results_real, best_real_min))
-    lines.extend(generate_aligned_table("Table 6: Average Performance (Real Data - Mean)", results_real, best_real_avg))
+    lines.extend(generate_aligned_table("Table 6a: Average Performance (Real Data - Mean, Sample Std)", results_real, best_real_avg))
+    lines.extend(generate_aligned_table("Table 6b: Seed-to-Seed Variability (Real Data - Mean, Seed Std)", results_real, best_real_avg))
     
     # Write to file
     with open(output_path, 'w') as f:
@@ -292,12 +304,14 @@ def main():
                     
                     mean_val = float(np.mean(vals))
                     mean_std = float(np.mean(valid_stds)) if valid_stds else None
+                    seed_std = float(np.std(vals))
                     
                     model_res[task] = {
                         "lowest_metric": min_val,
                         "lowest_std": min_std,
                         "mean_metric": mean_val,
                         "mean_std": mean_std,
+                        "seed_std": seed_std,
                         "raw_trials": [{"val": float(v), "std": float(s) if s is not None else None} for v, s in zip(vals, stds)]
                     }
                 else:

@@ -42,6 +42,17 @@ D13_HYBRID_KEYS = [
     'gcc_phat_max',
 ]
 
+# D=7 Hybrid Feature Set
+D7_HYBRID_KEYS = [
+    'tdoa',
+    'gcc_phat_max',
+    'decay_slope_median',
+    'early_late_ratio_median',
+    'iacc_max',
+    'ild_mean',
+    'mod_low_high_ratio',
+]
+
 # D=5 Previous Production Feature Set
 D5_ORIGINAL_KEYS = [
     'coherence_low',
@@ -112,7 +123,7 @@ def load_normalized_feature_matrices(num_samples=5000, batch_size=32, device='cp
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     do_stft = STFT(win_len=512, win_shift_ratio=0.5, nfft=512).to(device)
 
-    all_keys = list(set(D13_HYBRID_KEYS + D5_ORIGINAL_KEYS))
+    all_keys = list(set(D13_HYBRID_KEYS + D5_ORIGINAL_KEYS + D7_HYBRID_KEYS))
     raw_collections = {k: [] for k in all_keys}
 
     loaded_count = 0
@@ -147,8 +158,9 @@ def load_normalized_feature_matrices(num_samples=5000, batch_size=32, device='cp
     # Construct D=13 and D=5 feature matrices
     X_D13 = np.column_stack([normalized_dict[k] for k in D13_HYBRID_KEYS])
     X_D5 = np.column_stack([normalized_dict[k] for k in D5_ORIGINAL_KEYS])
+    X_D7 = np.column_stack([normalized_dict[k] for k in D7_HYBRID_KEYS])
 
-    return X_D13, X_D5
+    return X_D13, X_D5, X_D7
 
 
 def main():
@@ -170,7 +182,7 @@ def main():
     print(f"Random Seed:       {args.seed}")
     print("-" * 70)
 
-    X_D13, X_D5 = load_normalized_feature_matrices(
+    X_D13, X_D5, X_D7 = load_normalized_feature_matrices(
         num_samples=args.num_samples,
         batch_size=64,
         device=args.device,
@@ -179,19 +191,32 @@ def main():
 
     print(f"[DATA] D=13 Feature Matrix Shape: {X_D13.shape}")
     print(f"[DATA] D=5  Feature Matrix Shape: {X_D5.shape}")
+    print(f"[DATA] D=7  Feature Matrix Shape: {X_D7.shape}")
 
     # Compute Median Heuristic Sigmas
     sigma_median_D13 = compute_median_heuristic_sigma(X_D13, subsample_size=args.subsample_size, seed=args.seed)
     sigma_median_D5 = compute_median_heuristic_sigma(X_D5, subsample_size=args.subsample_size, seed=args.seed)
+    sigma_median_D7 = compute_median_heuristic_sigma(X_D7, subsample_size=args.subsample_size, seed=args.seed)
+    
+    # Multi-seed stability check for D=7
+    print("\n--- Multi-seed Stability Check for D=7 ---")
+    d7_sigmas = []
+    for s in [42, 43, 44, 45, 46]:
+        sig = compute_median_heuristic_sigma(X_D7, subsample_size=args.subsample_size, seed=s)
+        d7_sigmas.append(sig)
+        print(f"Seed {s}: Sigma = {sig:.6f}")
+    print(f"D=7 Sigma Stability: Mean={np.mean(d7_sigmas):.6f}, Std={np.std(d7_sigmas):.6f}")
 
     print("\n" + "=" * 70)
     print(" COMPUTED BANDWIDTH (SIGMA) RESULTS & COMPARISON")
     print("=" * 70)
+    print(f"-> NEW D=7 Median-Heuristic Sigma:   {sigma_median_D7:.6f}")
     print(f"-> NEW D=13 Median-Heuristic Sigma:  {sigma_median_D13:.6f}")
     print(f"-> Previous Tuned D=5 Sigma:         {PREVIOUS_TUNED_SIGMA_D5:.6f}")
     print(f"-> Previous Default D=5 Sigma:       1.000000")
     print(f"-> D=5 Median-Heuristic Sigma:       {sigma_median_D5:.6f}")
     print("-" * 70)
+    print(f"Ratio (Median D=7 / Median D=5):     {sigma_median_D7 / sigma_median_D5:.4f} (Theoretical sqrt(7/5) = {np.sqrt(7/5):.4f})")
     print(f"Ratio (Median D=13 / Median D=5):    {sigma_median_D13 / sigma_median_D5:.4f} (Theoretical sqrt(13/5) = {np.sqrt(13/5):.4f})")
     print(f"Ratio (Median D=13 / Tuned D=5):     {sigma_median_D13 / PREVIOUS_TUNED_SIGMA_D5:.4f}")
     print("=" * 70 + "\n")

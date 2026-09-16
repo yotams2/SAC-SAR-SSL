@@ -112,10 +112,12 @@ def compute_pca_95_corr_rank(X, threshold=VARIANCE_THRESHOLD):
 # ==========================================
 # Step 3: Greedy Original-Feature Selection
 # ==========================================
-def greedy_pfa_selection(R, k_target):
+def greedy_pfa_selection(R, k_target, initial_selected=None):
     """Greedily selects k original feature columns maximizing full correlation variance explained."""
-    selected, candidates, n_features = [], list(range(R.shape[0])), R.shape[0]
-    for _ in range(k_target):
+    selected = list(initial_selected) if initial_selected else []
+    candidates = [i for i in range(R.shape[0]) if i not in selected]
+    n_features = R.shape[0]
+    for _ in range(max(0, k_target - len(selected))):
         best_score, best_feat = -1.0, -1
         for feat in candidates:
             sub = selected + [feat]
@@ -123,15 +125,16 @@ def greedy_pfa_selection(R, k_target):
             score = float(np.sum((R_full_sub @ np.linalg.pinv(R[np.ix_(sub, sub)])) * R_full_sub) / n_features)
             if score > best_score:
                 best_score, best_feat = score, feat
-        selected.append(best_feat)
-        candidates.remove(best_feat)
+        if best_feat != -1:
+            selected.append(best_feat)
+            candidates.remove(best_feat)
     return selected
 
 
 # ==========================================
 # Step 4: Bootstrap Stability Check
 # ==========================================
-def bootstrap_stability_check(X, n_bootstrap=N_BOOTSTRAP, threshold=VARIANCE_THRESHOLD, seed=SEED):
+def bootstrap_stability_check(X, n_bootstrap=N_BOOTSTRAP, threshold=VARIANCE_THRESHOLD, seed=SEED, k_target=None, initial_selected=None):
     """Resamples N rows with replacement 50 times to check stability of k and feature selection."""
     n_samples, n_features = X.shape
     rng = np.random.RandomState(seed)
@@ -140,8 +143,9 @@ def bootstrap_stability_check(X, n_bootstrap=N_BOOTSTRAP, threshold=VARIANCE_THR
     for _ in range(n_bootstrap):
         X_b = X[rng.choice(n_samples, size=n_samples, replace=True)]
         k_b, R_b = compute_pca_95_corr_rank(X_b, threshold)
-        k_list.append(k_b)
-        counts[greedy_pfa_selection(R_b, k_b)] += 1
+        actual_k = k_target if k_target is not None else k_b
+        k_list.append(actual_k)
+        counts[greedy_pfa_selection(R_b, actual_k, initial_selected)] += 1
         
     k_arr = np.array(k_list)
     k_u, k_c = np.unique(k_arr, return_counts=True)
@@ -203,14 +207,27 @@ def main():
     parser = argparse.ArgumentParser(description="Unsupervised PFA Feature Selection & Stability Analysis")
     parser.add_argument("--data-path", type=str, default=DATA_PATH, help="Path to input feature CSV or NPY file")
     parser.add_argument("--names-path", type=str, default=NAMES_PATH, help="Path to optional feature names file")
+    parser.add_argument("--k-target", type=int, default=None, help="Manually specified target rank k")
+    parser.add_argument("--forced-features", type=str, default="", help="Comma-separated list of feature names to force-include")
     args = parser.parse_args()
     
     X, feature_names, is_synthetic = load_feature_matrix(args.data_path, args.names_path, SEED)
     k_full, R_full = compute_pca_95_corr_rank(X, VARIANCE_THRESHOLD)
-    selected_indices = greedy_pfa_selection(R_full, k_full)
+    
+    initial_selected = []
+    if args.forced_features:
+        forced_names = [f.strip() for f in args.forced_features.split(',') if f.strip()]
+        for f in forced_names:
+            if f in feature_names:
+                initial_selected.append(feature_names.index(f))
+            else:
+                print(f"[WARNING] Forced feature '{f}' not found in candidate names!")
+
+    actual_k = args.k_target if args.k_target is not None else k_full
+    selected_indices = greedy_pfa_selection(R_full, actual_k, initial_selected)
     selected_names = [feature_names[i] for i in selected_indices]
     
-    boot_res = bootstrap_stability_check(X, N_BOOTSTRAP, VARIANCE_THRESHOLD, SEED)
+    boot_res = bootstrap_stability_check(X, N_BOOTSTRAP, VARIANCE_THRESHOLD, SEED, args.k_target, initial_selected)
     freqs = boot_res['selection_frequencies']
     stable_count = np.sum(freqs[selected_indices] >= 0.8)
     k_var_flag = (boot_res['k_max'] - boot_res['k_min']) > 4
@@ -224,9 +241,11 @@ def main():
     print("=" * 70)
     print(f"Data Source:               {'PLACEHOLDER SYNTHETIC DATA' if is_synthetic else args.data_path}")
     print(f"Matrix Shape:              {X.shape[0]} samples x {X.shape[1]} candidate features")
-    print(f"PCA-95% Target Rank k:     {k_full}")
+    print(f"PCA-95% Target Rank k:     {k_full}" + (f" (Overridden by k_target={args.k_target})" if args.k_target is not None else ""))
+    if initial_selected:
+        print(f"Forced Initial Features:   {[feature_names[i] for i in initial_selected]}")
     print(f"Selected Feature Indices:  {selected_indices}")
-    print(f"Selected Feature Names:    {selected_names[:5]}{'...' if len(selected_names) > 5 else ''}")
+    print(f"Selected Feature Names:    {selected_names}")
     
     print("\n--- Bootstrap Stability Statistics (50 Resamples) ---")
     print(f"k Distribution:            Mean={boot_res['k_mean']:.2f}, Std={boot_res['k_std']:.2f}, Range=[{boot_res['k_min']}, {boot_res['k_max']}]")

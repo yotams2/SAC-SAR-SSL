@@ -35,6 +35,7 @@ def main():
     parser.add_argument('--ds-only', action='store_true', help='Skip pretraining and visualization (commands 1-3)')
     parser.add_argument('--ds-trainmode', type=str, default='finetune', help='Downstream train mode (default: finetune)')
     parser.add_argument('--ds-test-only', action='store_true', help='Skip downstream training, only run test (implies --ds-only)')
+    parser.add_argument('--start-ds-task', type=str, default='TDOA', choices=["TDOA", "T60", "DRR", "ABS", "C50"], help='Task to start downstream training from (default: TDOA)')
     args, unknown_args = parser.parse_known_args()
     
     if args.time:
@@ -75,7 +76,9 @@ def main():
 
     # 4. Downstream Train
     # python run_downstream.py --ds-train --ds-trainmode finetune --simu-exp --ds-nsimroom 8 --ds-task TDOA --time <time> --gpu-id 0,
-    for task in ["TDOA", "T60", "DRR", "ABS", "C50"]:
+    all_tasks = ["TDOA", "T60", "DRR", "ABS", "C50"]
+    start_idx = all_tasks.index(args.start_ds_task)
+    for task in all_tasks[start_idx:]:
         if not args.ds_test_only:
             cmd_4 = f"{sys.executable} code/run_downstream.py --ds-train --ds-trainmode {args.ds_trainmode} --simu-exp --ds-nsimroom 8 --ds-task {task} --time {timestamp} --gpu-id {args.gpu_id}"
             run_command(cmd_4, "4. Downstream Train")
