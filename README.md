@@ -10,7 +10,9 @@ Written by `scripts/collect_result.py` on the TAU cluster, not by hand. Code liv
 
 `metrics` has one entry per test mode, named after the result file: `finetune`, `lineareval`, `scratchLOW`, their
 `_real` variants, and `default` for the older `downstream_test_res.json`. Each entry has `lowest`, `mean`, `seed_std`
-(population std across trials, as in `gen_summary_table.py`) and the raw `trials`. `metric_test` is an error, so lower is better.
+and the raw `trials`. Despite the name, kept from `gen_summary_table.py`, `seed_std` is not across seeds: it is the
+population std across trials, and each trial trains the downstream head on a different room subset of one pretrained
+model. All runs so far use seed 1, so nothing here measures pretraining noise. `metric_test` is an error, so lower is better.
 
 `job_id` `runai` marks runs from the old RunAI server, now kept in `/moshe-data`. They have no git commit.
 `ckpt_dir` is the path on `/moshe-data`, which only the nodes with Slurm feature `ib_dj` mount.
