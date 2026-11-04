@@ -83,7 +83,7 @@ invisible to it. The full rules are in `../sac-ssamba/CLAUDE.md`, section of the
 
 - **Results** live on the branch `results`, in the worktree `~/SAC-SAR-SSL-results`:
   `results/<task>/<time>__<job_id>/summary.json` plus the raw json files. Never commit results to `main`. Format:
-  `README.md` on that branch. `metric_test` is an error, so lower is better; `seed_std` is computed as in `gen_summary_table.py`.
+  `README.md` on that branch. `metric_test` is an error, so lower is better; `seed_std` keeps the name used by `gen_summary_table.py`, but it is the spread across downstream room subsets of one pretrained model, not across seeds: all runs so far use seed 1.
 - **Past runs** are in `/moshe-data/blaufer-data/yotams2/SAC-SAR-SSL/exp`, which the Jupyter node can't see. To report new ones,
   submit `sbatch scripts/collect_moshe.sbatch` from the repo root: it runs on a node that mounts `/moshe-data`
   (`--constraint=ib_dj`, minus compute-0-351), and it is safe to rerun.

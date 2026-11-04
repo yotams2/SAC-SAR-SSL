@@ -7,8 +7,9 @@ under one task: <exp>/<TDOA|T60|DRR|ABS|C50>/<time>/ for downstream, <exp>/pretr
     python3 scripts/collect_result.py --exp_root <exp>                 # every run under exp, plus summary_tables/
     python3 scripts/collect_result.py --exp_root <exp> --task T60 --time 09151152 --job_id 12345
 
-Per test mode it keeps what code/gen_summary_table.py computes: lowest, mean, seed_std (population std across trials,
-which is seed to seed) and the raw trials. metric_test is an error (MAE), so lower is better. Never fails a job:
+Per test mode it keeps what code/gen_summary_table.py computes: lowest, mean, seed_std and the raw trials. Despite its
+name, seed_std is not across seeds: it is the population std across trials, and a trial trains the downstream head on a
+different subset of rooms from one pretrained model, with the seed fixed (run_downstream.py). metric_test is an error (MAE), so lower is better. Never fails a job:
 a run that can't be parsed gets a summary.json with a parse_error field, and the exit code is always 0.
 """
 import argparse
