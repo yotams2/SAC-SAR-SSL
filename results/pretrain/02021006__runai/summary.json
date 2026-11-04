@@ -3,14 +3,19 @@
   "experiment": "02021006",
   "model": "new version of feature_sim_loss w minus sim_max, 5 features (coherences, gcc max, tdoa), BN in projection head, temp 0.15, sigma 1, gen_metrics, AE mode, 50000 training samples",
   "job_id": "runai",
-  "status": "unknown",
+  "status": "done",
   "date": "2026-02-02T14:48:13+02:00",
-  "collected_at": "2026-11-04T13:45:58+02:00",
-  "seed": null,
-  "lr": null,
+  "collected_at": "2026-11-04T13:48:52+02:00",
+  "seed": 1,
+  "lr": 0.001,
   "frozen": null,
   "git_commit": null,
   "ckpt_dir": "/moshe-data/blaufer-data/yotams2/SAC-SAR-SSL/exp/pretrain/02021006",
-  "metrics": {},
-  "parse_error": "AttributeError: 'list' object has no attribute 'get'"
+  "metrics": {
+    "pretext_test": {
+      "loss_test": 2.3412807919085026,
+      "cka_test": 0.4811425907537341,
+      "n_params": 17.633424000000005
+    }
+  }
 }
