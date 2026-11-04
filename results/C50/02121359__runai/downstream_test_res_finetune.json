@@ -1,0 +1,38 @@
+[
+    {
+        "task": "C50",
+        "trial_idx": 0,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.44638636022806166,
+        "metric_test": 0.5260316133499146,
+        "metric_test_std": 0.4119189381599426
+    },
+    {
+        "task": "C50",
+        "trial_idx": 1,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.7379615044593811,
+        "metric_test": 0.688722550868988,
+        "metric_test_std": 0.5134417414665222
+    },
+    {
+        "task": "C50",
+        "trial_idx": 2,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.6516380023360252,
+        "metric_test": 0.6373089551925659,
+        "metric_test_std": 0.4954547584056854
+    },
+    {
+        "task": "C50",
+        "trial_idx": 3,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.6009355376064778,
+        "metric_test": 0.5916967988014221,
+        "metric_test_std": 0.5008295178413391
+    }
+]

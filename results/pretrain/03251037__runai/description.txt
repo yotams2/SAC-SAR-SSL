@@ -1,0 +1,1 @@
+NO RECONSTRUCTION. new version of feature_sim_loss, fixed feature selection weights from 03231109 - anchored TDOA, BN in projection head, temp 0.15, sigma 1, gen_metrics, 50000 training samples

@@ -1,0 +1,1 @@
+CCSR+feature_sim_loss, 5 features (coherences, gcc max, tdoa), BN in projection head, OPTIMAL PARAMS:temp 0.2, sigma 0.295, gen_metrics, 50000 training samples

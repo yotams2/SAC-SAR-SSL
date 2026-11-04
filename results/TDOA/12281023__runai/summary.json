@@ -1,0 +1,180 @@
+{
+  "task": "TDOA",
+  "experiment": "12281023",
+  "model": "original architecture, 50000 training samples",
+  "job_id": "runai",
+  "status": "done",
+  "date": "2026-08-17T20:42:34+03:00",
+  "collected_at": "2026-11-04T13:45:55+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": null,
+  "git_commit": null,
+  "ckpt_dir": "/moshe-data/blaufer-data/yotams2/SAC-SAR-SSL/exp/TDOA/12281023",
+  "metrics": {
+    "default": {
+      "lowest": 0.440100759267807,
+      "mean": 0.4829128235578537,
+      "seed_std": 0.030561474108874716,
+      "n_trials": 4,
+      "mean_test_std": null,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.440100759267807,
+          "loss_test": 0.6323532280027866
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.5083421468734741,
+          "loss_test": 0.6377665050625801
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.46809449791908264,
+          "loss_test": 0.6810718591287732
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.515113890171051,
+          "loss_test": 0.5210757198631764
+        }
+      ]
+    },
+    "finetune": {
+      "lowest": 0.440100759267807,
+      "mean": 0.4829128235578537,
+      "seed_std": 0.030561474108874716,
+      "n_trials": 4,
+      "mean_test_std": 0.6159031093120575,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.440100759267807,
+          "loss_test": 0.6323532280027866
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.5083421468734741,
+          "loss_test": 0.6377665050625801
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.46809449791908264,
+          "loss_test": 0.6810718591287732
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.515113890171051,
+          "loss_test": 0.5210757198631764
+        }
+      ]
+    },
+    "finetune_real": {
+      "lowest": 0.761967122554779,
+      "mean": 0.761967122554779,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": null,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.761967122554779,
+          "loss_test": 1.7842157092392446
+        }
+      ]
+    },
+    "lineareval": {
+      "lowest": 1.992240309715271,
+      "mean": 2.063238114118576,
+      "seed_std": 0.0626204320023212,
+      "n_trials": 4,
+      "mean_test_std": 2.1290315091609955,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 2.1203866004943848,
+          "loss_test": 9.89765194797516
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 1.992240309715271,
+          "loss_test": 7.679928514242172
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 2.0098190307617188,
+          "loss_test": 8.138481471538544
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 2.1305065155029297,
+          "loss_test": 9.561097685337067
+        }
+      ]
+    },
+    "sim_finetune": {
+      "lowest": 0.440100759267807,
+      "mean": 0.4829128235578537,
+      "seed_std": 0.030561474108874716,
+      "n_trials": 4,
+      "mean_test_std": 0.6159031093120575,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.440100759267807,
+          "loss_test": 0.6323532280027866
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.5083421468734741,
+          "loss_test": 0.6377665050625801
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.46809449791908264,
+          "loss_test": 0.6810718591287732
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.515113890171051,
+          "loss_test": 0.5210757198631764
+        }
+      ]
+    }
+  }
+}

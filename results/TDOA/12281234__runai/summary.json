@@ -1,0 +1,53 @@
+{
+  "task": "TDOA",
+  "experiment": "12281234",
+  "model": "feature_sim_loss with 50000 samples",
+  "job_id": "runai",
+  "status": "done",
+  "date": "2025-12-29T13:32:54+02:00",
+  "collected_at": "2026-11-04T13:45:55+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/moshe-data/blaufer-data/yotams2/SAC-SAR-SSL/exp/TDOA/12281234",
+  "metrics": {
+    "default": {
+      "lowest": 0.39409974217414856,
+      "mean": 0.4218652695417404,
+      "seed_std": 0.019610398045871325,
+      "n_trials": 4,
+      "mean_test_std": null,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.41947486996650696,
+          "loss_test": 0.3838594956099987
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.39409974217414856,
+          "loss_test": 0.3317164836525917
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.42455488443374634,
+          "loss_test": 0.5309512266814709
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.4493315815925598,
+          "loss_test": 0.45856811514496804
+        }
+      ]
+    }
+  }
+}

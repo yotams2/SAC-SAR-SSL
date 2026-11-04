@@ -1,0 +1,1 @@
+NO RECONSTRUCTION. new version of feature_sim_loss, 5 features (coherences, gcc max, tdoa), PER FAMILY BN in projection head, temp 0.15, gen_metrics, USE CROSS ATTENTION WITH GLOBAL FAMILY MEDIANS FOR SIGMA, 50000 training samples

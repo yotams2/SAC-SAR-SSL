@@ -1,0 +1,38 @@
+[
+    {
+        "task": "DRR",
+        "trial_idx": 0,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 7.452440139770508,
+        "metric_test": 2.1454083919525146,
+        "metric_test_std": 1.688094973564148
+    },
+    {
+        "task": "DRR",
+        "trial_idx": 1,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 6.532127859115601,
+        "metric_test": 2.0796167850494385,
+        "metric_test_std": 1.4857066869735718
+    },
+    {
+        "task": "DRR",
+        "trial_idx": 2,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 6.361412746429443,
+        "metric_test": 2.0308213233947754,
+        "metric_test_std": 1.4957197904586792
+    },
+    {
+        "task": "DRR",
+        "trial_idx": 3,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 8.135284791469575,
+        "metric_test": 2.264265775680542,
+        "metric_test_std": 1.7344706058502197
+    }
+]

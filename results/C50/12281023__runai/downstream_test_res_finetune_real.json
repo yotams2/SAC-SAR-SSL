@@ -1,0 +1,58 @@
+[
+    {
+        "task": "C50",
+        "trial_idx": 0,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 3.6398926463127137,
+        "metric_test": 1.6075658798217773
+    },
+    {
+        "task": "C50",
+        "trial_idx": 1,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 12.248281784057617,
+        "metric_test": 3.4201083183288574
+    },
+    {
+        "task": "C50",
+        "trial_idx": 2,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 1.0753642654418945,
+        "metric_test": 0.828879714012146
+    },
+    {
+        "task": "C50",
+        "trial_idx": 3,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 1.3521095855236054,
+        "metric_test": 0.8019713163375854
+    },
+    {
+        "task": "C50",
+        "trial_idx": 4,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 3.7644764494895937,
+        "metric_test": 1.712556004524231
+    },
+    {
+        "task": "C50",
+        "trial_idx": 5,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.6813375816345215,
+        "metric_test": 0.639494001865387
+    },
+    {
+        "task": "C50",
+        "trial_idx": 6,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 3.0985618691444397,
+        "metric_test": 1.5838098526000977
+    }
+]

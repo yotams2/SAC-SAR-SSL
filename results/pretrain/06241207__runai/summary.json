@@ -1,0 +1,16 @@
+{
+  "task": "pretrain",
+  "experiment": "06241207",
+  "model": "NO RECONSTRUCTION. new version of feature_sim_loss, 5 features (coherences, gcc max, tdoa), BN in projection head, temp 0.15, gen_metrics, USE CROSS ATTENTION WITH GLOBAL FAMILY MEDIANS FOR SIGMA, 50000 training samples",
+  "job_id": "runai",
+  "status": "unknown",
+  "date": "2026-06-24T12:07:51+03:00",
+  "collected_at": "2026-11-04T13:45:59+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": null,
+  "git_commit": null,
+  "ckpt_dir": "/moshe-data/blaufer-data/yotams2/SAC-SAR-SSL/exp/pretrain/06241207",
+  "metrics": {},
+  "parse_error": "AttributeError: 'list' object has no attribute 'get'"
+}

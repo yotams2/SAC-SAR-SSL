@@ -1,0 +1,58 @@
+[
+    {
+        "task": "C50",
+        "trial_idx": 0,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 3.4246754331588747,
+        "metric_test": 1.4215805530548096
+    },
+    {
+        "task": "C50",
+        "trial_idx": 1,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 18.13900814437866,
+        "metric_test": 4.039692401885986
+    },
+    {
+        "task": "C50",
+        "trial_idx": 2,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 3.219815501689911,
+        "metric_test": 1.4709546566009521
+    },
+    {
+        "task": "C50",
+        "trial_idx": 3,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 2.2755960178375245,
+        "metric_test": 1.18585205078125
+    },
+    {
+        "task": "C50",
+        "trial_idx": 4,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 3.000964051246643,
+        "metric_test": 1.3477424383163452
+    },
+    {
+        "task": "C50",
+        "trial_idx": 5,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 2.75058944439888,
+        "metric_test": 1.2642271518707275
+    },
+    {
+        "task": "C50",
+        "trial_idx": 6,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 2.940903516292572,
+        "metric_test": 1.5014269351959229
+    }
+]

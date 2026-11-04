@@ -1,0 +1,53 @@
+{
+  "task": "T60",
+  "experiment": "01231932",
+  "model": "TEST - NO FEATURE SIM LOSS, autoenc mode, 50000 training samples",
+  "job_id": "runai",
+  "status": "done",
+  "date": "2026-01-24T02:39:43+02:00",
+  "collected_at": "2026-11-04T13:45:55+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/moshe-data/blaufer-data/yotams2/SAC-SAR-SSL/exp/T60/01231932",
+  "metrics": {
+    "default": {
+      "lowest": 0.08981155604124069,
+      "mean": 0.09892208687961102,
+      "seed_std": 0.005927641822626488,
+      "n_trials": 4,
+      "mean_test_std": null,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 2,
+          "bs_idx": 0,
+          "metric_test": 0.09902936220169067,
+          "loss_test": 0.017028750292956828
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 2,
+          "bs_idx": 0,
+          "metric_test": 0.08981155604124069,
+          "loss_test": 0.014283911763690413
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 2,
+          "bs_idx": 0,
+          "metric_test": 0.10050779581069946,
+          "loss_test": 0.016841395433992146
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 2,
+          "bs_idx": 0,
+          "metric_test": 0.10633963346481323,
+          "loss_test": 0.019514944814145566
+        }
+      ]
+    }
+  }
+}

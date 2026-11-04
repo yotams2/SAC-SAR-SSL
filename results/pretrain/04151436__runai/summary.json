@@ -1,0 +1,16 @@
+{
+  "task": "pretrain",
+  "experiment": "04151436",
+  "model": "NO RECONSTRUCTION. feature_sim_loss using GT features, temp 0.15, sigma 1, gen_metrics, 50000 training samples",
+  "job_id": "runai",
+  "status": "unknown",
+  "date": "2026-04-15T14:40:32+03:00",
+  "collected_at": "2026-11-04T13:45:59+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": null,
+  "git_commit": null,
+  "ckpt_dir": "/moshe-data/blaufer-data/yotams2/SAC-SAR-SSL/exp/pretrain/04151436",
+  "metrics": {},
+  "parse_error": "AttributeError: 'list' object has no attribute 'get'"
+}

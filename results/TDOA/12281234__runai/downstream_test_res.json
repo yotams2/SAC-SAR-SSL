@@ -1,0 +1,34 @@
+[
+    {
+        "task": "TDOA",
+        "trial_idx": 0,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.3838594956099987,
+        "metric_test": 0.41947486996650696
+    },
+    {
+        "task": "TDOA",
+        "trial_idx": 1,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.3317164836525917,
+        "metric_test": 0.39409974217414856
+    },
+    {
+        "task": "TDOA",
+        "trial_idx": 2,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.5309512266814709,
+        "metric_test": 0.42455488443374634
+    },
+    {
+        "task": "TDOA",
+        "trial_idx": 3,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.45856811514496804,
+        "metric_test": 0.4493315815925598
+    }
+]

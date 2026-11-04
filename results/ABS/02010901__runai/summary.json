@@ -1,0 +1,148 @@
+{
+  "task": "ABS",
+  "experiment": "02010901",
+  "model": "new version of feature_sim_loss w minus sim_max, 5 features (coherences, gcc max, tdoa), BN in projection head, temp 0.15, sigma 1, gen_metrics, CCSR mode, 50000 training samples",
+  "job_id": "runai",
+  "status": "done",
+  "date": "2026-05-07T02:54:46+03:00",
+  "collected_at": "2026-11-04T13:45:57+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": null,
+  "git_commit": null,
+  "ckpt_dir": "/moshe-data/blaufer-data/yotams2/SAC-SAR-SSL/exp/ABS/02010901",
+  "metrics": {
+    "finetune": {
+      "lowest": 0.0578901544213295,
+      "mean": 0.06631067302078009,
+      "seed_std": 0.006859837711523989,
+      "n_trials": 4,
+      "mean_test_std": 0.04638112802058458,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.0578901544213295,
+          "loss_test": 0.004608223892515525
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.06883412599563599,
+          "loss_test": 0.0067695859954692425
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.06241929158568382,
+          "loss_test": 0.006287427861185278
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.07609912008047104,
+          "loss_test": 0.008938152479589916
+        }
+      ]
+    },
+    "finetune_real": {
+      "lowest": 0.01647539623081684,
+      "mean": 0.05612638113754136,
+      "seed_std": 0.03562220805202493,
+      "n_trials": 7,
+      "mean_test_std": null,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.01924767903983593,
+          "loss_test": 0.000612589204160031
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.10694558918476105,
+          "loss_test": 0.011666291031986475
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.056414805352687836,
+          "loss_test": 0.004712965926155448
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.01647539623081684,
+          "loss_test": 0.0004550532008870505
+        },
+        {
+          "trial_idx": 4,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.11026041954755783,
+          "loss_test": 0.012507812622934579
+        },
+        {
+          "trial_idx": 5,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.0453055314719677,
+          "loss_test": 0.002389418221078813
+        },
+        {
+          "trial_idx": 6,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.038235247135162354,
+          "loss_test": 0.0018607607802841812
+        }
+      ]
+    },
+    "lineareval": {
+      "lowest": 0.056870486587285995,
+      "mean": 0.06696283351629972,
+      "seed_std": 0.008024368875522304,
+      "n_trials": 4,
+      "mean_test_std": 0.05015014111995697,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.056870486587285995,
+          "loss_test": 0.004836469392874278
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.06377192586660385,
+          "loss_test": 0.006692564625293017
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.06825178861618042,
+          "loss_test": 0.008005895582027734
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.07895713299512863,
+          "loss_test": 0.00888368190662004
+        }
+      ]
+    }
+  }
+}

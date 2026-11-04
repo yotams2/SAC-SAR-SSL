@@ -1,0 +1,1 @@
+NO RECONSTRUCTION. new version of feature_sim_loss, differntiable feature selection with softmax with tau = 3, BN in projection head, temp 0.15, sigma 1, gen_metrics, 50000 training samples

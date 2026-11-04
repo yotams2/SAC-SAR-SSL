@@ -1,0 +1,1 @@
+NO RECONSTRUCTION. new version of feature_sim_loss, spectral_feature_sim_loss, 5 features total (coherences, gcc max, tdoa), BN in projection head, 50000 training samples

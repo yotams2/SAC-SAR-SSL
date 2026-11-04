@@ -1,0 +1,1 @@
+NO RECONSTRUCTION. new version of feature_sim_loss, split spatial encoder, 5 features total (coherences, gcc max, tdoa), NOW REALLY ADDED BN in projection head, temp 0.15/0.15, sigma 0.5/1 room/doa, 50000 training samples

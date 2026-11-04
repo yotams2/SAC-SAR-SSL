@@ -1,0 +1,148 @@
+{
+  "task": "C50",
+  "experiment": "02121359",
+  "model": "NO RECONSTRUCTION. new version of feature_sim_loss w minus sim_max, 5 features (coherences, gcc max, tdoa), BN in projection head, temp 0.15, sigma 1, gen_metrics, 50000 training samples",
+  "job_id": "runai",
+  "status": "done",
+  "date": "2026-05-04T21:26:23+03:00",
+  "collected_at": "2026-11-04T13:45:58+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": null,
+  "git_commit": null,
+  "ckpt_dir": "/moshe-data/blaufer-data/yotams2/SAC-SAR-SSL/exp/C50/02121359",
+  "metrics": {
+    "finetune": {
+      "lowest": 0.5260316133499146,
+      "mean": 0.6109399795532227,
+      "seed_std": 0.059843926035818264,
+      "n_trials": 4,
+      "mean_test_std": 0.48041123896837234,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.5260316133499146,
+          "loss_test": 0.44638636022806166
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.688722550868988,
+          "loss_test": 0.7379615044593811
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.6373089551925659,
+          "loss_test": 0.6516380023360252
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.5916967988014221,
+          "loss_test": 0.6009355376064778
+        }
+      ]
+    },
+    "finetune_real": {
+      "lowest": 0.9334184527397156,
+      "mean": 1.3373199020113264,
+      "seed_std": 0.48456819569652215,
+      "n_trials": 7,
+      "mean_test_std": null,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.9334184527397156,
+          "loss_test": 1.4528007383346557
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 2.399404764175415,
+          "loss_test": 6.516033281326294
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.9572747349739075,
+          "loss_test": 1.637002562880516
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 1.0163393020629883,
+          "loss_test": 1.594003460407257
+        },
+        {
+          "trial_idx": 4,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 1.523064136505127,
+          "loss_test": 3.3572976894378663
+        },
+        {
+          "trial_idx": 5,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 1.0922178030014038,
+          "loss_test": 1.6572854471206666
+        },
+        {
+          "trial_idx": 6,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 1.4395201206207275,
+          "loss_test": 2.647155273914337
+        }
+      ]
+    },
+    "lineareval": {
+      "lowest": 1.1147195100784302,
+      "mean": 1.210191696882248,
+      "seed_std": 0.07582780634578043,
+      "n_trials": 4,
+      "mean_test_std": 0.9117479473352432,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 2,
+          "bs_idx": 0,
+          "metric_test": 1.195159912109375,
+          "loss_test": 2.161411061823368
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 2,
+          "bs_idx": 0,
+          "metric_test": 1.2039905786514282,
+          "loss_test": 2.3250674822330475
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 2,
+          "bs_idx": 0,
+          "metric_test": 1.1147195100784302,
+          "loss_test": 1.968520875453949
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 2,
+          "bs_idx": 0,
+          "metric_test": 1.3268967866897583,
+          "loss_test": 2.7669775931537153
+        }
+      ]
+    }
+  }
+}

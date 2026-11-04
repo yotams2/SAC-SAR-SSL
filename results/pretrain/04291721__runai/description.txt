@@ -1,0 +1,1 @@
+NO RECONSTRUCTION. new version of feature_sim_loss w minus sim_max, 5 features (coherences, gcc max, tdoa), BN in projection head, temp 0.15, sigma 1, gen_metrics, 40000 training samples

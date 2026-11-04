@@ -1,0 +1,58 @@
+[
+    {
+        "task": "ABS",
+        "trial_idx": 0,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.0002423147321678698,
+        "metric_test": 0.014757183380424976
+    },
+    {
+        "task": "ABS",
+        "trial_idx": 1,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.008144539538770914,
+        "metric_test": 0.08991479873657227
+    },
+    {
+        "task": "ABS",
+        "trial_idx": 2,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.00012601779293618164,
+        "metric_test": 0.009711881168186665
+    },
+    {
+        "task": "ABS",
+        "trial_idx": 3,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.0002917734188959002,
+        "metric_test": 0.013627170585095882
+    },
+    {
+        "task": "ABS",
+        "trial_idx": 4,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.025724348925054073,
+        "metric_test": 0.15976838767528534
+    },
+    {
+        "task": "ABS",
+        "trial_idx": 5,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.012524685882031917,
+        "metric_test": 0.1114099770784378
+    },
+    {
+        "task": "ABS",
+        "trial_idx": 6,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.00022042774394503793,
+        "metric_test": 0.013520002365112305
+    }
+]

@@ -1,0 +1,148 @@
+{
+  "task": "ABS",
+  "experiment": "02121359",
+  "model": "NO RECONSTRUCTION. new version of feature_sim_loss w minus sim_max, 5 features (coherences, gcc max, tdoa), BN in projection head, temp 0.15, sigma 1, gen_metrics, 50000 training samples",
+  "job_id": "runai",
+  "status": "done",
+  "date": "2026-05-05T05:23:25+03:00",
+  "collected_at": "2026-11-04T13:45:57+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": null,
+  "git_commit": null,
+  "ckpt_dir": "/moshe-data/blaufer-data/yotams2/SAC-SAR-SSL/exp/ABS/02121359",
+  "metrics": {
+    "finetune": {
+      "lowest": 0.05842067301273346,
+      "mean": 0.06428889092057943,
+      "seed_std": 0.004164188298883215,
+      "n_trials": 4,
+      "mean_test_std": 0.05007369536906481,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.05842067301273346,
+          "loss_test": 0.005128558725467883
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.06825815141201019,
+          "loss_test": 0.007165283848997206
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.0681852176785469,
+          "loss_test": 0.007851106436690316
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.062291521579027176,
+          "loss_test": 0.006608093045739224
+        }
+      ]
+    },
+    "finetune_real": {
+      "lowest": 0.022933997213840485,
+      "mean": 0.05493090647671904,
+      "seed_std": 0.030719696474650025,
+      "n_trials": 7,
+      "mean_test_std": null,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.02473580278456211,
+          "loss_test": 0.0010420348634943366
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.07884461432695389,
+          "loss_test": 0.006524028895422816
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.04849904403090477,
+          "loss_test": 0.0034018525523133577
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.048022691160440445,
+          "loss_test": 0.002973779837600887
+        },
+        {
+          "trial_idx": 4,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.11732674390077591,
+          "loss_test": 0.01400461819767952
+        },
+        {
+          "trial_idx": 5,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.022933997213840485,
+          "loss_test": 0.0008719606089871377
+        },
+        {
+          "trial_idx": 6,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.044153451919555664,
+          "loss_test": 0.0022507843393832446
+        }
+      ]
+    },
+    "lineareval": {
+      "lowest": 0.060124386101961136,
+      "mean": 0.08199153561145067,
+      "seed_std": 0.017560000792217794,
+      "n_trials": 4,
+      "mean_test_std": 0.06011564563959837,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 3,
+          "bs_idx": 0,
+          "metric_test": 0.060124386101961136,
+          "loss_test": 0.005071371847065165
+        },
+        {
+          "trial_idx": 1,
+          "lr_idx": 3,
+          "bs_idx": 0,
+          "metric_test": 0.08146684616804123,
+          "loss_test": 0.010979413278400898
+        },
+        {
+          "trial_idx": 2,
+          "lr_idx": 3,
+          "bs_idx": 0,
+          "metric_test": 0.07730869948863983,
+          "loss_test": 0.010151880636811257
+        },
+        {
+          "trial_idx": 3,
+          "lr_idx": 3,
+          "bs_idx": 0,
+          "metric_test": 0.10906621068716049,
+          "loss_test": 0.017048527444247157
+        }
+      ]
+    }
+  }
+}
