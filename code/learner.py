@@ -8,7 +8,10 @@ from abc import ABC, abstractmethod
 from tqdm import tqdm, trange
 from common.utils import detect_infnan
 import common.utils_module as at_module
-from torchmetrics.functional.audio.pesq import perceptual_evaluation_speech_quality
+try:  # only pretrain_evaluate (PESQ) needs it; the sac-ssamba venv used by --upstream ssamba_spatial lacks it
+	from torchmetrics.functional.audio.pesq import perceptual_evaluation_speech_quality
+except ImportError:
+	perceptual_evaluation_speech_quality = None
 		
 class Learner(ABC):
 	""" Abstract class to the routines to train the one model and perform inferences

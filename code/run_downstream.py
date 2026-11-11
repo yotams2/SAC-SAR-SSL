@@ -39,9 +39,17 @@ opts = opt_downstream()
 args = opts.parse()
 dirs = opts.dir()
 
+if args.upstream == 'ssamba_spatial':
+	# No SARSSL pretraining dir: <exp>/pretrain/<time> only records which SSAMBA checkpoint this --time stands for
+	os.makedirs(dirs['log_pretrain'], exist_ok=True)
+	with open(os.path.join(dirs['log_pretrain'], 'description.txt'), 'w') as f:
+		f.write(f'upstream ssamba_spatial\nssamba_ckpt {args.ssamba_ckpt or "random"}\nfill {args.ssamba_fill}\ntoken {args.ds_token}\n')
+
 # Load Config from config.json if available
 config_path = os.path.join(dirs['log_pretrain'], 'config.json')
-if os.path.exists(config_path):
+if args.upstream == 'ssamba_spatial':
+	pass
+elif os.path.exists(config_path):
     try:
         with open(config_path, 'r') as f:
             config_data = json.load(f)
@@ -77,6 +85,14 @@ import dataset as at_dataset
 import learner as at_learner
 import model as at_model
 from common.utils import set_seed, set_random_seed, get_nparams, get_FLOPs, vis_TSNE, cross_validation_datadir 
+import sys
+
+def confirm(msg):
+	""" input() only when someone can answer: in a batch job (no tty) continue, which is the Enter answer """
+	if sys.stdin is not None and sys.stdin.isatty():
+		return input(msg)
+	print(msg + ' [no tty: continuing]')
+	return ''
 
 use_cuda = not args.no_cuda and torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
@@ -111,16 +127,31 @@ print('nt, nf: ', nt, nf)
 
 # Network
 dlabel = 1
-net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, 
+if args.upstream == 'ssamba_spatial':
+	import ssamba_spatial
+	net = ssamba_spatial.SSAMBASpatialDownstream(
+		ckpt_path=None if args.ds_trainmode == 'scratchLOW' else args.ssamba_ckpt,
+		frozen=args.ds_trainmode == 'lineareval', fill=args.ssamba_fill, token=args.ds_token, dlabel=dlabel, fs=fs)
+	LearnerClass = ssamba_spatial.WaveLearner
+	layer_keys = ['encoder', 'mlp_head', 'encoder.v.patch_embed']
+	flops_input_shape = (1, int(T*fs), nmic)  # waveform: the model makes its own STFT
+else:
+	LearnerClass = at_learner.STFTLearner
+	flops_input_shape = None
+if args.upstream == 'sarssl':
+	net = at_model.SARSSL(sig_shape=(nf, nt, 2, 2), pretrain=False, device=device, 
 	downstream_token=args.ds_token, downstream_head=args.ds_head, downstream_embed = args.ds_embed, downstream_dlabel=dlabel, spec_dembed=args.spec_dembed, spat_dembed=args.spat_dembed, spectral_enc_input=args.spectral_enc_input, hierarchical=getattr(args, 'hierarchical', False), split_spatial_encoder=getattr(args, 'split_spatial_encoder', False), diff_feat_selection=getattr(args, 'diff_feat_selection', False))
-layer_keys = ['spec_encoder', 'spat_encoder', 'decoder', 'mlp_head','spec_encoder.patch_embed','spec_encoder.embed','spat_encoder.patch_embed','spat_encoder.embed']
+	layer_keys = ['spec_encoder', 'spat_encoder', 'decoder', 'mlp_head','spec_encoder.patch_embed','spec_encoder.embed','spat_encoder.patch_embed','spat_encoder.embed']
 nparam, nparam_sum = get_nparams(net, param_key_list=layer_keys)
 print('# Parameters (M):', round(nparam_sum, 2), [key+': '+str(round(nparam[key], 2)) for key in nparam.keys()])
 nreim = 2
 if len(args.ds_task) > 0:
     net.task = args.ds_task[0]
-flops_forward_eval, _ = get_FLOPs(net, input_shape=(1, nmic, nf, nt, nreim), duration=T)
-print(f"FLOPs_forward: {flops_forward_eval:.2f}G/s")
+try:
+	flops_forward_eval, _ = get_FLOPs(net, input_shape=flops_input_shape or (1, nmic, nf, nt, nreim), duration=T)
+	print(f"FLOPs_forward: {flops_forward_eval:.2f}G/s")
+except Exception as e:  # custom CUDA kernels (Mamba) may not go through the FLOP counter
+	print(f"FLOPs not counted: {e}")
 
 # Training processing
 if (args.ds_train):
@@ -180,7 +211,7 @@ if (args.ds_train):
 		result_name_temporal = atts[0] + '-' + atts[1] + '-' + atts[2] + '-' + atts[3] +'-' + atts[-2] +'-' + atts[-1] +  '-lr_bs_tri_result_temporal.mat' 
 		if os.path.exists(task_time_dir+'/' + result_name_temporal):
 			print(result_name_temporal  + ' exist~')
-			msg = input('Sure to continue downstream training? (Enter for yes, otherwise delete temporal result for restart)')
+			msg = confirm('Sure to continue downstream training? (Enter for yes, otherwise delete temporal result for restart)')
 			data = scipy.io.loadmat(task_time_dir+'/' + result_name_temporal)
 			val_losses = data['val_losses']
 			test_losses = data['test_losses']
@@ -190,7 +221,7 @@ if (args.ds_train):
 		else:
 			if os.path.exists(task_time_dir+'/' + result_name):
 				print(result_name  + ' exist~')
-				msg = input('Sure to retart downstream training? (Enter for yes)')
+				msg = confirm('Sure to retart downstream training? (Enter for yes)')
 			val_losses = np.zeros((nlrs, nbss, ntrials))
 			test_losses = np.zeros((nlrs, nbss, ntrials))
 			val_metrics = np.zeros((nlrs, nbss, ntrials))
@@ -273,7 +304,7 @@ if (args.ds_train):
 		
 						# Learner
 						net.load_state_dict(init_state_dict)
-						learner = at_learner.STFTLearner(net, win_len=win_len, win_shift_ratio=win_shift_ratio, nfft=nfft, fre_used_ratio=fre_used_ratio, fs=fs, task=task, ch_mode='M')
+						learner = LearnerClass(net, win_len=win_len, win_shift_ratio=win_shift_ratio, nfft=nfft, fre_used_ratio=fre_used_ratio, fs=fs, task=task, ch_mode='M')
 						if len(args.gpu_id)>1:
 							learner.mul_gpu()
 						if use_cuda:
@@ -285,7 +316,7 @@ if (args.ds_train):
 
 						if args.checkpoint_start:
 							learner.resume_checkpoint(checkpoints_dir=task_dir, from_latest=True, as_all_state=True) # Train from latest checkpoints
-						else:
+						elif args.upstream == 'sarssl':
 							if args.ds_trainmode=='finetune':
 								learner.load_checkpoint_best(checkpoints_dir=dirs['log_pretrain'], as_all_state=False, param_frozen=False) # fine-tune pretrained networks , ex_key='_orig_mod.'
 							elif args.ds_trainmode=='lineareval':
@@ -545,7 +576,7 @@ if (args.ds_test):
 			dataloader_train = torch.utils.data.DataLoader(dataset=datasets['train'], batch_size=test_bs, shuffle=False, **kwargs)
 			dataloader_test = torch.utils.data.DataLoader(dataset=datasets['test'], batch_size=test_bs, shuffle=False, **kwargs)
 
-			learner = at_learner.STFTLearner(net, win_len=win_len, win_shift_ratio=win_shift_ratio, nfft=nfft, fre_used_ratio=fre_used_ratio, fs=fs, task=task, ch_mode='M')
+			learner = LearnerClass(net, win_len=win_len, win_shift_ratio=win_shift_ratio, nfft=nfft, fre_used_ratio=fre_used_ratio, fs=fs, task=task, ch_mode='M')
 			if len(args.gpu_id)>1:
 				learner.mul_gpu()
 			if use_cuda:

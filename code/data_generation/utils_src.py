@@ -5,7 +5,10 @@ import scipy
 import scipy.io
 import scipy.signal
 import soundfile
-import webrtcvad
+try:  # only source-signal VAD (data generation) needs it; the sac-ssamba venv used by --upstream ssamba_spatial lacks it
+    import webrtcvad
+except ImportError:
+    webrtcvad = None
 from torch.utils.data import Dataset
 
 def explore_corpus(path, file_extension):

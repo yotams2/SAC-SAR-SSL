@@ -5,9 +5,15 @@ import scipy.io
 import scipy.signal
 import random
 import soundfile
-import librosa
+try:  # only real-data loading needs it; the sac-ssamba venv used by --upstream ssamba_spatial lacks it
+    import librosa
+except ImportError:
+    librosa = None
 import itertools
-import textgrid
+try:  # only LOCATA/real-data annotation needs it; the sac-ssamba venv used by --upstream ssamba_spatial lacks it
+    import textgrid
+except ImportError:
+    textgrid = None
 import numpy as np
 import pandas as pd
 from typing import *

@@ -272,6 +272,13 @@ class opt_downstream():
         parser.add_argument('--my-tmp', action='store_true', default=False, help='run tmp script only for GPU testing')
 
         parser.add_argument('--exp-dir', type=str, default='exp', help='Experiment directory name (default: exp)')
+        parser.add_argument('--exp-root', type=str, default='', help='Absolute experiment directory; overrides <work-dir>/SAR-SSL/<exp-dir>')
+        parser.add_argument('--data-dir', type=str, default='', help='Absolute generated-data directory (holds MicSig/simu_ds); overrides <code>/../../SAR-SSL/data')
+
+        # upstream encoder (default: this repo's SARSSL model, pretrained under <exp>/pretrain/<time>)
+        parser.add_argument('--upstream', type=str, default='sarssl', choices=['sarssl', 'ssamba_spatial'], help='downstream encoder (default: sarssl)')
+        parser.add_argument('--ssamba-ckpt', type=str, default='', help='ssamba_spatial: BinauralSSAMBASACModel checkpoint (sac-ssamba audio_model.final.pth); not needed for scratchLOW')
+        parser.add_argument('--ssamba-fill', type=str, default='tile', choices=['tile', 'zero'], help='ssamba_spatial: fill the 10-s input by repeating the clip (tile) or with zeros')
 
         args = parser.parse_args()
         assert (args.ds_train + args.ds_test)==1, 'Downstream stage (train or test) is not defined'
@@ -283,6 +290,10 @@ class opt_downstream():
         self.time = args.time
         self.work_dir = args.work_dir
         self.exp_dir = args.exp_dir
+        self.exp_root = args.exp_root
+        self.data_dir = args.data_dir
+        if args.upstream == 'ssamba_spatial':
+            assert args.ds_trainmode == 'scratchLOW' or args.ssamba_ckpt, '--upstream ssamba_spatial needs --ssamba-ckpt'
         self.ds_token = args.ds_token
         self.ds_head = args.ds_head
         self.ds_embed = args.ds_embed
@@ -382,6 +393,10 @@ class opt_downstream():
         dirs['data'] = self.work_dir_local + '/data'
         dirs['gerdata'] = self.work_dir_local + '/SAR-SSL/data'
         dirs['exp'] = work_dir + '/SAR-SSL/' + self.exp_dir
+        if self.data_dir:
+            dirs['gerdata'] = self.data_dir
+        if self.exp_root:
+            dirs['exp'] = self.exp_root
 
         dirs['srcsig_train'] = dirs['data'] + '/SrcSig/wsj0/tr'
         dirs['srcsig_val'] = dirs['data'] + '/SrcSig/wsj0/dt'
