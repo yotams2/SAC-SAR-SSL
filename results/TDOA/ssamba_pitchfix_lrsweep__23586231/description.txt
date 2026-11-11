@@ -1,0 +1,4 @@
+upstream ssamba_spatial
+ssamba_ckpt /scratch200/yotams2/sac-ssamba/exp/binaural_sac_pretrain/binaural-sac-bs32-lr1e-4-mode_offline_global_median-lossfix_blockmask_pitchfix_baseline/models/audio_model.final.pth
+fill tile
+token all
