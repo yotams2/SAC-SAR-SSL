@@ -1,0 +1,32 @@
+{
+  "task": "TDOA",
+  "experiment": "ssamba_pitchfix_lrsweep",
+  "model": "upstream ssamba_spatial\nssamba_ckpt /scratch200/yotams2/sac-ssamba/exp/binaural_sac_pretrain/binaural-sac-bs32-lr1e-4-mode_offline_global_median-lossfix_blockmask_pitchfix_baseline/models/audio_model.final.pth\nfill tile\ntoken all",
+  "job_id": "23586232",
+  "status": "done",
+  "date": "2026-11-11T21:50:52+02:00",
+  "collected_at": "2026-11-11T21:50:53+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/ssamba_pitchfix_lrsweep",
+  "metrics": {
+    "lineareval": {
+      "lowest": 2.893977403640747,
+      "mean": 2.893977403640747,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 2.1537225246429443,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 2.893977403640747,
+          "loss_test": 13.013624495029449
+        }
+      ]
+    }
+  }
+}
