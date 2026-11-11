@@ -1,0 +1,4 @@
+upstream ssamba_spatial
+ssamba_ckpt random
+fill tile
+token all
