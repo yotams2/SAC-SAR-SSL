@@ -1,0 +1,32 @@
+{
+  "task": "TDOA",
+  "experiment": "inprobe_reim16",
+  "model": "upstream ssamba_spatial\nssamba_ckpt random\nfill none\ntoken all\ninput reim\npatch 16x16\nstem False",
+  "job_id": "23594658",
+  "status": "done",
+  "date": "2026-11-12T11:48:37+02:00",
+  "collected_at": "2026-11-12T11:48:38+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/inprobe_reim16",
+  "metrics": {
+    "scratchLOW": {
+      "lowest": 2.931992769241333,
+      "mean": 2.931992769241333,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 2.137810230255127,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 2.931992769241333,
+          "loss_test": 13.166810166835784
+        }
+      ]
+    }
+  }
+}
