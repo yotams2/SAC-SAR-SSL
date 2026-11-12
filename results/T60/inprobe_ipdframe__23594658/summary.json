@@ -1,0 +1,32 @@
+{
+  "task": "T60",
+  "experiment": "inprobe_ipdframe",
+  "model": "upstream ssamba_spatial\nssamba_ckpt random\nfill none\ntoken all\ninput ipd\npatch frame\nstem False",
+  "job_id": "23594658",
+  "status": "done",
+  "date": "2026-11-12T14:54:50+02:00",
+  "collected_at": "2026-11-12T14:54:51+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/T60/inprobe_ipdframe",
+  "metrics": {
+    "scratchLOW": {
+      "lowest": 0.18499760329723358,
+      "mean": 0.18499760329723358,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 0.10700573772192001,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.18499760329723358,
+          "loss_test": 0.045674340516328814
+        }
+      ]
+    }
+  }
+}

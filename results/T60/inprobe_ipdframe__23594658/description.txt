@@ -1,0 +1,7 @@
+upstream ssamba_spatial
+ssamba_ckpt random
+fill none
+token all
+input ipd
+patch frame
+stem False
