@@ -4,8 +4,8 @@
         "trial_idx": 0,
         "lr_idx": 1,
         "bs_idx": 0,
-        "loss_test": 0.02483247074019164,
-        "metric_test": 0.13335131108760834,
-        "metric_test_std": 0.08396366983652115
+        "loss_test": 0.024832481598481535,
+        "metric_test": 0.13335135579109192,
+        "metric_test_std": 0.08396369963884354
     }
 ]

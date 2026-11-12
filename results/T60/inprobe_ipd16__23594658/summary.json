@@ -4,8 +4,8 @@
   "model": "upstream ssamba_spatial\nssamba_ckpt random\nfill none\ntoken all\ninput ipd\npatch 16x16\nstem False",
   "job_id": "23594658",
   "status": "done",
-  "date": "2026-11-12T12:58:58+02:00",
-  "collected_at": "2026-11-12T12:58:59+02:00",
+  "date": "2026-11-12T14:28:22+02:00",
+  "collected_at": "2026-11-12T14:28:23+02:00",
   "seed": null,
   "lr": null,
   "frozen": false,
@@ -13,18 +13,18 @@
   "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/T60/inprobe_ipd16",
   "metrics": {
     "scratchLOW": {
-      "lowest": 0.13335131108760834,
-      "mean": 0.13335131108760834,
+      "lowest": 0.13335135579109192,
+      "mean": 0.13335135579109192,
       "seed_std": 0.0,
       "n_trials": 1,
-      "mean_test_std": 0.08396366983652115,
+      "mean_test_std": 0.08396369963884354,
       "trials": [
         {
           "trial_idx": 0,
           "lr_idx": 1,
           "bs_idx": 0,
-          "metric_test": 0.13335131108760834,
-          "loss_test": 0.02483247074019164
+          "metric_test": 0.13335135579109192,
+          "loss_test": 0.024832481598481535
         }
       ]
     }
