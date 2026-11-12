@@ -4,8 +4,8 @@
   "model": "upstream ssamba_spatial\nssamba_ckpt random\nfill none\ntoken all\ninput reim\npatch frame\nstem False",
   "job_id": "23594658",
   "status": "done",
-  "date": "2026-11-12T11:13:35+02:00",
-  "collected_at": "2026-11-12T11:13:36+02:00",
+  "date": "2026-11-12T14:24:19+02:00",
+  "collected_at": "2026-11-12T14:24:20+02:00",
   "seed": null,
   "lr": null,
   "frozen": false,
@@ -13,18 +13,18 @@
   "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/inprobe_reimframe",
   "metrics": {
     "scratchLOW": {
-      "lowest": 2.307769775390625,
-      "mean": 2.307769775390625,
+      "lowest": 2.3077709674835205,
+      "mean": 2.3077709674835205,
       "seed_std": 0.0,
       "n_trials": 1,
-      "mean_test_std": 1.8230085372924805,
+      "mean_test_std": 1.8230098485946655,
       "trials": [
         {
           "trial_idx": 0,
           "lr_idx": 1,
           "bs_idx": 0,
-          "metric_test": 2.307769775390625,
-          "loss_test": 8.649159615993499
+          "metric_test": 2.3077709674835205,
+          "loss_test": 8.649170365810395
         }
       ]
     }
