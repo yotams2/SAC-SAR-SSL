@@ -1,0 +1,32 @@
+{
+  "task": "TDOA",
+  "experiment": "inprobe_sarssl_ctrl",
+  "model": null,
+  "job_id": "23594658",
+  "status": "done",
+  "date": "2026-11-12T08:37:00+02:00",
+  "collected_at": "2026-11-12T08:37:02+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/inprobe_sarssl_ctrl",
+  "metrics": {
+    "scratchLOW": {
+      "lowest": 0.6410955190658569,
+      "mean": 0.6410955190658569,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 0.743542492389679,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.6410955190658569,
+          "loss_test": 0.9638587294220924
+        }
+      ]
+    }
+  }
+}
