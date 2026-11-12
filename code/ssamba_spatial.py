@@ -52,21 +52,51 @@ def load_spatial_state_dict(ckpt_path):
 class SSAMBASpatialDownstream(nn.Module):
 	def __init__(self, ckpt_path=None, frozen=False, fill='tile', token='all', dlabel=1,
 				 n_fft=512, hop=160, n_freq=256, n_frames=1024, clip_seconds=10.0, fs=16000, peak=0.9,
-				 use_checkpointing=False):
+				 use_checkpointing=False, input_mode='wave', patch='16x16', stem=False, n_stft_frames=None):
 		super().__init__()
-		assert fill in ['tile', 'zero'], f'unknown fill {fill}'
+		assert fill in ['tile', 'zero', 'none'], f'unknown fill {fill}'
+		assert input_mode in ['wave', 'reim', 'ipd'], f'unknown input_mode {input_mode}'
+		assert patch in ['16x16', 'frame'], f'unknown patch {patch}'
 		assert token in ['all', 'cls'], f'unknown token {token}'
 		if SAC_SSAMBA_SRC not in sys.path:
 			sys.path.append(SAC_SSAMBA_SRC)  # appended: this repo's modules (model, learner, dataset, common) keep priority
 		from models.both_models import AMBAModel
 
 		self.fill, self.token, self.frozen = fill, token, frozen
-		self.n_fft, self.hop, self.n_freq, self.n_frames, self.peak = n_fft, hop, n_freq, n_frames, peak
+		self.input_mode = input_mode
+		self.n_fft, self.hop, self.n_freq, self.peak = n_fft, hop, n_freq, peak
 		self.clip_samples = int(round(clip_seconds * fs))
-		self.fshape = self.tshape = 16
+		self.fshape, self.tshape = (n_freq, 1) if patch == 'frame' else (16, 16)
+		# Input-diagnostic variants (random init only: the pretrained checkpoint is 16x16 patches over 'wave' input):
+		#   fill 'none': no 10-s tiling, the sequence covers only the real clip (clip_seconds = the clip length);
+		#   input_mode 'reim' / 'ipd': the model gets SAR-SSL's own STFT (STFTLearner: Hann 512, hop 256, divided by
+		#   the mean |STFT| of mic 0), as (Re_L, Im_L, Re_R, Im_R) or (log|L|, ILD, cos IPD, sin IPD);
+		#   patch 'frame': full-band single-frame tokens (SAR-SSL's patch shape); stem: SAR-SSL's CNN stem before them.
+		if input_mode != 'wave':
+			assert n_stft_frames, 'reim/ipd input needs n_stft_frames'
+			n_real_frames = n_stft_frames
+		elif fill == 'none':
+			n_real_frames = self.clip_samples // hop + 1
+		else:
+			n_real_frames = n_frames
+		self.n_frames = math.ceil(n_real_frames / self.tshape) * self.tshape
+		if stem:
+			c = 64
+			self.stem = nn.Sequential(
+				nn.Conv2d(4, c, 1, bias=False), nn.BatchNorm2d(c), nn.ReLU(inplace=True),
+				nn.Conv2d(c, c, 3, padding=1, bias=False), nn.BatchNorm2d(c), nn.ReLU(inplace=True),
+				nn.Conv2d(c, c, 3, padding=1, bias=False), nn.BatchNorm2d(c), nn.ReLU(inplace=True),
+				nn.Conv2d(c, 4, 1, bias=False), nn.BatchNorm2d(4), nn.ReLU(inplace=True))
+		else:
+			self.stem = None
+		if (input_mode != 'wave' or patch != '16x16' or stem or fill == 'none') and ckpt_path not in (None, 'random'):
+			raise ValueError('input/patch/stem/fill variants are for random-init (scratchLOW) runs only')
+		print(f'[ssamba] input {input_mode}, patch {self.fshape}x{self.tshape}, stem {stem}, fill {fill}, '
+			  f'{self.n_freq}x{self.n_frames} -> {(self.n_freq // self.fshape) * (self.n_frames // self.tshape)} tokens', flush=True)
 
 		vision_mamba_config = {} if torch.cuda.is_available() else {'fused_add_norm': False}
-		self.encoder = AMBAModel(fshape=16, tshape=16, fstride=16, tstride=16, input_fdim=n_freq, input_tdim=n_frames,
+		self.encoder = AMBAModel(fshape=self.fshape, tshape=self.tshape, fstride=self.fshape, tstride=self.tshape,
+								 input_fdim=n_freq, input_tdim=self.n_frames,
 								 model_size='base', in_chans=4, pretrain_stage=True, vision_mamba_config=vision_mamba_config)
 		self.encoder.use_checkpointing = use_checkpointing
 		self.encoder.v.use_checkpointing = use_checkpointing
@@ -118,11 +148,31 @@ class SSAMBASpatialDownstream(nn.Module):
 			X = nn.functional.pad(X, (0, self.n_frames - X.shape[-1]))
 		return X[..., :self.n_frames], n_real
 
+	def stft_frontend(self, x, eps=1e-3):
+		""" x: (nb, 2, nf, nt, 2) from STFTLearner (mics, freq, frames, re/im). Returns X (nb, 4, nf, n_frames), nt.
+		"""
+		nb, _, nf, nt, _ = x.shape
+		x = x.float()
+		if self.input_mode == 'reim':
+			X = x.permute(0, 1, 4, 2, 3).reshape(nb, 4, nf, nt)  # Re_L, Im_L, Re_R, Im_R
+		else:
+			L = torch.complex(x[:, 0, ..., 0], x[:, 0, ..., 1])
+			R = torch.complex(x[:, 1, ..., 0], x[:, 1, ..., 1])
+			logL, logR = torch.log(L.abs() + eps), torch.log(R.abs() + eps)
+			ipd = torch.angle(L * R.conj())
+			X = torch.stack([logL, logR - logL, torch.cos(ipd), torch.sin(ipd)], dim=1)
+		if nt < self.n_frames:
+			X = nn.functional.pad(X, (0, self.n_frames - nt))
+		return X[..., :self.n_frames], min(nt, self.n_frames)
+
 	def forward(self, x):
-		""" x: (nb, nsample, nch) waveform (WaveLearner passes it through unchanged).
+		""" x: (nb, nsample, nch) waveform (WaveLearner passes it through unchanged), or for input_mode reim/ipd
+			STFTLearner's (nb, 2, nf, nt, 2).
 			Returns pred (nb, dlabel), pooled embedding (nb, D), encoder tokens (nb, 1 + npatch, D).
 		"""
-		X, n_real = self.frontend(x)
+		X, n_real = self.frontend(x) if self.input_mode == 'wave' else self.stft_frontend(x)
+		if self.stem is not None:
+			X = self.stem(X)
 		h = self.encoder._encode_with_mamba(X)  # (nb, 1 + nfp*ntp, D), CLS first
 		if self.token == 'cls':
 			embed = h[:, 0]

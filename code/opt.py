@@ -270,6 +270,8 @@ class opt_downstream():
         parser.add_argument('--test-mode', type=str, default='cal_metric_wo_info', metavar='TestMode', help='test mode (default: cal_metric_wo_info)')
 
         parser.add_argument('--my-tmp', action='store_true', default=False, help='run tmp script only for GPU testing')
+        parser.add_argument('--ds-lr', type=float, nargs='+', default=None, help='downstream learning rates; overrides the lr grid (also with --my-tmp)')
+        parser.add_argument('--ds-nepoch', type=int, default=None, help='downstream max epochs; overrides the default (also with --my-tmp)')
 
         parser.add_argument('--exp-dir', type=str, default='exp', help='Experiment directory name (default: exp)')
         parser.add_argument('--exp-root', type=str, default='', help='Absolute experiment directory; overrides <work-dir>/SAR-SSL/<exp-dir>')
@@ -278,7 +280,10 @@ class opt_downstream():
         # upstream encoder (default: this repo's SARSSL model, pretrained under <exp>/pretrain/<time>)
         parser.add_argument('--upstream', type=str, default='sarssl', choices=['sarssl', 'ssamba_spatial'], help='downstream encoder (default: sarssl)')
         parser.add_argument('--ssamba-ckpt', type=str, default='', help='ssamba_spatial: BinauralSSAMBASACModel checkpoint (sac-ssamba audio_model.final.pth); not needed for scratchLOW')
-        parser.add_argument('--ssamba-fill', type=str, default='tile', choices=['tile', 'zero'], help='ssamba_spatial: fill the 10-s input by repeating the clip (tile) or with zeros')
+        parser.add_argument('--ssamba-fill', type=str, default='tile', choices=['tile', 'zero', 'none'], help='ssamba_spatial: fill the 10-s input by repeating the clip (tile), with zeros, or not at all (none: sequence = the clip; random init only)')
+        parser.add_argument('--ssamba-input', type=str, default='wave', choices=['wave', 'reim', 'ipd'], help='ssamba_spatial: wave = pretraining STFT made in the model; reim / ipd = SAR-SSL STFT as Re/Im or (log|L|, ILD, cos/sin IPD); random init only')
+        parser.add_argument('--ssamba-patch', type=str, default='16x16', choices=['16x16', 'frame'], help='ssamba_spatial: 16x16 patches or full-band single-frame tokens; random init only')
+        parser.add_argument('--ssamba-stem', action='store_true', default=False, help='ssamba_spatial: SAR-SSL CNN stem before the patch embedding; random init only')
 
         args = parser.parse_args()
         assert (args.ds_train + args.ds_test)==1, 'Downstream stage (train or test) is not defined'
@@ -328,6 +333,8 @@ class opt_downstream():
                 nepoch = 20
                 ntrial = 1
                 self.ntrail = 1
+            if args.ds_lr: lr_set = list(args.ds_lr)
+            if args.ds_nepoch: nepoch = args.ds_nepoch
 
             args.ds_setting = {}
             args.ds_setting['TDOA'] = {'nepoch': nepoch, 'num': num, 'lr_set': lr_set, 'bs_set': bs_set, 'ntrial': ntrial}

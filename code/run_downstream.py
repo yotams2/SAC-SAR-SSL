@@ -43,7 +43,8 @@ if args.upstream == 'ssamba_spatial':
 	# No SARSSL pretraining dir: <exp>/pretrain/<time> only records which SSAMBA checkpoint this --time stands for
 	os.makedirs(dirs['log_pretrain'], exist_ok=True)
 	with open(os.path.join(dirs['log_pretrain'], 'description.txt'), 'w') as f:
-		f.write(f'upstream ssamba_spatial\nssamba_ckpt {args.ssamba_ckpt or "random"}\nfill {args.ssamba_fill}\ntoken {args.ds_token}\n')
+		f.write(f'upstream ssamba_spatial\nssamba_ckpt {args.ssamba_ckpt or "random"}\nfill {args.ssamba_fill}\ntoken {args.ds_token}\n'
+				f'input {args.ssamba_input}\npatch {args.ssamba_patch}\nstem {args.ssamba_stem}\n')
 
 # Load Config from config.json if available
 config_path = os.path.join(dirs['log_pretrain'], 'config.json')
@@ -124,6 +125,7 @@ fre_used_ratio = 1
 nf = nfft//2
 nt = int((T * fs - win_len*(1-win_shift_ratio)) / (win_len*win_shift_ratio))
 print('nt, nf: ', nt, nf)
+T_STFT_FRAMES = nt  # frames of STFTLearner's output (64 for TDOA, checked in job 23594603)
 
 # Network
 dlabel = 1
@@ -131,10 +133,16 @@ if args.upstream == 'ssamba_spatial':
 	import ssamba_spatial
 	net = ssamba_spatial.SSAMBASpatialDownstream(
 		ckpt_path=None if args.ds_trainmode == 'scratchLOW' else args.ssamba_ckpt,
-		frozen=args.ds_trainmode == 'lineareval', fill=args.ssamba_fill, token=args.ds_token, dlabel=dlabel, fs=fs)
-	LearnerClass = ssamba_spatial.WaveLearner
+		frozen=args.ds_trainmode == 'lineareval', fill=args.ssamba_fill, token=args.ds_token, dlabel=dlabel, fs=fs,
+		input_mode=args.ssamba_input, patch=args.ssamba_patch, stem=args.ssamba_stem,
+		clip_seconds=T if args.ssamba_fill == 'none' else 10.0, n_stft_frames=T_STFT_FRAMES)
 	layer_keys = ['encoder', 'mlp_head', 'encoder.v.patch_embed']
-	flops_input_shape = (1, int(T*fs), nmic)  # waveform: the model makes its own STFT
+	if args.ssamba_input == 'wave':
+		LearnerClass = ssamba_spatial.WaveLearner
+		flops_input_shape = (1, int(T*fs), nmic)  # waveform: the model makes its own STFT
+	else:
+		LearnerClass = at_learner.STFTLearner  # SAR-SSL's own STFT and normalisation
+		flops_input_shape = None
 else:
 	LearnerClass = at_learner.STFTLearner
 	flops_input_shape = None
