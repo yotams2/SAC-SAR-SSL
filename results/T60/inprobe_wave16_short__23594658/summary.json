@@ -1,0 +1,32 @@
+{
+  "task": "T60",
+  "experiment": "inprobe_wave16_short",
+  "model": "upstream ssamba_spatial\nssamba_ckpt random\nfill none\ntoken all\ninput wave\npatch 16x16\nstem False",
+  "job_id": "23594658",
+  "status": "done",
+  "date": "2026-11-12T17:42:15+02:00",
+  "collected_at": "2026-11-12T17:42:15+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/T60/inprobe_wave16_short",
+  "metrics": {
+    "scratchLOW": {
+      "lowest": 0.19865764677524567,
+      "mean": 0.19865764677524567,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 0.10039335489273071,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.19865764677524567,
+          "loss_test": 0.049543661556206646
+        }
+      ]
+    }
+  }
+}
