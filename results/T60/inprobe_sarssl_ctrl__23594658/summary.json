@@ -1,0 +1,32 @@
+{
+  "task": "T60",
+  "experiment": "inprobe_sarssl_ctrl",
+  "model": null,
+  "job_id": "23594658",
+  "status": "done",
+  "date": "2026-11-12T12:16:47+02:00",
+  "collected_at": "2026-11-12T12:16:48+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/T60/inprobe_sarssl_ctrl",
+  "metrics": {
+    "scratchLOW": {
+      "lowest": 0.10685497522354126,
+      "mean": 0.10685497522354126,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 0.08901922404766083,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.10685497522354126,
+          "loss_test": 0.01934241235908121
+        }
+      ]
+    }
+  }
+}
