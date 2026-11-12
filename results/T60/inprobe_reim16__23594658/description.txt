@@ -1,0 +1,7 @@
+upstream ssamba_spatial
+ssamba_ckpt random
+fill none
+token all
+input reim
+patch 16x16
+stem False
