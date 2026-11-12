@@ -4,8 +4,8 @@
   "model": "upstream ssamba_spatial\nssamba_ckpt random\nfill none\ntoken all\ninput reim\npatch 16x16\nstem False",
   "job_id": "23594658",
   "status": "done",
-  "date": "2026-11-12T11:48:37+02:00",
-  "collected_at": "2026-11-12T11:48:38+02:00",
+  "date": "2026-11-12T14:25:37+02:00",
+  "collected_at": "2026-11-12T14:25:38+02:00",
   "seed": null,
   "lr": null,
   "frozen": false,
@@ -24,7 +24,7 @@
           "lr_idx": 0,
           "bs_idx": 0,
           "metric_test": 2.931992769241333,
-          "loss_test": 13.166810166835784
+          "loss_test": 13.166810201644898
         }
       ]
     }
