@@ -1,0 +1,32 @@
+{
+  "task": "TDOA",
+  "experiment": "ctrl_ipd16_n256",
+  "model": "upstream ssamba_spatial\nssamba_ckpt random\nfill none\ntoken all\ninput ipd\npatch 16x16\nstem False\nnframes 256",
+  "job_id": "23628534",
+  "status": "done",
+  "date": "2026-11-13T23:10:34+02:00",
+  "collected_at": "2026-11-13T23:10:35+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/ctrl_ipd16_n256",
+  "metrics": {
+    "scratchLOW": {
+      "lowest": 1.0405369997024536,
+      "mean": 1.0405369997024536,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 1.2901651859283447,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 1.0405369997024536,
+          "loss_test": 2.747243858218193
+        }
+      ]
+    }
+  }
+}
