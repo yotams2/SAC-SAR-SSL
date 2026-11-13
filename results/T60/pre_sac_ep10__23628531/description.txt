@@ -1,0 +1,8 @@
+upstream ssamba_spatial
+ssamba_ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/ssamba_pretrain/ipd16_sac/eval_ep10.pth
+fill none
+token all
+input ipd
+patch 16x16
+stem False
+nframes None
