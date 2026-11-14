@@ -4,11 +4,11 @@
   "model": "upstream ssamba_spatial\nssamba_ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/ssamba_pretrain/ipd16_nosac/encoder_final.pth\nfill none\ntoken all\ninput ipd\npatch 16x16\nstem False\nnframes None",
   "job_id": "23635571",
   "status": "done",
-  "date": "2026-11-14T17:22:45+02:00",
-  "collected_at": "2026-11-14T17:22:46+02:00",
+  "date": "2026-11-14T17:39:34+02:00",
+  "collected_at": "2026-11-14T17:39:35+02:00",
   "seed": null,
   "lr": null,
-  "frozen": false,
+  "frozen": null,
   "git_commit": null,
   "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/pre_nosac_final",
   "metrics": {
@@ -25,6 +25,22 @@
           "bs_idx": 0,
           "metric_test": 0.2612958252429962,
           "loss_test": 0.2636124361343682
+        }
+      ]
+    },
+    "lineareval": {
+      "lowest": 2.42975115776062,
+      "mean": 2.42975115776062,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 2.0145182609558105,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 2.42975115776062,
+          "loss_test": 9.961975511789323
         }
       ]
     }
