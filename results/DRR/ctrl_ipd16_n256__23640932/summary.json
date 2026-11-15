@@ -1,0 +1,32 @@
+{
+  "task": "DRR",
+  "experiment": "ctrl_ipd16_n256",
+  "model": "upstream ssamba_spatial\nssamba_ckpt random\nfill none\ntoken all\ninput ipd\npatch 16x16\nstem False\nnframes 256",
+  "job_id": "23640932",
+  "status": "done",
+  "date": "2026-11-16T01:01:06+02:00",
+  "collected_at": "2026-11-16T01:01:09+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/DRR/ctrl_ipd16_n256",
+  "metrics": {
+    "scratchLOW": {
+      "lowest": 2.172328233718872,
+      "mean": 2.172328233718872,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 1.629668116569519,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 2.172328233718872,
+          "loss_test": 7.374824439287186
+        }
+      ]
+    }
+  }
+}
