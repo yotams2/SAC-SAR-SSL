@@ -53,7 +53,13 @@ if [ ! -f "$DONE" ]; then
     $PYTHON -u run_downstream.py --ds-train "${ARGS[@]}"
     touch "$DONE"
 fi
-$PYTHON -u run_downstream.py --ds-test --test-mode cal_metric "${ARGS[@]}"
+# The test result is the record: once it exists, prune.py may delete the weights, so never re-test (e.g. on a requeue).
+RES=${EXP}/${TASK}/${LABEL}/downstream_test_res_${MODE}.json
+if [ -f "$RES" ] && [ -f "$DONE" ] && [ "$RES" -nt "$DONE" ]; then
+    echo "test result exists, not re-testing: $RES"
+else
+    $PYTHON -u run_downstream.py --ds-test --test-mode cal_metric "${ARGS[@]}"
+fi
 
 cd "$REPO_ROOT"
 python3 scripts/collect_result.py --exp_root "$EXP" --task "$TASK" --time "$LABEL" --job_id "${SLURM_JOB_ID:-local}" || true
