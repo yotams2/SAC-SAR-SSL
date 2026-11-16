@@ -278,7 +278,8 @@ class opt_downstream():
         parser.add_argument('--data-dir', type=str, default='', help='Absolute generated-data directory (holds MicSig/simu_ds); overrides <code>/../../SAR-SSL/data')
 
         # upstream encoder (default: this repo's SARSSL model, pretrained under <exp>/pretrain/<time>)
-        parser.add_argument('--upstream', type=str, default='sarssl', choices=['sarssl', 'ssamba_spatial'], help='downstream encoder (default: sarssl)')
+        parser.add_argument('--upstream', type=str, default='sarssl', choices=['sarssl', 'ssamba_spatial', 'gramt'], help='downstream encoder (default: sarssl)')
+        parser.add_argument('--gramt-model', type=str, default='labhamlet/gramt-binaural-frame', help='gramt: HF model id or local dir (code/gramt_spatial.py)')
         parser.add_argument('--ssamba-ckpt', type=str, default='', help='ssamba_spatial: BinauralSSAMBASACModel checkpoint (sac-ssamba audio_model.final.pth); not needed for scratchLOW')
         parser.add_argument('--ssamba-fill', type=str, default='tile', choices=['tile', 'zero', 'none'], help='ssamba_spatial: fill the 10-s input by repeating the clip (tile), with zeros, or not at all (none: sequence = the clip; random init only)')
         parser.add_argument('--ssamba-input', type=str, default='wave', choices=['wave', 'reim', 'ipd'], help='ssamba_spatial: wave = pretraining STFT made in the model; reim / ipd = SAR-SSL STFT as Re/Im or (log|L|, ILD, cos/sin IPD); random init only')

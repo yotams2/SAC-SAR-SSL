@@ -39,6 +39,10 @@ opts = opt_downstream()
 args = opts.parse()
 dirs = opts.dir()
 
+if args.upstream == 'gramt':
+	os.makedirs(dirs['log_pretrain'], exist_ok=True)
+	with open(os.path.join(dirs['log_pretrain'], 'description.txt'), 'w') as f:
+		f.write(f'upstream gramt\ngramt_model {args.gramt_model}\n')
 if args.upstream == 'ssamba_spatial':
 	# No SARSSL pretraining dir: <exp>/pretrain/<time> only records which SSAMBA checkpoint this --time stands for
 	os.makedirs(dirs['log_pretrain'], exist_ok=True)
@@ -48,7 +52,7 @@ if args.upstream == 'ssamba_spatial':
 
 # Load Config from config.json if available
 config_path = os.path.join(dirs['log_pretrain'], 'config.json')
-if args.upstream == 'ssamba_spatial':
+if args.upstream in ['ssamba_spatial', 'gramt']:
 	pass
 elif os.path.exists(config_path):
     try:
@@ -144,6 +148,14 @@ if args.upstream == 'ssamba_spatial':
 	else:
 		LearnerClass = at_learner.STFTLearner  # SAR-SSL's own STFT and normalisation
 		flops_input_shape = None
+elif args.upstream == 'gramt':
+	import gramt_spatial, ssamba_spatial
+	net = gramt_spatial.GRAMTSpatialDownstream(model_id=args.gramt_model, frozen=args.ds_trainmode == 'lineareval',
+		dlabel=dlabel, fs=fs)
+	assert args.ds_trainmode != 'scratchLOW', 'gramt: finetune or lineareval only'
+	layer_keys = ['encoder', 'mlp_head']
+	LearnerClass = ssamba_spatial.WaveLearner  # raw waveform in; the wrapper makes its own log-mel
+	flops_input_shape = (1, int(T*fs), nmic)
 else:
 	LearnerClass = at_learner.STFTLearner
 	flops_input_shape = None
