@@ -1,0 +1,32 @@
+{
+  "task": "DRR",
+  "experiment": "gramt_bf",
+  "model": "upstream gramt\ngramt_model labhamlet/gramt-binaural-frame",
+  "job_id": "23655899",
+  "status": "done",
+  "date": "2026-11-16T23:09:36+02:00",
+  "collected_at": "2026-11-16T23:09:37+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/DRR/gramt_bf",
+  "metrics": {
+    "finetune": {
+      "lowest": 1.4912089109420776,
+      "mean": 1.4912089109420776,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 1.1260356903076172,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 1.4912089109420776,
+          "loss_test": 3.4916610169410705
+        }
+      ]
+    }
+  }
+}
