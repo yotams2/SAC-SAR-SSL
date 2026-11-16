@@ -284,6 +284,7 @@ class opt_downstream():
         parser.add_argument('--ssamba-input', type=str, default='wave', choices=['wave', 'reim', 'ipd'], help='ssamba_spatial: wave = pretraining STFT made in the model; reim / ipd = SAR-SSL STFT as Re/Im or (log|L|, ILD, cos/sin IPD); random init only')
         parser.add_argument('--ssamba-patch', type=str, default='16x16', choices=['16x16', 'frame'], help='ssamba_spatial: 16x16 patches or full-band single-frame tokens; random init only')
         parser.add_argument('--ssamba-stem', action='store_true', default=False, help='ssamba_spatial: SAR-SSL CNN stem before the patch embedding; random init only')
+        parser.add_argument('--ssamba-nframes', type=int, default=None, help='ssamba_spatial ipd/reim: zero-pad the STFT to this many frames (an ssamba_spatial_pretrain.py checkpoint sets it from its meta: 256); use 256 for the random-init control of such a checkpoint')
 
         args = parser.parse_args()
         assert (args.ds_train + args.ds_test)==1, 'Downstream stage (train or test) is not defined'

@@ -29,6 +29,14 @@ SAC_SSAMBA_SRC = os.environ.get('SAC_SSAMBA_SRC', os.path.join(os.path.dirname(o
 SPATIAL_PREFIX = 'dual_encoder.spatial_encoder.'
 
 
+def load_meta(ckpt_path):
+	""" 'meta' of a checkpoint written by ssamba_spatial_pretrain.py, or None (older sac-ssamba checkpoints). """
+	if not ckpt_path or not os.path.isfile(ckpt_path):
+		return None
+	sd = torch.load(ckpt_path, map_location='cpu', weights_only=False)
+	return sd.get('meta') if isinstance(sd, dict) else None
+
+
 def load_spatial_state_dict(ckpt_path):
 	""" Spatial-encoder weights from a BinauralSSAMBASACModel checkpoint (audio_model.*.pth, best_audio_model.pth or
 		latest.pth), with the prefix removed. Fails if the checkpoint holds none.
@@ -52,7 +60,8 @@ def load_spatial_state_dict(ckpt_path):
 class SSAMBASpatialDownstream(nn.Module):
 	def __init__(self, ckpt_path=None, frozen=False, fill='tile', token='all', dlabel=1,
 				 n_fft=512, hop=160, n_freq=256, n_frames=1024, clip_seconds=10.0, fs=16000, peak=0.9,
-				 use_checkpointing=False, input_mode='wave', patch='16x16', stem=False, n_stft_frames=None):
+				 use_checkpointing=False, input_mode='wave', patch='16x16', stem=False, n_stft_frames=None,
+				 n_frames_override=None):
 		super().__init__()
 		assert fill in ['tile', 'zero', 'none'], f'unknown fill {fill}'
 		assert input_mode in ['wave', 'reim', 'ipd'], f'unknown input_mode {input_mode}'
@@ -72,9 +81,25 @@ class SSAMBASpatialDownstream(nn.Module):
 		#   input_mode 'reim' / 'ipd': the model gets SAR-SSL's own STFT (STFTLearner: Hann 512, hop 256, divided by
 		#   the mean |STFT| of mic 0), as (Re_L, Im_L, Re_R, Im_R) or (log|L|, ILD, cos IPD, sin IPD);
 		#   patch 'frame': full-band single-frame tokens (SAR-SSL's patch shape); stem: SAR-SSL's CNN stem before them.
+		# Checkpoints from ssamba_spatial_pretrain.py carry 'meta': their input settings and channel statistics.
+		# Their sequence length is fixed by the positional embedding (meta n_frames, 256 = 4.112 s), so shorter clips
+		# are zero-padded to it (after standardisation) and only real patches are pooled. n_frames_override does the
+		# same for random init, so a from-scratch control can match the pretrained setup exactly.
+		self.meta = load_meta(ckpt_path) if ckpt_path not in (None, 'random') else None
+		if self.meta is not None:
+			assert input_mode == self.meta['input'] and patch == self.meta['patch'] and not stem, \
+				f"checkpoint was pretrained with input {self.meta['input']}, patch {self.meta['patch']}"
+			n_frames_override = self.meta['n_frames']
+			self.register_buffer('in_mean', torch.tensor(self.meta['in_mean']).view(1, 4, 1, 1))
+			self.register_buffer('in_std', torch.tensor(self.meta['in_std']).view(1, 4, 1, 1))
+		else:
+			self.in_mean = self.in_std = None
 		if input_mode != 'wave':
 			assert n_stft_frames, 'reim/ipd input needs n_stft_frames'
 			n_real_frames = n_stft_frames
+			if n_frames_override:
+				assert n_frames_override >= n_stft_frames, f'clip has {n_stft_frames} frames > {n_frames_override}'
+				n_real_frames = n_frames_override
 		elif fill == 'none':
 			n_real_frames = self.clip_samples // hop + 1
 		else:
@@ -89,7 +114,8 @@ class SSAMBASpatialDownstream(nn.Module):
 				nn.Conv2d(c, 4, 1, bias=False), nn.BatchNorm2d(4), nn.ReLU(inplace=True))
 		else:
 			self.stem = None
-		if (input_mode != 'wave' or patch != '16x16' or stem or fill == 'none') and ckpt_path not in (None, 'random'):
+		if (input_mode != 'wave' or patch != '16x16' or stem or fill == 'none') and ckpt_path not in (None, 'random') \
+				and self.meta is None:
 			raise ValueError('input/patch/stem/fill variants are for random-init (scratchLOW) runs only')
 		print(f'[ssamba] input {input_mode}, patch {self.fshape}x{self.tshape}, stem {stem}, fill {fill}, '
 			  f'{self.n_freq}x{self.n_frames} -> {(self.n_freq // self.fshape) * (self.n_frames // self.tshape)} tokens', flush=True)
@@ -161,6 +187,8 @@ class SSAMBASpatialDownstream(nn.Module):
 			logL, logR = torch.log(L.abs() + eps), torch.log(R.abs() + eps)
 			ipd = torch.angle(L * R.conj())
 			X = torch.stack([logL, logR - logL, torch.cos(ipd), torch.sin(ipd)], dim=1)
+		if self.in_mean is not None:  # pretraining statistics (ssamba_spatial_pretrain.py)
+			X = (X - self.in_mean) / self.in_std
 		if nt < self.n_frames:
 			X = nn.functional.pad(X, (0, self.n_frames - nt))
 		return X[..., :self.n_frames], min(nt, self.n_frames)

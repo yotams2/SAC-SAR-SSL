@@ -44,7 +44,7 @@ if args.upstream == 'ssamba_spatial':
 	os.makedirs(dirs['log_pretrain'], exist_ok=True)
 	with open(os.path.join(dirs['log_pretrain'], 'description.txt'), 'w') as f:
 		f.write(f'upstream ssamba_spatial\nssamba_ckpt {args.ssamba_ckpt or "random"}\nfill {args.ssamba_fill}\ntoken {args.ds_token}\n'
-				f'input {args.ssamba_input}\npatch {args.ssamba_patch}\nstem {args.ssamba_stem}\n')
+				f'input {args.ssamba_input}\npatch {args.ssamba_patch}\nstem {args.ssamba_stem}\nnframes {args.ssamba_nframes}\n')
 
 # Load Config from config.json if available
 config_path = os.path.join(dirs['log_pretrain'], 'config.json')
@@ -135,7 +135,8 @@ if args.upstream == 'ssamba_spatial':
 		ckpt_path=None if args.ds_trainmode == 'scratchLOW' else args.ssamba_ckpt,
 		frozen=args.ds_trainmode == 'lineareval', fill=args.ssamba_fill, token=args.ds_token, dlabel=dlabel, fs=fs,
 		input_mode=args.ssamba_input, patch=args.ssamba_patch, stem=args.ssamba_stem,
-		clip_seconds=T if args.ssamba_fill == 'none' else 10.0, n_stft_frames=T_STFT_FRAMES)
+		clip_seconds=T if args.ssamba_fill == 'none' else 10.0, n_stft_frames=T_STFT_FRAMES,
+		n_frames_override=args.ssamba_nframes)
 	layer_keys = ['encoder', 'mlp_head', 'encoder.v.patch_embed']
 	if args.ssamba_input == 'wave':
 		LearnerClass = ssamba_spatial.WaveLearner
@@ -367,7 +368,15 @@ if (args.ds_train):
 							learner.save_checkpoint(epoch=epoch, checkpoints_dir=task_dir, is_best_epoch=is_best_epoch, save_extra_hist=True)
 							if is_best_epoch:
 								best_epoch = copy.deepcopy(epoch)
-							
+							# Disk: drop per-epoch weights that can no longer enter the ensemble window
+							# [B-nepoch_ensemble+1, B] (B = final best epoch). Epoch k is still needed only if
+							# k is in the current best's window or k > epoch-nepoch_ensemble (a later best could reach back to it).
+							for k in range(1, epoch - nepoch_ensemble + 1):
+								if not (best_epoch - nepoch_ensemble + 1 <= k <= best_epoch):
+									old_path = task_dir + '/model' + str(k) + '.tar'
+									if os.path.exists(old_path):
+										os.remove(old_path)
+
 							# Visualize parameters with tensorboardX
 							train_writer.add_scalar('loss', loss_train, epoch)
 							val_writer.add_scalar('loss', loss_val, epoch)
@@ -412,8 +421,11 @@ if (args.ds_train):
 						print('\nTest finished\n')	
 
 						# Remove some checkpoints
-						epochs_remove = [i for i in range(1, st_epoch, 1)] + [i for i in range(best_epoch+1, epoch+1, 1)] 
-						learner.remove_checkpoint_epochs(checkpoints_dir=task_dir, epochs=epochs_remove)
+						# All per-epoch weights go: ensemble_model.tar holds their average, best/latest stay.
+						for k in range(1, epoch + 1):
+							old_path = task_dir + '/model' + str(k) + '.tar'
+							if os.path.exists(old_path):
+								os.remove(old_path)
 						print('\nCheckpoints removed\n')	
 
 						# Save temporal results
