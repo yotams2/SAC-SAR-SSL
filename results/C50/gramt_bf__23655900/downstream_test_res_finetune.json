@@ -1,0 +1,11 @@
+[
+    {
+        "task": "C50",
+        "trial_idx": 0,
+        "lr_idx": 1,
+        "bs_idx": 0,
+        "loss_test": 0.294016596108675,
+        "metric_test": 0.40798088908195496,
+        "metric_test_std": 0.3571668565273285
+    }
+]
