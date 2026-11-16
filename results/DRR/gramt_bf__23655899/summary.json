@@ -4,11 +4,11 @@
   "model": "upstream gramt\ngramt_model labhamlet/gramt-binaural-frame",
   "job_id": "23655899",
   "status": "done",
-  "date": "2026-11-16T23:09:36+02:00",
-  "collected_at": "2026-11-16T23:09:37+02:00",
+  "date": "2026-11-16T23:31:14+02:00",
+  "collected_at": "2026-11-16T23:31:15+02:00",
   "seed": null,
   "lr": null,
-  "frozen": false,
+  "frozen": null,
   "git_commit": null,
   "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/DRR/gramt_bf",
   "metrics": {
@@ -25,6 +25,22 @@
           "bs_idx": 0,
           "metric_test": 1.4912089109420776,
           "loss_test": 3.4916610169410705
+        }
+      ]
+    },
+    "lineareval": {
+      "lowest": 1.4010539054870605,
+      "mean": 1.4010539054870605,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 1.1062438488006592,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 1.4010539054870605,
+          "loss_test": 3.1867271008491516
         }
       ]
     }
