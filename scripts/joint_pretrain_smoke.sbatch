@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=joint_smoke
-#SBATCH --account=public-blaufer_v2
+#SBATCH --account=public-users_v2
 #SBATCH --partition=gpu-general-pool
 #SBATCH --exclude=compute-0-[18,53,376]
 #SBATCH --gres=gpu:1

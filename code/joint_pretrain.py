@@ -161,8 +161,12 @@ class Stream(nn.Module):
 		if not v.fused_add_norm:
 			r = h if r is None else r + v.drop_path(h)
 			return v.norm_f(r.to(dtype=v.norm_f.weight.dtype))
-		from mamba_ssm.ops.triton.layernorm import rms_norm_fn, layer_norm_fn, RMSNorm
-		fn = rms_norm_fn if isinstance(v.norm_f, RMSNorm) else layer_norm_fn
+		# both_models put Vim's own mamba_ssm (mamba-1p1p1: ops/triton/layer_norm.py) first on sys.path; take its
+		# imports from there. If unavailable, the unfused form, as _encode_with_mamba's fallback.
+		from models.both_models import rms_norm_fn, layer_norm_fn, RMSNorm
+		if layer_norm_fn is None:
+			return v.norm_f(r + h)
+		fn = rms_norm_fn if (RMSNorm is not None and isinstance(v.norm_f, RMSNorm)) else layer_norm_fn
 		return fn(v.drop_path(h), v.norm_f.weight, v.norm_f.bias, eps=v.norm_f.eps, residual=r, prenorm=False,
 				  residual_in_fp32=v.residual_in_fp32)
 
