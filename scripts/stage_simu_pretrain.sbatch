@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=stage_simu_pre
-#SBATCH --account=public-blaufer_v2
+#SBATCH --account=public-users_v2
 #SBATCH --partition=power-general-shared-pool
 #SBATCH --constraint=ib_dj
 #SBATCH --exclude=compute-0-351

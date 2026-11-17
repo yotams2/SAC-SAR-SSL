@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=ssamba_snap_eval
-#SBATCH --account=public-blaufer_v2
+#SBATCH --account=public-users_v2
 #SBATCH --partition=gpu-general-pool
 #SBATCH --exclude=compute-0-[18,53,58,300,376,419,420]
 #SBATCH --gres=gpu:1

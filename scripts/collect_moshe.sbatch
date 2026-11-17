@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=collect_sarssl
-#SBATCH --account=public-blaufer_v2
+#SBATCH --account=public-users_v2
 #SBATCH --partition=power-general-shared-pool
 #SBATCH --constraint=ib_dj
 #SBATCH --exclude=compute-0-351

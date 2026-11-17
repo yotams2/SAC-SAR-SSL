@@ -50,7 +50,7 @@ those are in git.
 
 - The interactive (Jupyter) node has 1 GB RAM and no GPU: `import torch` gets OOM-killed. Locally only do static
   checks (`python -m py_compile`, `bash -n`). Everything else goes through `sbatch`.
-- Slurm account `public-blaufer_v2` (`--qos=public`). GPU jobs: `--partition=gpu-general-pool`, plus
+- Slurm account `public-users_v2` (`--qos=public`; since 2026-11-17 `gpu-general-pool` rejects `public-blaufer_v2`). GPU jobs: `--partition=gpu-general-pool`, plus
   `--exclude=compute-0-18` (Blackwell sm_120, torch 2.2.2 has no kernels). CPU jobs: `power-general-shared-pool`.
 - `gpu-general-pool` is **preemptible** (requeue). Long runs must be resumable, and use `#SBATCH --open-mode=append` so the
   requeued job doesn't truncate its log.
