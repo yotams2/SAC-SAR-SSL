@@ -1,3 +1,0 @@
-upstream joint
-mode concat
-ckpt /scratch200/yotams2/tmp_joint_test/ckpt/spec_encoder_final.pth,/scratch200/yotams2/tmp_joint_test/ckpt/spat_encoder_final.pth
