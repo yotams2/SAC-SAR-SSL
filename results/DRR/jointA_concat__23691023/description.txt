@@ -1,0 +1,3 @@
+upstream joint
+mode concat
+ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotA_spec/spec_encoder_final.pth,/scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotA_spat/spat_encoder_final.pth
