@@ -16,14 +16,15 @@
 #   newest piece ended without .done  -> the pretraining crashed or was cancelled: report and exit 1 (no evals)
 #
 # Usage, from the SAC-SAR-SSL root:
-#   sbatch --dependency=afterany:<first piece> scripts/pretrain_gate.sbatch <exp dir> <first piece id> <eval script>
+#   sbatch --dependency=afterany:<first piece> scripts/pretrain_gate.sbatch <exp dir> <first piece id> <eval script> [done file]
+#   done file: the run's end marker inside <exp dir> (default .done = joint_pretrain; encoder_final.pth = ssamba_spatial_pretrain)
 set -uo pipefail
-EXP=$1 PIECE=$2 EVAL=$3
+EXP=$1 PIECE=$2 EVAL=$3 DONE=${4:-.done}
 REPO_ROOT=${SLURM_SUBMIT_DIR:-$(pwd)}
 cd "$REPO_ROOT"
 echo "$(date) gate job ${SLURM_JOB_ID:-local}: $EXP (first piece $PIECE) -> $EVAL"
 while [ -s "$EXP/.chained_$PIECE" ]; do PIECE=$(cat "$EXP/.chained_$PIECE"); done
-if [ -f "$EXP/.done" ]; then
+if [ -f "$EXP/$DONE" ]; then
 	echo "pretraining done; running $EVAL"
 	bash "$EVAL"
 	exit $?
@@ -31,9 +32,9 @@ fi
 state=$(sacct -j "$PIECE" -X -n -o State 2>/dev/null | head -1 | tr -d ' ')
 case "$state" in
 	PENDING|RUNNING|REQUEUED|CONFIGURING|COMPLETING|SUSPENDED|"")
-		next=$(sbatch --parsable --dependency=afterany:"$PIECE" --chdir="$REPO_ROOT" "$REPO_ROOT/scripts/pretrain_gate.sbatch" "$EXP" "$PIECE" "$EVAL")
+		next=$(sbatch --parsable --dependency=afterany:"$PIECE" --chdir="$REPO_ROOT" "$REPO_ROOT/scripts/pretrain_gate.sbatch" "$EXP" "$PIECE" "$EVAL" "$DONE")
 		echo "newest piece $PIECE is ${state:-unknown}; gate requeued as $next";;
 	*)
-		echo "ERROR: newest piece $PIECE ended ($state) without $EXP/.done: pretraining did not finish, no evals"
+		echo "ERROR: newest piece $PIECE ended ($state) without $EXP/$DONE: pretraining did not finish, no evals"
 		exit 1;;
 esac

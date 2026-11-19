@@ -111,7 +111,8 @@ def stft_reim(stft_mod, sig, eps=1e-6):
 
 # ---------------------------------------------------------------- model
 class SSAMBASpatialPretrain(nn.Module):
-	def __init__(self, mask_patch, recon_lambda, classif_lambda, sac_lambda, sac_sigma, sac_temp, use_checkpointing=True):
+	def __init__(self, mask_patch, recon_lambda, classif_lambda, sac_lambda, sac_sigma, sac_temp, use_checkpointing=True,
+				 sac_form='cwcl', sac_queue_size=1024, sac_queue_warmup=390):
 		super().__init__()
 		# Same module the downstream uses, so the input path is identical; only its encoder and frontend are used.
 		self.ds = ssamba_spatial.SSAMBASpatialDownstream(
@@ -131,6 +132,23 @@ class SSAMBASpatialPretrain(nn.Module):
 		self.feat_sim_proj = nn.Sequential(nn.Linear(D, D), nn.BatchNorm1d(D), nn.ReLU(), nn.Linear(D, 128)) if sac_lambda > 0 else None
 		self.feature_stats = {}
 		self.normalization_mode, self.factorized_sac = 'z_norm', False  # read by SARSSL._calc_single_feat_sim_loss
+		# SAC form (model.SARSSL._calc_single_feat_sim_loss reads these): 'cwcl' (original), 'sigmoid' (SigLIP-style,
+		# learnable logit scale starting at 1/temp and bias set from the first batch), 'queue' (CWCL + cross-batch memory
+		# of sac_queue_size detached embeddings and cues, used after sac_queue_warmup training steps).
+		self.sac_form = sac_form
+		if sac_form == 'sigmoid':
+			self.sac_logit_scale = nn.Parameter(torch.tensor(math.log(1.0 / sac_temp)))
+			self.sac_logit_bias = nn.Parameter(torch.tensor(0.0))
+			self.register_buffer('sac_bias_set', torch.tensor(False))
+		elif sac_form == 'queue':
+			self.sac_queue_warmup = sac_queue_warmup
+			self.register_buffer('sac_queue_z', torch.zeros(sac_queue_size, 128))
+			self.register_buffer('sac_queue_c', torch.zeros(sac_queue_size, len(SAC_FEATURES)))
+			self.register_buffer('sac_queue_ptr', torch.tensor(0))
+			self.register_buffer('sac_queue_n', torch.tensor(0))
+			self.register_buffer('sac_queue_calls', torch.tensor(0))
+		else:
+			assert sac_form == 'cwcl', sac_form
 
 	def ipd(self, reim):
 		X, _ = self.ds.stft_frontend(reim)  # (nb, 4, 256, 256)
@@ -155,6 +173,8 @@ class SSAMBASpatialPretrain(nn.Module):
 			out['sac'], _ = at_model.SARSSL._calc_single_feat_sim_loss(
 				self, z_proj, feats, SAC_FEATURES, self.sac_temp, self.sac_sigma, 1e-8, False)
 			loss = loss + self.sac_lambda * out['sac']
+			if self.sac_form == 'sigmoid':  # logged, to see whether the learnable scale / bias move
+				out['sac_t'], out['sac_b'] = self.sac_logit_scale.exp().detach(), self.sac_logit_bias.detach()
 		out['loss'] = loss
 		return out
 
@@ -244,6 +264,9 @@ def main():
 	ap.add_argument('--sac-lambda', type=float, default=0.0)
 	ap.add_argument('--sac-sigma', type=float, default=0.613)
 	ap.add_argument('--sac-temp', type=float, default=0.15)
+	ap.add_argument('--sac-form', default='cwcl', choices=['cwcl', 'sigmoid', 'queue'], help='SAC loss form (model.py)')
+	ap.add_argument('--sac-queue-size', type=int, default=1024, help='queue: memory of past embeddings (8 batches of 128)')
+	ap.add_argument('--sac-queue-warmup', type=int, default=390, help='queue: training steps before the memory is used (1 epoch)')
 	ap.add_argument('--lr-patience', type=int, default=2)
 	ap.add_argument('--seed', type=int, default=1)
 	ap.add_argument('--ckpt-every', type=int, default=200)
@@ -266,7 +289,8 @@ def main():
 
 	stft_mod = at_module.STFT(win_len=WIN_LEN, win_shift_ratio=WIN_SHIFT_RATIO, nfft=NFFT).to(device)
 	model = SSAMBASpatialPretrain(args.mask_patch, args.recon_lambda, args.classif_lambda, args.sac_lambda,
-								  args.sac_sigma, args.sac_temp).to(device)
+								  args.sac_sigma, args.sac_temp, sac_form=args.sac_form,
+								  sac_queue_size=args.sac_queue_size, sac_queue_warmup=args.sac_queue_warmup).to(device)
 	opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], args.lr, weight_decay=5e-8, betas=(0.95, 0.999))
 	sched = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode='min', factor=0.5, patience=args.lr_patience)
 

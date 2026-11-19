@@ -1846,25 +1846,68 @@ class SARSSL(nn.Module):
             diag = torch.eye(B, device=device, dtype=torch.bool)
             mask = ~diag
 
-            # 1. Prepare Denominator for Softmax (sum over k != i)
-            # We use masking to ensure we don't sum the diagonal
-            exp_sim = torch.exp(sim) * mask
-            den = exp_sim.sum(dim=1, keepdim=True) + eps # [B, 1]
-            
-            # 2. Calculate Log-Probability: log( exp(s_ij) / sum(exp(s_ik)) )
-            # log(a/b) = log(a) - log(b) = s_ij - log(den)
-            log_prob = sim - torch.log(den) # [B, B]
+            # SAC form (getattr: callers that set nothing keep the original CWCL):
+            #   'cwcl'    row softmax over the batch vs row-normalised kernel targets (original).
+            #   'sigmoid' SigLIP-style: every pair an independent logistic, logit = exp(s) * cos + b (s, b learnable,
+            #             self.sac_logit_scale / self.sac_logit_bias), target = the unnormalised kernel w_ij in [0, 1].
+            #             Mean over pairs, so the per-pair gradient has CWCL's scale (~1 / B^2) and lambda keeps its meaning.
+            #   'queue'   CWCL with a cross-batch memory (XBM-style): the anchors also compare against the last Q
+            #             detached embeddings and their cues (self.sac_queue_z / sac_queue_c), in training only, after
+            #             self.sac_queue_warmup training calls. Validation uses the plain batch, so val loss stays comparable.
+            sac_form = getattr(self, 'sac_form', 'cwcl')
+            w_norm = None
+            if sac_form == 'sigmoid':
+                cos = sim * temperature
+                tgt = w[mask].detach()
+                if not bool(self.sac_bias_set):  # data-dependent init: sigmoid(b) = mean target, at cos ~ 0
+                    m = tgt.mean().clamp(1e-4, 1 - 1e-4)
+                    self.sac_logit_bias.data.fill_(float(torch.log(m / (1 - m))))
+                    self.sac_bias_set.fill_(True)
+                logits = self.sac_logit_scale.exp() * cos + self.sac_logit_bias
+                loss = F.binary_cross_entropy_with_logits(logits[mask].float(), tgt.float())
+            elif sac_form in ('cwcl', 'queue'):
+                sim_all, w_all, mask_all = sim, w, mask
+                if sac_form == 'queue' and self.training:
+                    Q = self.sac_queue_z.shape[0]
+                    n = int(self.sac_queue_n)
+                    if int(self.sac_queue_calls) >= self.sac_queue_warmup and n > 0:
+                        qz, qc = self.sac_queue_z[:n], self.sac_queue_c[:n]
+                        sim_all = torch.cat([sim, torch.matmul(z_norm, qz.T.to(z_norm.dtype)) / temperature], dim=1)
+                        w_all = torch.cat([w, torch.exp(-(torch.cdist(cues, qc.to(cues.dtype), p=2) / sigma) ** 2)], dim=1)
+                        mask_all = torch.cat([mask, torch.ones(B, n, dtype=torch.bool, device=device)], dim=1)
+                    with torch.no_grad():  # FIFO update with this batch (ring buffer)
+                        ptr = int(self.sac_queue_ptr)
+                        idx = (torch.arange(B, device=device) + ptr) % Q
+                        self.sac_queue_z[idx] = z_norm.detach().to(self.sac_queue_z.dtype)
+                        self.sac_queue_c[idx] = cues.detach().to(self.sac_queue_c.dtype)
+                        self.sac_queue_ptr.fill_((ptr + B) % Q)
+                        self.sac_queue_n.fill_(min(Q, n + B))
+                        self.sac_queue_calls += 1
 
-            # 3. Normalize the Weights (sum over j != i should be 1)
-            w_mask = w * mask
-            w_sum = w_mask.sum(dim=1, keepdim=True) + eps
-            w_norm = w_mask / w_sum # [B, B]
+                # 1. Prepare Denominator for Softmax (sum over k != i)
+                # We use masking to ensure we don't sum the diagonal
+                exp_sim = torch.exp(sim_all) * mask_all
+                den = exp_sim.sum(dim=1, keepdim=True) + eps # [B, 1]
 
-            # 4. Calculate SupCon Loss: Weighted Sum of Log-Probs
-            # L_i = - sum_j ( w_norm_ij * log_prob_ij )
-            loss_per_sample = - (w_norm * log_prob).sum(dim=1)
-            loss = loss_per_sample.mean()
-            
+                # 2. Calculate Log-Probability: log( exp(s_ij) / sum(exp(s_ik)) )
+                # log(a/b) = log(a) - log(b) = s_ij - log(den)
+                log_prob = sim_all - torch.log(den) # [B, B (+ n)]
+
+                # 3. Normalize the Weights (sum over j != i should be 1)
+                w_mask = w_all * mask_all
+                w_sum = w_mask.sum(dim=1, keepdim=True) + eps
+                w_norm_all = w_mask / w_sum
+
+                # 4. Calculate SupCon Loss: Weighted Sum of Log-Probs
+                # L_i = - sum_j ( w_norm_ij * log_prob_ij )
+                loss_per_sample = - (w_norm_all * log_prob).sum(dim=1)
+                loss = loss_per_sample.mean()
+                w_norm = w_norm_all[:, :B]
+            else:
+                raise ValueError(f'unknown sac_form {sac_form}')
+            if w_norm is None:  # sigmoid: the row-normalised kernel, for the diagnostics only
+                w_norm = (w * mask) / ((w * mask).sum(dim=1, keepdim=True) + eps)
+
             # Diagnostics (Zero computational overhead)
             cos_sim = sim * temperature
             sq_dist = 2.0 - 2.0 * cos_sim
