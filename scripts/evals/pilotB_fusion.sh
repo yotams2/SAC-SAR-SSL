@@ -1,12 +1,9 @@
 #!/bin/bash
-# Pilot B, fusion OFF (each encoder alone): spatial encoder on the 5 SAR-SSL tasks x finetune/frozen, both encoders on
-# the speech probes. Fusion-on evals need joint_{best,final}.pth and code that is not written yet.
+# Pilot B: fusion OFF (each encoder alone, on its own family) and fusion ON (both streams, both families).
 set -euo pipefail
-D=/scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotB_fusion
-for t in TDOA T60 DRR C50 ABS; do
-	EVAL_TASKS=$t sbatch --parsable --job-name=jointB_spat_$t scripts/ssamba_spatial_snapshot_eval.sbatch $D/spat_encoder_final.pth jointB_spat_off
-done
-(cd ~/sac-ssamba && sbatch --parsable --job-name=jointB_spec_probe scripts/ipd16_probe.sbatch \
-	/scratch200/yotams2/sac-ssamba/exp/_probes/jointB_spec_probe.jsonl "--input_repr joint_spec" $D/spec_encoder_final.pth)
-(cd ~/sac-ssamba && sbatch --parsable --job-name=jointB_spat_probe scripts/ipd16_probe.sbatch \
-	/scratch200/yotams2/sac-ssamba/exp/_probes/jointB_spat_probe.jsonl "" $D/spat_encoder_final.pth)
+source scripts/evals/common.sh
+D=$J/pilotB_fusion
+spatial jointB_spat_off $D/spat_encoder_final.pth jointB_spat_off
+probe jointB_spec_off_probe jointB_spec_off_probe.jsonl "--input_repr joint_spec" $D/spec_encoder_final.pth
+spatial jointB_fusion_on $D/joint_final.pth jointB_fusion_on "--upstream joint --joint-mode fusion --joint-ckpt $D/joint_final.pth"
+probe jointB_fusion_on_probe jointB_fusion_on_probe.jsonl "--input_repr joint_fusion" $D/joint_final.pth

@@ -19,6 +19,7 @@
 #   sbatch scripts/ssamba_spatial_snapshot_eval.sbatch <encoder .pth> <label> [modes, default "finetune lineareval"]
 #   random-init control at the same 256-frame setup:
 #   sbatch scripts/ssamba_spatial_snapshot_eval.sbatch random <label> scratchLOW
+#   env EVAL_TASKS="TDOA T60 DRR" picks tasks; EXTRA_ARGS is appended to every run_downstream call.
 set -uo pipefail
 CKPT=$1 LABEL=$2
 MODES=(${3:-finetune lineareval})
@@ -27,6 +28,7 @@ REPO_ROOT=${SLURM_SUBMIT_DIR:-$(pwd)}
 cd "$REPO_ROOT"
 COMMON=(--my-tmp --ds-lr 1e-3 1e-4 --ds-nepoch 20 --ssamba-fill none --ssamba-input ipd --ssamba-patch 16x16)
 [ "$CKPT" = random ] && COMMON+=(--ssamba-nframes 256)
+COMMON+=(${EXTRA_ARGS:-})  # e.g. EXTRA_ARGS="--upstream joint --joint-mode concat --joint-ckpt a.pth,b.pth"
 echo "$(date) $(hostname) job ${SLURM_JOB_ID:-local}: ckpt $CKPT label $LABEL tasks ${TASKS[*]} modes ${MODES[*]}"
 for task in "${TASKS[@]}"; do
   for mode in "${MODES[@]}"; do

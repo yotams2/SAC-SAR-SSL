@@ -278,7 +278,9 @@ class opt_downstream():
         parser.add_argument('--data-dir', type=str, default='', help='Absolute generated-data directory (holds MicSig/simu_ds); overrides <code>/../../SAR-SSL/data')
 
         # upstream encoder (default: this repo's SARSSL model, pretrained under <exp>/pretrain/<time>)
-        parser.add_argument('--upstream', type=str, default='sarssl', choices=['sarssl', 'ssamba_spatial', 'gramt'], help='downstream encoder (default: sarssl)')
+        parser.add_argument('--upstream', type=str, default='sarssl', choices=['sarssl', 'ssamba_spatial', 'gramt', 'joint'], help='downstream encoder (default: sarssl)')
+        parser.add_argument('--joint-mode', type=str, default='concat', choices=['concat', 'fusion'], help='joint (code/joint_spatial.py): concat = two separately trained encoders (Pilot A-concat), fusion = joint_pretrain.py --fusion model run with fusion on (Pilot B)')
+        parser.add_argument('--joint-ckpt', type=str, default='', help="joint: concat '<spec_encoder.pth>,<spat_encoder.pth>'; fusion <joint_final.pth>")
         parser.add_argument('--gramt-model', type=str, default='labhamlet/gramt-binaural-frame', help='gramt: HF model id or local dir (code/gramt_spatial.py)')
         parser.add_argument('--ssamba-ckpt', type=str, default='', help='ssamba_spatial: BinauralSSAMBASACModel checkpoint (sac-ssamba audio_model.final.pth); not needed for scratchLOW')
         parser.add_argument('--ssamba-fill', type=str, default='tile', choices=['tile', 'zero', 'none'], help='ssamba_spatial: fill the 10-s input by repeating the clip (tile), with zeros, or not at all (none: sequence = the clip; random init only)')
@@ -299,6 +301,8 @@ class opt_downstream():
         self.exp_dir = args.exp_dir
         self.exp_root = args.exp_root
         self.data_dir = args.data_dir
+        if args.upstream == 'joint':
+            assert args.ds_trainmode == 'lineareval' and args.joint_ckpt, '--upstream joint: lineareval only, needs --joint-ckpt'
         if args.upstream == 'ssamba_spatial':
             assert args.ds_trainmode == 'scratchLOW' or args.ssamba_ckpt, '--upstream ssamba_spatial needs --ssamba-ckpt'
         self.ds_token = args.ds_token

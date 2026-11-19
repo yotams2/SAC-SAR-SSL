@@ -52,7 +52,11 @@ if args.upstream == 'ssamba_spatial':
 
 # Load Config from config.json if available
 config_path = os.path.join(dirs['log_pretrain'], 'config.json')
-if args.upstream in ['ssamba_spatial', 'gramt']:
+if args.upstream == 'joint':
+	os.makedirs(dirs['log_pretrain'], exist_ok=True)
+	with open(os.path.join(dirs['log_pretrain'], 'description.txt'), 'w') as f:
+		f.write(f'upstream joint\nmode {args.joint_mode}\nckpt {args.joint_ckpt}\n')
+if args.upstream in ['ssamba_spatial', 'gramt', 'joint']:
 	pass
 elif os.path.exists(config_path):
     try:
@@ -148,6 +152,12 @@ if args.upstream == 'ssamba_spatial':
 	else:
 		LearnerClass = at_learner.STFTLearner  # SAR-SSL's own STFT and normalisation
 		flops_input_shape = None
+elif args.upstream == 'joint':
+	import joint_spatial
+	net = joint_spatial.JointSpatialDownstream(args.joint_ckpt, args.joint_mode, dlabel=dlabel)
+	layer_keys = ['model', 'mlp_head']
+	LearnerClass = at_learner.STFTLearner  # SAR-SSL's own STFT and normalisation, as ssamba_spatial ipd
+	flops_input_shape = None
 elif args.upstream == 'gramt':
 	import gramt_spatial, ssamba_spatial
 	net = gramt_spatial.GRAMTSpatialDownstream(model_id=args.gramt_model, frozen=args.ds_trainmode == 'lineareval',
