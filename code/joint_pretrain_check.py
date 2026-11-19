@@ -58,6 +58,14 @@ with torch.no_grad():  # sanity: a visible column must change outputs
 	Xv['spat'][0, :, :, tv * 16:(tv + 1) * 16] += 5.0
 	e = model.encode(Xv, cm, fusion=True)
 print(f"[check] change in visible spat column {tv}: spec max|diff| {float((e['spec'] - c['spec']).abs().max()):.2e} (fusion carries it)")
+# the pretraining forward (no mask, fusion off) must equal the downstream forward (AMBAModel._encode_with_mamba)
+with torch.no_grad():
+	f = model.encode(Xn, None, fusion=False)
+	for k in f:
+		g = model.streams[k].enc._encode_with_mamba(Xn[k])
+		err = float((f[k] - g).abs().max())
+		print(f'[check] {k}: pretraining encode vs _encode_with_mamba max|diff| {err:.2e} (max |h| {float(g.abs().max()):.2f})')
+		assert err < 1e-3 * max(1.0, float(g.abs().max())), 'pretraining forward != downstream forward'
 
 if len(sys.argv) > 1:
 	ds = ssamba_spatial.SSAMBASpatialDownstream(ckpt_path=sys.argv[1], fill='none', input_mode='ipd', patch='16x16',

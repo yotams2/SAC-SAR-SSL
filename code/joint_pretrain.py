@@ -141,12 +141,21 @@ class Stream(nn.Module):
 		return v.pos_drop(x)
 
 	def pair(self, i, h, r):
+		""" Layers 2i and 2i+1, exactly as AMBAModel._forward_mamba_layers: one after the other for SSAMBA's Vim
+			config (if_bidirectional False; each bimamba v2 layer is bidirectional by itself), the flip-pair form
+			only when if_bidirectional is set. (Pilots A/B before 2026-11-19 always used the flip-pair form, so their
+			encoders did not match the downstream forward.) """
 		L = self.enc.v.layers
 
-		def f(h, r):
-			hf, rf = L[2 * i](h, r)
-			hb, rb = L[2 * i + 1](h.flip([1]), None if r is None else r.flip([1]))
-			return hf + hb.flip([1]), rf + rb.flip([1])
+		if self.enc.v.if_bidirectional:
+			def f(h, r):
+				hf, rf = L[2 * i](h, r)
+				hb, rb = L[2 * i + 1](h.flip([1]), None if r is None else r.flip([1]))
+				return hf + hb.flip([1]), rf + rb.flip([1])
+		else:
+			def f(h, r):
+				h, r = L[2 * i](h, r)
+				return L[2 * i + 1](h, r)
 		if self.enc.v.use_checkpointing and self.training:
 			return torch.utils.checkpoint.checkpoint(f, h, r, use_reentrant=False)
 		return f(h, r)
