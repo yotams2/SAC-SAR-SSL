@@ -1871,7 +1871,7 @@ class SARSSL(nn.Module):
                     Q = self.sac_queue_z.shape[0]
                     n = int(self.sac_queue_n)
                     if int(self.sac_queue_calls) >= self.sac_queue_warmup and n > 0:
-                        qz, qc = self.sac_queue_z[:n], self.sac_queue_c[:n]
+                        qz, qc = self.sac_queue_z[:n].clone(), self.sac_queue_c[:n].clone()  # copies: the FIFO update below is in place
                         sim_all = torch.cat([sim, torch.matmul(z_norm, qz.T.to(z_norm.dtype)) / temperature], dim=1)
                         w_all = torch.cat([w, torch.exp(-(torch.cdist(cues, qc.to(cues.dtype), p=2) / sigma) ** 2)], dim=1)
                         mask_all = torch.cat([mask, torch.ones(B, n, dtype=torch.bool, device=device)], dim=1)
