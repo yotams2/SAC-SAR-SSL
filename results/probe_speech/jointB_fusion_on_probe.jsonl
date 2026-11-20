@@ -1,0 +1,1 @@
+{"model": "/scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotB_fusion/joint_final.pth", "sc2/knn20_acc": 0.06952381134033203, "sc2/ncm_acc": 0.07904762029647827, "sc2/linear_acc": 0.16380952298641205, "sid/ncm_acc": 0.0625, "sid/linear_acc": 0.1574999988079071, "sid/eer": 0.35321974754333496, "probe_sec": 220.75718784332275}

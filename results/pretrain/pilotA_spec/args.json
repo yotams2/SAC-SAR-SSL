@@ -1,0 +1,26 @@
+{
+ "tar": "/scratch200/yotams2/SAC-SAR-SSL/data/MicSig/simu_pretrain.tar",
+ "exp_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotA_spec",
+ "streams": "spec",
+ "fusion": false,
+ "fusion_drop": 0.3,
+ "mask_cols": 7,
+ "num_train": 50000,
+ "num_val": null,
+ "bs": 128,
+ "lr": 0.0004,
+ "nepoch": 10,
+ "recon_lambda": 10.0,
+ "classif_lambda": 1.0,
+ "lr_patience": 2,
+ "seed": 1,
+ "ckpt_every": 200,
+ "log_every": 20,
+ "max_steps": null,
+ "num_workers": 5,
+ "snapshot_epochs": [
+  2,
+  5
+ ],
+ "device": "cuda"
+}

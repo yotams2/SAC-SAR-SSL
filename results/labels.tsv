@@ -1,0 +1,55 @@
+# label	pretrain run override ('-' = from the checkpoint path)	status ok|void|smoke|old	description
+# Hand-maintained; read by scripts/build_registry.py into RUNS.md. Labels = pretraining run names, eval labels, probe file stems.
+# ---- pretraining runs
+ipd16_nosac	-	ok	SSAMBA spatial encoder on ipd16 (logL, ILD, cos/sin IPD), MPG+MPC only, 30 ep. The no-SAC arm.
+ipd16_sac	-	ok	Same as ipd16_nosac + in-batch CWCL SAC (lambda 0.02, spatial cues). The SAC arm.
+sacform_cwcl10	-	ok	SAC-form side track (branch sac-forms): in-batch CWCL, 10 ep. Re-run of ipd16_sac's loss with the new code.
+sacform_queue10	-	ok	SAC-form side track: CWCL + cross-batch memory of 1024 detached embeddings (after 1 ep warm-up), 10 ep.
+sacform_sig10	-	ok	SAC-form side track: SigLIP-style sigmoid SAC (learnable scale/bias, target = kernel weight), 10 ep.
+pilotA_spec	-	ok	Pilot A spectral encoder alone: 128-mel log-mel of the mid channel (shared SAR-SSL STFT), MPG+MPC, 10 ep.
+pilotA_spat	-	ok	Pilot A spatial encoder alone: ipd16 on the shared STFT, column masking, MPG+MPC, 10 ep.
+pilotB_fusion	-	ok	Pilot B: both streams trained jointly with cross-stream fusion, 10 ep.
+pilotC_swap	-	ok	Pilot C: A's two encoders + decoder rebuilding the target clip's ipd16 from (same utterance, other scene) -> spectral and (same scene, other utterance) -> spatial; own losses at 0.1x; paired 12.5k-scene set.
+# ---- spatial evals (SAR-SSL tasks)
+pre_nosac_ep10	ipd16_nosac	ok	ipd16_nosac at epoch 10 (snapshot of the 30-ep run).
+pre_sac_ep10	ipd16_sac	ok	ipd16_sac at epoch 10 (snapshot of the 30-ep run). The in-batch SAC reference for the sacform runs.
+pre_nosac_final	ipd16_nosac	ok	ipd16_nosac final (30 ep).
+pre_sac_final	ipd16_sac	ok	ipd16_sac final (30 ep).
+ctrl_ipd16_n256	-	ok	Random-init ipd16 SSAMBA, 256 frames, trained from scratch (scratchLOW): the no-pretraining control.
+sacform_queue10	-	ok	Queue SAC, final (10 ep). Compare with pre_sac_ep10 (in-batch) and pre_nosac_ep10.
+sacform_cwcl10	-	ok	In-batch SAC rerun, final (10 ep). Compare with pre_sac_ep10: same loss, new code.
+sacform_sig10	-	ok	Sigmoid SAC, final (10 ep).
+jointA_spat	-	ok	Pilot A spatial encoder alone, frozen.
+jointA_concat	-	ok	Pilot A spectral + spatial encoders, embeddings concatenated, frozen. The go/no-go baseline.
+jointB_spat_off	-	ok	Pilot B checkpoint, fusion off at eval (streams encoded separately, concatenated), frozen.
+jointB_fusion_on	-	ok	Pilot B checkpoint, fusion on at eval, frozen.
+jointA_spec_on_spatial	-	ok	Leakage probe: Pilot A spectral encoder alone on the spatial tasks (should be near chance).
+jointC_spat	-	ok	Pilot C spatial encoder alone, frozen.
+jointC_concat	-	ok	Pilot C spectral + spatial concatenated, frozen.
+jointC_spec_on_spatial	-	ok	Leakage probe: Pilot C spectral encoder on the spatial tasks.
+gramt_bf	-	ok	RQ1: GRAM-T binaural-frame (2-ch log-mel magnitude, no phase) on SAR-SSL tasks.
+gramt_smoke	-	smoke	GRAM-T 1-epoch smoke test.
+inprobe_ipd16	-	old	Input-representation probe (11-12): random-init SSAMBA trained from scratch on ipd16 patches 16x16.
+inprobe_ipdframe	-	old	Input-representation probe: IPD, per-frame tokens.
+inprobe_reim16	-	old	Input-representation probe: STFT real/imag, 16x16 patches.
+inprobe_reimframe	-	old	Input-representation probe: STFT real/imag, per-frame tokens.
+inprobe_reimframe_stem	-	old	Input-representation probe: STFT real/imag, per-frame tokens with conv stem.
+inprobe_wave16_short	-	old	Input-representation probe: waveform patches.
+inprobe_sarssl_ctrl	-	old	Input-representation probe control: SAR-SSL's own model trained from scratch.
+ssamba_random_lrsweep	-	old	Random-init SSAMBA on SAR-SSL TDOA (11-11 lr sweep).
+ssamba_pitchfix_lrsweep	-	old	Binaural sac-ssamba pitchfix encoder (magnitude input, tiled) on SAR-SSL TDOA (11-11): fails on TDOA.
+# ---- speech probes (SC2 / SID, frozen), file stems
+ipd16_probe_2026-11-17	-	ok	RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID.
+jointA_spec_probe	-	ok	Pilot A spectral encoder on SC2/SID (+ random-init row).
+jointA_spat_probe	-	ok	Leakage probe: Pilot A spatial encoder on SC2/SID (random ipd16 = 3.1 / 9.1).
+jointA_concat_probe	-	ok	Pilot A concat on SC2/SID (SID with 16 rows of concat is unreliable).
+jointB_spec_off_probe	-	ok	Pilot B, fusion off, on SC2/SID.
+jointB_fusion_on_probe	-	ok	Pilot B, fusion on, on SC2/SID.
+jointA_spat_probe_2026-11-18_VOID_flippair_bug	-	void	Void: flip-pair layer-order bug (fixed 11-18).
+jointA_spec_probe_2026-11-18_VOID_flippair_bug	-	void	Void: flip-pair layer-order bug (fixed 11-18).
+mono_probe_2026-11-16	-	void	Void: first mono probe; trained checkpoints at exact chance (fp16 probing of fp32-trained mono models).
+mono_probe_2026-11-17	-	ok	Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID.
+mono_on_binaural_2026-11-17_mono	-	ok	Mono amba s1-s3 on mono SC2/SID (reference for the binaural rows).
+mono_on_binaural_2026-11-17_bin_mid	-	ok	Mono amba s1-s3 + random on binaural SC2/SID, mid channel.
+mono_on_binaural_2026-11-17_bin_left	-	ok	Mono amba s1 on binaural SC2/SID, left channel.
+mono_on_binaural_2026-11-17_binmodel	-	ok	Binaural spectral_only_logmel encoder on binaural SC2/SID.

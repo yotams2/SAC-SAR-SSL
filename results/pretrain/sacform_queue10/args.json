@@ -1,0 +1,29 @@
+{
+ "tar": "/scratch200/yotams2/SAC-SAR-SSL/data/MicSig/simu_pretrain.tar",
+ "exp_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/ssamba_pretrain/sacform_queue10",
+ "num_train": 50000,
+ "num_val": null,
+ "bs": 128,
+ "lr": 0.0004,
+ "nepoch": 10,
+ "mask_patch": 150,
+ "recon_lambda": 10.0,
+ "classif_lambda": 1.0,
+ "sac_lambda": 0.02,
+ "sac_sigma": 0.613,
+ "sac_temp": 0.15,
+ "sac_form": "queue",
+ "sac_queue_size": 1024,
+ "sac_queue_warmup": 390,
+ "lr_patience": 2,
+ "seed": 1,
+ "ckpt_every": 200,
+ "log_every": 20,
+ "max_steps": null,
+ "num_workers": 5,
+ "snapshot_epochs": [
+  2,
+  5
+ ],
+ "device": "cuda"
+}
