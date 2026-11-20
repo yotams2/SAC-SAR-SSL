@@ -1,0 +1,32 @@
+{
+  "task": "TDOA",
+  "experiment": "sacform_sig10",
+  "model": "upstream ssamba_spatial\nssamba_ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/ssamba_pretrain/sacform_sig10/encoder_final.pth\nfill none\ntoken all\ninput ipd\npatch 16x16\nstem False\nnframes None",
+  "job_id": "23704750",
+  "status": "done",
+  "date": "2026-11-20T12:41:33+02:00",
+  "collected_at": "2026-11-20T12:41:34+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": false,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/sacform_sig10",
+  "metrics": {
+    "finetune": {
+      "lowest": 0.5292798280715942,
+      "mean": 0.5292798280715942,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 0.6085152626037598,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.5292798280715942,
+          "loss_test": 0.6504277468919754
+        }
+      ]
+    }
+  }
+}
