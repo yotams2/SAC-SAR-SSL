@@ -1,0 +1,32 @@
+{
+  "task": "DRR",
+  "experiment": "jointB_fusion_on",
+  "model": "upstream joint\nmode fusion\nckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotB_fusion/joint_final.pth",
+  "job_id": "23698015",
+  "status": "done",
+  "date": "2026-11-20T02:29:12+02:00",
+  "collected_at": "2026-11-20T02:29:13+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/DRR/jointB_fusion_on",
+  "metrics": {
+    "lineareval": {
+      "lowest": 1.9495214223861694,
+      "mean": 1.9495214223861694,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 1.454558253288269,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 1.9495214223861694,
+          "loss_test": 5.916372911453247
+        }
+      ]
+    }
+  }
+}

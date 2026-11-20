@@ -1,0 +1,3 @@
+upstream joint
+mode fusion
+ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotB_fusion/joint_final.pth
