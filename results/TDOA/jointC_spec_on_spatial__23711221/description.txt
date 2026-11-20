@@ -1,0 +1,3 @@
+upstream joint
+mode spec
+ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC_swap/spec_encoder_final.pth
