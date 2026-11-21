@@ -11,7 +11,7 @@ kept for the record, not for comparison.
 | pilotA_spat | joint | ok | streams=spat, fusion=False, nepoch=10, num_train=50000, seed=1, tar=simu_pretrain.tar | spat_mpg 0.789, spat_mpc 1.394, spat_acc 0.604, loss 9.288 (ep 10.0) | Pilot A spatial encoder alone: ipd16 on the shared STFT, column masking, MPG+MPC, 10 ep. |
 | pilotA_spec | joint | ok | streams=spec, fusion=False, nepoch=10, num_train=50000, seed=1, tar=simu_pretrain.tar | spec_mpg 0.302, spec_mpc 1.320, spec_acc 0.631, loss 4.343 (ep 10.0) | Pilot A spectral encoder alone: 128-mel log-mel of the mid channel (shared SAR-SSL STFT), MPG+MPC, 10 ep. |
 | pilotB_fusion | joint | ok | streams=joint, fusion=True, nepoch=10, num_train=50000, seed=1, tar=simu_pretrain.tar | spec_mpg 0.279, spat_mpg 0.790, spec_mpc 1.232, spec_acc 0.663, spat_mpc 1.430, spat_acc 0.595, loss 13.359 (ep 10.0) | Pilot B: both streams trained jointly with cross-stream fusion, 10 ep. |
-| pilotC_swap | joint | ok, running | nepoch=10, swap_lambda=10.0, own_scale=0.1, seed=1, tar=simu_paired_pretrain.tar | spec_mpg 0.389, spat_mpg 0.826, spec_mpc 1.408, spec_acc 0.642, spat_mpc 1.435, spat_acc 0.591, swap_logL 0.324, swap_ILD 0.983, swap_cosIPD 0.552, swap_sinIPD 0.625, swap 0.621, swap_logL_shufspec 1.155, swap_ILD_shufspec 0.986, swap_cosIPD_shufspec 0.579, swap_sinIPD_shufspec 0.648, swap_shufspec 0.842, swap_logL_shufspat 0.329, swap_ILD_shufspat 0.991, swap_cosIPD_shufspat 0.595, swap_sinIPD_shufspat 0.658, swap_shufspat 0.643, loss 7.711 (ep 3.0) | Pilot C: A's two encoders + decoder rebuilding the target clip's ipd16 from (same utterance, other scene) -> spectral and (same scene, other utterance) -> spatial; own losses at 0.1x; paired 12.5k-scene set. |
+| pilotC_swap | joint | ok | nepoch=10, swap_lambda=10.0, own_scale=0.1, seed=1, tar=simu_paired_pretrain.tar | spec_mpg 0.365, spat_mpg 0.819, spec_mpc 1.244, spec_acc 0.686, spat_mpc 1.233, spat_acc 0.661, swap_logL 0.283, swap_ILD 0.995, swap_cosIPD 0.565, swap_sinIPD 0.640, swap 0.621, swap_logL_shufspec 1.172, swap_ILD_shufspec 0.996, swap_cosIPD_shufspec 0.604, swap_sinIPD_shufspec 0.669, swap_shufspec 0.860, swap_logL_shufspat 0.289, swap_ILD_shufspat 0.998, swap_cosIPD_shufspat 0.599, swap_sinIPD_shufspat 0.665, swap_shufspat 0.638, loss 7.638 (ep 10.0) | Pilot C: A's two encoders + decoder rebuilding the target clip's ipd16 from (same utterance, other scene) -> spectral and (same scene, other utterance) -> spatial; own losses at 0.1x; paired 12.5k-scene set. |
 | ipd16_nosac | ssamba | ok | nepoch=30, num_train=50000, sac_lambda=0.0, seed=1, tar=simu_pretrain.tar | mpg 0.795, acc 0.605, mpc 1.534, loss 9.484 (ep 30.0) | SSAMBA spatial encoder on ipd16 (logL, ILD, cos/sin IPD), MPG+MPC only, 30 ep. The no-SAC arm. |
 | ipd16_sac | ssamba | ok | nepoch=30, num_train=50000, sac_lambda=0.02, seed=1, tar=simu_pretrain.tar | mpg 0.795, acc 0.600, mpc 1.553, sac 4.155, loss 9.588 (ep 30.0) | Same as ipd16_nosac + in-batch CWCL SAC (lambda 0.02, spatial cues). The SAC arm. |
 | sacform_cwcl10 | ssamba | ok | nepoch=10, num_train=50000, sac_lambda=0.02, sac_form=cwcl, seed=1, tar=simu_pretrain.tar | mpg 0.801, acc 0.532, mpc 1.765, sac 4.176, loss 9.861 (ep 10.0) | In-batch SAC rerun, final (10 ep). Compare with pre_sac_ep10: same loss, new code. |
@@ -22,6 +22,9 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointC_concat | ok | pilotC_swap | frz 2.25 | frz 0.075 | frz 1.46 |  |  | Pilot C spectral + spatial concatenated, frozen. |
+| jointC_spec_on_spatial | ok | pilotC_swap | frz 2.91 | frz 0.075 | frz 1.81 |  |  | Leakage probe: Pilot C spectral encoder on the spatial tasks. |
+| jointC_spat | ok | pilotC_swap | frz 2.23 | frz 0.076 | frz 1.55 |  |  | Pilot C spatial encoder alone, frozen. |
 | sacform_sig10 | ok | sacform_sig10 | ft 0.529 / frz 2.26 | ft 0.066 / frz 0.068 |  |  |  | Sigmoid SAC, final (10 ep). |
 | sacform_cwcl10 | ok | sacform_cwcl10 | ft 0.292 / frz 1.77 | ft 0.059 / frz 0.066 |  |  |  | In-batch SAC rerun, final (10 ep). Compare with pre_sac_ep10: same loss, new code. |
 | sacform_queue10 | ok | sacform_queue10 | ft 0.310 / frz 2.35 | ft 0.056 / frz 0.062 |  |  |  | Queue SAC, final (10 ep). Compare with pre_sac_ep10 (in-batch) and pre_nosac_ep10. |
@@ -65,6 +68,9 @@ kept for the record, not for comparison.
 | jointA_spec_probe_2026-11-18_VOID_flippair_bug | void | random init | 5.7 | 36.6 | Void: flip-pair layer-order bug (fixed 11-18). |
 | jointB_fusion_on_probe | ok | pilotB_fusion | 16.4 | 15.7 | Pilot B, fusion on, on SC2/SID. |
 | jointB_spec_off_probe | ok | pilotB_fusion | 13.5 | 29.7 | Pilot B, fusion off, on SC2/SID. |
+| jointC_concat_probe | ok | pilotC_swap | 17.9 | 19.1 | Pilot C concat on SC2/SID (SID with concat unreliable). |
+| jointC_spat_probe | ok | pilotC_swap | 9.6 | 3.9 | Leakage probe: Pilot C spatial encoder on SC2/SID. |
+| jointC_spec_probe | ok | pilotC_swap | 20.9 | 43.8 | Pilot C spectral encoder on SC2/SID. |
 | mono_on_binaural_2026-11-17_bin_left | ok | sac-ssamba amba_seed1:final | 24.4 | 38.9 | Mono amba s1 on binaural SC2/SID, left channel. |
 | mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed1:final | 26.4 | 40.3 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
 | mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed2:final | 22.3 | 36.5 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |

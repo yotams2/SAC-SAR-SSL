@@ -53,3 +53,6 @@ mono_on_binaural_2026-11-17_mono	-	ok	Mono amba s1-s3 on mono SC2/SID (reference
 mono_on_binaural_2026-11-17_bin_mid	-	ok	Mono amba s1-s3 + random on binaural SC2/SID, mid channel.
 mono_on_binaural_2026-11-17_bin_left	-	ok	Mono amba s1 on binaural SC2/SID, left channel.
 mono_on_binaural_2026-11-17_binmodel	-	ok	Binaural spectral_only_logmel encoder on binaural SC2/SID.
+jointC_spec_probe	-	ok	Pilot C spectral encoder on SC2/SID.
+jointC_spat_probe	-	ok	Leakage probe: Pilot C spatial encoder on SC2/SID.
+jointC_concat_probe	-	ok	Pilot C concat on SC2/SID (SID with concat unreliable).
