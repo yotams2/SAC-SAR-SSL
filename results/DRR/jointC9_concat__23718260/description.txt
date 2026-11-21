@@ -1,0 +1,3 @@
+upstream joint
+mode concat
+ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC_swap/spec_encoder_best.pth,/scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC_swap/spat_encoder_best.pth
