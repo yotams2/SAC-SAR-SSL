@@ -25,8 +25,8 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointC9_spat | ok | pilotC_swap | frz 2.39 | frz 0.071 | frz 1.42 |  |  | Pilot C seed 1 at EPOCH 9 (best checkpoint, before the step-3690 loss spike): spatial encoder alone, frozen. |
 | jointC9_spec_on_spatial | ok | pilotC_swap | frz 2.92 |  |  |  |  | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spectral encoder on the spatial tasks. |
-| jointC9_spat | ok | pilotC_swap | frz 2.39 | frz 0.071 |  |  |  | Pilot C seed 1 at EPOCH 9 (best checkpoint, before the step-3690 loss spike): spatial encoder alone, frozen. |
 | random_spec_on_spatial | ok | random init |  | frz 0.198 | frz 2.63 |  |  | Leakage baseline (check 2): random-init spectral encoder (Pilot A's input stats) on T60/DRR, frozen. |
 | jointC_concat | ok | pilotC_swap | frz 2.25 | frz 0.075 | frz 1.46 |  |  | Pilot C spectral + spatial concatenated, frozen. |
 | jointC_spec_on_spatial | ok | pilotC_swap | frz 2.91 | frz 0.075 | frz 1.81 |  |  | Leakage probe: Pilot C spectral encoder on the spatial tasks. |

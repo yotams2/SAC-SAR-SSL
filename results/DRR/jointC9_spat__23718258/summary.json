@@ -1,0 +1,32 @@
+{
+  "task": "DRR",
+  "experiment": "jointC9_spat",
+  "model": "upstream ssamba_spatial\nssamba_ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC_swap/spat_encoder_best.pth\nfill none\ntoken all\ninput ipd\npatch 16x16\nstem False\nnframes None",
+  "job_id": "23718258",
+  "status": "done",
+  "date": "2026-11-21T22:30:27+02:00",
+  "collected_at": "2026-11-21T22:30:28+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/DRR/jointC9_spat",
+  "metrics": {
+    "lineareval": {
+      "lowest": 1.4238425493240356,
+      "mean": 1.4238425493240356,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 1.0963103771209717,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 1.4238425493240356,
+          "loss_test": 3.2292252802848815
+        }
+      ]
+    }
+  }
+}
