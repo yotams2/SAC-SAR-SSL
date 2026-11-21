@@ -1,0 +1,32 @@
+{
+  "task": "TDOA",
+  "experiment": "jointC9_spec_on_spatial",
+  "model": "upstream joint\nmode spec\nckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC_swap/spec_encoder_best.pth",
+  "job_id": "23718262",
+  "status": "done",
+  "date": "2026-11-21T22:25:29+02:00",
+  "collected_at": "2026-11-21T22:25:31+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/jointC9_spec_on_spatial",
+  "metrics": {
+    "lineareval": {
+      "lowest": 2.9172849655151367,
+      "mean": 2.9172849655151367,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 2.138861894607544,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 2.9172849655151367,
+          "loss_test": 13.08527481842041
+        }
+      ]
+    }
+  }
+}

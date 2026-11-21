@@ -25,6 +25,7 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointC9_spec_on_spatial | ok | pilotC_swap | frz 2.92 |  |  |  |  | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spectral encoder on the spatial tasks. |
 | jointC9_spat | ok | pilotC_swap | frz 2.39 | frz 0.071 |  |  |  | Pilot C seed 1 at EPOCH 9 (best checkpoint, before the step-3690 loss spike): spatial encoder alone, frozen. |
 | random_spec_on_spatial | ok | random init |  | frz 0.198 | frz 2.63 |  |  | Leakage baseline (check 2): random-init spectral encoder (Pilot A's input stats) on T60/DRR, frozen. |
 | jointC_concat | ok | pilotC_swap | frz 2.25 | frz 0.075 | frz 1.46 |  |  | Pilot C spectral + spatial concatenated, frozen. |
@@ -74,8 +75,10 @@ kept for the record, not for comparison.
 | jointB_fusion_on_probe | ok | pilotB_fusion | 16.4 | 15.7 | Pilot B, fusion on, on SC2/SID. |
 | jointB_spec_off_probe | ok | pilotB_fusion | 13.5 | 29.7 | Pilot B, fusion off, on SC2/SID. |
 | jointC9_concat_probe | ok | pilotC_swap | 19.0 | 21.0 | Pilot C seed 1 at epoch 9 (pre-spike): concat on SC2/SID (SID with concat unreliable). |
+| jointC9_spat_probe | ok | pilotC_swap | 12.3 | 4.4 | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spatial encoder on SC2/SID. |
 | jointC9_spec_probe | ok | pilotC_swap | 20.3 | 43.4 | Pilot C seed 1 at epoch 9 (pre-spike): spectral encoder on SC2/SID. |
 | jointC_concat_probe | ok | pilotC_swap | 17.9 | 19.1 | Pilot C concat on SC2/SID (SID with concat unreliable). |
+| jointC_ep2_spat_probe | ok | pilotC_swap | 7.5 | 3.6 | Early read: Pilot C seed 1 at epoch 2, spatial encoder on SC2/SID (leakage), for the C2 comparison. |
 | jointC_spat_probe | ok | pilotC_swap | 9.6 | 3.9 | Leakage probe: Pilot C spatial encoder on SC2/SID. |
 | jointC_spec_probe | ok | pilotC_swap | 20.9 | 43.8 | Pilot C spectral encoder on SC2/SID. |
 | mono_on_binaural_2026-11-17_bin_left | ok | sac-ssamba amba_seed1:final | 24.4 | 38.9 | Mono amba s1 on binaural SC2/SID, left channel. |
