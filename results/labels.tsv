@@ -9,7 +9,7 @@ sacform_sig10	-	ok	SAC-form side track: SigLIP-style sigmoid SAC (learnable scal
 pilotA_spec	-	ok	Pilot A spectral encoder alone: 128-mel log-mel of the mid channel (shared SAR-SSL STFT), MPG+MPC, 10 ep.
 pilotA_spat	-	ok	Pilot A spatial encoder alone: ipd16 on the shared STFT, column masking, MPG+MPC, 10 ep.
 pilotB_fusion	-	ok	Pilot B: both streams trained jointly with cross-stream fusion, 10 ep.
-pilotC_swap	-	ok	Pilot C: A's two encoders + decoder rebuilding the target clip's ipd16 from (same utterance, other scene) -> spectral and (same scene, other utterance) -> spatial; own losses at 0.1x; paired 12.5k-scene set.
+pilotC_swap	-	ok	Pilot C seed 1: A's two encoders + decoder rebuilding the target clip's ipd16 from (same utterance, other scene) -> spectral and (same scene, other utterance) -> spatial; own losses at 0.1x; paired 12.5k-scene set. NOTE: its validation curves used RANDOM pairing (new partners every pass, reset by the epoch-10 resume), so they are not comparable with C2 and later runs (fixed pairing).
 # ---- spatial evals (SAR-SSL tasks)
 pre_nosac_ep10	ipd16_nosac	ok	ipd16_nosac at epoch 10 (snapshot of the 30-ep run).
 pre_sac_ep10	ipd16_sac	ok	ipd16_sac at epoch 10 (snapshot of the 30-ep run). The in-batch SAC reference for the sacform runs.
@@ -56,3 +56,21 @@ mono_on_binaural_2026-11-17_binmodel	-	ok	Binaural spectral_only_logmel encoder 
 jointC_spec_probe	-	ok	Pilot C spectral encoder on SC2/SID.
 jointC_spat_probe	-	ok	Leakage probe: Pilot C spatial encoder on SC2/SID.
 jointC_concat_probe	-	ok	Pilot C concat on SC2/SID (SID with concat unreliable).
+pilotC_swap_s2	-	ok	Pilot C seed 2 (same config, --seed 2; fixed validation pairing).
+pilotC2_ctr	-	ok	C2 = Pilot C + exact-pair InfoNCE per encoder on mean-pooled tokens (no projection head; weight 1, temp 0.1; hard negatives = factor-swapped partners, no gradient; fixed validation pairing).
+pilotA_spat_paired	-	ok	Control: Pilot A spatial recipe (own MPG/MPC, column masking 7/16, 10 ep) on the paired set (C's 12k training scenes; val = C's last 500 scenes). = C without the swap gradient to the spatial encoder.
+jointC2_spat	-	ok	C2 spatial encoder alone, frozen.
+jointC2_concat	-	ok	C2 spectral + spatial concatenated, frozen.
+jointC2_spec_on_spatial	-	ok	Leakage probe: C2 spectral encoder on the spatial tasks.
+jointC2_spec_probe	-	ok	C2 spectral encoder on SC2/SID.
+jointC2_spat_probe	-	ok	Leakage probe: C2 spatial encoder on SC2/SID.
+jointC2_concat_probe	-	ok	C2 concat on SC2/SID (SID with concat unreliable).
+jointCs2_spat	-	ok	C seed 2 spatial encoder alone, frozen.
+jointCs2_concat	-	ok	C seed 2 concat, frozen.
+jointCs2_spec_on_spatial	-	ok	Leakage probe: C seed 2 spectral encoder on the spatial tasks.
+jointCs2_spec_probe	-	ok	C seed 2 spectral encoder on SC2/SID.
+jointCs2_spat_probe	-	ok	Leakage probe: C seed 2 spatial encoder on SC2/SID.
+jointCs2_concat_probe	-	ok	C seed 2 concat on SC2/SID (SID with concat unreliable).
+jointAp_spat	-	ok	Paired-set A spatial control, frozen on the spatial tasks.
+jointAp_spat_probe	-	ok	Leakage probe: paired-set A spatial control on SC2/SID.
+random_spec_on_spatial	random init	ok	Leakage baseline (check 2): random-init spectral encoder (Pilot A's input stats) on T60/DRR, frozen.
