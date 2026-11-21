@@ -84,4 +84,4 @@ jointC_ep2_spat_probe	-	ok	Early read: Pilot C seed 1 at epoch 2, spatial encode
 jointC_ep2_spec_on_spatial	pilotC_swap	ok	Early read: Pilot C seed 1 at epoch 2, spectral encoder on T60 (leakage), for the C2 comparison.
 jointC2_ep2_spat_probe	-	ok	Early read: C2 at epoch 2, spatial encoder on SC2/SID (leakage).
 jointC2_ep2_spec_on_spatial	pilotC2_ctr	ok	Early read: C2 at epoch 2, spectral encoder on T60 (leakage).
-pilotC2b_align	-	ok	C2b (if C2's leakage isn't moving): C2 + alignment 1 - cos(anchor, positive) per encoder (weight 1) + --grad-clip.
+pilotC2b_align	-	ok	C2b (if C2's leakage isn't moving): C2 + alignment 1 - cos(anchor, positive) per encoder (weight 1) + clipping at 3x the running median of the previous 200 gradient norms.
