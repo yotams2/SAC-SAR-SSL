@@ -74,3 +74,14 @@ jointCs2_concat_probe	-	ok	C seed 2 concat on SC2/SID (SID with concat unreliabl
 jointAp_spat	-	ok	Paired-set A spatial control, frozen on the spatial tasks.
 jointAp_spat_probe	-	ok	Leakage probe: paired-set A spatial control on SC2/SID.
 random_spec_on_spatial	random init	ok	Leakage baseline (check 2): random-init spectral encoder (Pilot A's input stats) on T60/DRR, frozen.
+jointC9_spat	pilotC_swap	ok	Pilot C seed 1 at EPOCH 9 (best checkpoint, before the step-3690 loss spike): spatial encoder alone, frozen.
+jointC9_concat	pilotC_swap	ok	Pilot C seed 1 at epoch 9 (pre-spike): concat, frozen.
+jointC9_spec_on_spatial	pilotC_swap	ok	Pilot C seed 1 at epoch 9 (pre-spike): leakage, spectral encoder on the spatial tasks.
+jointC9_spec_probe	-	ok	Pilot C seed 1 at epoch 9 (pre-spike): spectral encoder on SC2/SID.
+jointC9_spat_probe	-	ok	Pilot C seed 1 at epoch 9 (pre-spike): leakage, spatial encoder on SC2/SID.
+jointC9_concat_probe	-	ok	Pilot C seed 1 at epoch 9 (pre-spike): concat on SC2/SID (SID with concat unreliable).
+jointC_ep2_spat_probe	-	ok	Early read: Pilot C seed 1 at epoch 2, spatial encoder on SC2/SID (leakage), for the C2 comparison.
+jointC_ep2_spec_on_spatial	pilotC_swap	ok	Early read: Pilot C seed 1 at epoch 2, spectral encoder on T60 (leakage), for the C2 comparison.
+jointC2_ep2_spat_probe	-	ok	Early read: C2 at epoch 2, spatial encoder on SC2/SID (leakage).
+jointC2_ep2_spec_on_spatial	pilotC2_ctr	ok	Early read: C2 at epoch 2, spectral encoder on T60 (leakage).
+pilotC2b_align	-	ok	C2b (if C2's leakage isn't moving): C2 + alignment 1 - cos(anchor, positive) per encoder (weight 1) + --grad-clip.
