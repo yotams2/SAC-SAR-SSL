@@ -25,6 +25,7 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointC9_concat | ok | pilotC_swap | frz 2.39 |  |  |  |  | Pilot C seed 1 at epoch 9 (pre-spike): concat, frozen. |
 | jointC_ep2_spec_on_spatial | ok | pilotC_swap |  | frz 0.109 |  |  |  | Early read: Pilot C seed 1 at epoch 2, spectral encoder on T60 (leakage), for the C2 comparison. |
 | jointC9_spat | ok | pilotC_swap | frz 2.39 | frz 0.071 | frz 1.42 |  |  | Pilot C seed 1 at EPOCH 9 (best checkpoint, before the step-3690 loss spike): spatial encoder alone, frozen. |
 | jointC9_spec_on_spatial | ok | pilotC_swap | frz 2.92 |  |  |  |  | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spectral encoder on the spatial tasks. |
