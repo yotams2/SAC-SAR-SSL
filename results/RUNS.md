@@ -25,6 +25,7 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointC2_ep5_spat | ok | pilotC2_ctr | frz 1.20 |  |  |  |  | Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spatial encoder alone, frozen. Does dropping the wrong factor cost own tasks? |
 | jointAp_spat | ok | pilotA_spat_paired | frz 2.46 | frz 0.093 | frz 2.44 |  |  | Paired-set A spatial control (data-only control: C's gain is from the swap objective), frozen on the spatial tasks. |
 | jointC2_ep2_spec_on_spatial | ok | pilotC2_ctr |  | frz 0.205 |  |  |  | Early read: C2 at epoch 2, spectral encoder on T60 (leakage). |
 | jointC9_concat | ok | pilotC_swap | frz 2.39 | frz 0.069 | frz 1.44 |  |  | Pilot C seed 1 at epoch 9 (pre-spike): concat, frozen. |
@@ -80,11 +81,13 @@ kept for the record, not for comparison.
 | jointB_fusion_on_probe | ok | pilotB_fusion | 16.4 | 15.7 | Pilot B, fusion on, on SC2/SID. |
 | jointB_spec_off_probe | ok | pilotB_fusion | 13.5 | 29.7 | Pilot B, fusion off, on SC2/SID. |
 | jointC2_ep2_spat_probe | ok | pilotC2_ctr | 4.8 | 0.4 | Early read: C2 at epoch 2, spatial encoder on SC2/SID (leakage). |
+| jointC2_ep5_spec_probe | ok | pilotC2_ctr | 24.4 | 26.4 | Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spectral encoder on SC2/SID. |
 | jointC9_concat_probe | ok | pilotC_swap | 19.0 | 21.0 | Pilot C seed 1 at epoch 9 (pre-spike): concat on SC2/SID (SID with concat unreliable). |
 | jointC9_spat_probe | ok | pilotC_swap | 12.3 | 4.4 | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spatial encoder on SC2/SID. |
 | jointC9_spec_probe | ok | pilotC_swap | 20.3 | 43.4 | Pilot C seed 1 at epoch 9 (pre-spike): spectral encoder on SC2/SID. |
 | jointC_concat_probe | ok | pilotC_swap | 17.9 | 19.1 | Pilot C concat on SC2/SID (SID with concat unreliable). |
 | jointC_ep2_spat_probe | ok | pilotC_swap | 7.5 | 3.6 | Early read: Pilot C seed 1 at epoch 2, spatial encoder on SC2/SID (leakage), for the C2 comparison. |
+| jointC_ep5_spec_probe | ok | pilotC_swap | 18.4 | 41.4 | Own-task read (11-22): Pilot C seed 1 at epoch 5, spectral encoder on SC2/SID (same-epoch comparison for C2). |
 | jointC_spat_probe | ok | pilotC_swap | 9.6 | 3.9 | Leakage probe: Pilot C spatial encoder on SC2/SID. |
 | jointC_spec_probe | ok | pilotC_swap | 20.9 | 43.8 | Pilot C spectral encoder on SC2/SID. |
 | mono_on_binaural_2026-11-17_bin_left | ok | sac-ssamba amba_seed1:final | 24.4 | 38.9 | Mono amba s1 on binaural SC2/SID, left channel. |
