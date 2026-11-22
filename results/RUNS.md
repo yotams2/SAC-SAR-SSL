@@ -26,9 +26,9 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointC2_spat | ok | pilotC2_ctr | frz 1.24 | frz 0.100 |  |  |  | C2 spatial encoder alone, frozen. |
 | jointC2_spec_on_spatial | ok | pilotC2_ctr | frz 2.91 | frz 0.196 |  |  |  | Leakage probe: C2 spectral encoder on the spatial tasks. |
 | jointC2_concat | ok | pilotC2_ctr | frz 1.30 |  |  |  |  | C2 spectral + spatial concatenated, frozen. |
-| jointC2_spat | ok | pilotC2_ctr | frz 1.24 |  |  |  |  | C2 spatial encoder alone, frozen. |
 | jointCs2_concat | ok | pilotC_swap_s2 | frz 2.49 | frz 0.063 | frz 1.36 |  |  | C seed 2 concat, frozen. |
 | jointCs2_spat | ok | pilotC_swap_s2 | frz 2.38 | frz 0.063 | frz 1.41 |  |  | C seed 2 spatial encoder alone, frozen. |
 | jointCs2_spec_on_spatial | ok | pilotC_swap_s2 | frz 2.92 | frz 0.070 | frz 1.78 |  |  | Leakage probe: C seed 2 spectral encoder on the spatial tasks. |
