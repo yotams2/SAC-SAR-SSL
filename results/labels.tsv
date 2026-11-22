@@ -58,7 +58,7 @@ jointC_spat_probe	-	ok	Leakage probe: Pilot C spatial encoder on SC2/SID.
 jointC_concat_probe	-	ok	Pilot C concat on SC2/SID (SID with concat unreliable).
 pilotC_swap_s2	-	ok	Pilot C seed 2 (same config, --seed 2; fixed validation pairing).
 pilotC2_ctr	-	ok	C2 = Pilot C + exact-pair InfoNCE per encoder on mean-pooled tokens (no projection head; weight 1, temp 0.1; hard negatives = factor-swapped partners, no gradient; fixed validation pairing).
-pilotA_spat_paired	-	ok	Control: Pilot A spatial recipe (own MPG/MPC, column masking 7/16, 10 ep) on the paired set (C's 12k training scenes; val = C's last 500 scenes). = C without the swap gradient to the spatial encoder.
+pilotA_spat_paired	-	ok	Control: Pilot A spatial recipe (own MPG/MPC, column masking 7/16, 10 ep) on the paired set (C's 12k training scenes; val = C's last 500 scenes). = C without the swap gradient to the spatial encoder. DATA-ONLY CONTROL for Pilot C: frozen TDOA/T60/DRR 2.46/0.093/2.44 vs C 2.23/0.076/1.55 (A 2.57/0.084/2.32), so C's gain is from the swap objective, not the paired data.
 jointC2_spat	-	ok	C2 spatial encoder alone, frozen.
 jointC2_concat	-	ok	C2 spectral + spatial concatenated, frozen.
 jointC2_spec_on_spatial	-	ok	Leakage probe: C2 spectral encoder on the spatial tasks.
@@ -71,8 +71,8 @@ jointCs2_spec_on_spatial	-	ok	Leakage probe: C seed 2 spectral encoder on the sp
 jointCs2_spec_probe	-	ok	C seed 2 spectral encoder on SC2/SID.
 jointCs2_spat_probe	-	ok	Leakage probe: C seed 2 spatial encoder on SC2/SID.
 jointCs2_concat_probe	-	ok	C seed 2 concat on SC2/SID (SID with concat unreliable).
-jointAp_spat	-	ok	Paired-set A spatial control, frozen on the spatial tasks.
-jointAp_spat_probe	-	ok	Leakage probe: paired-set A spatial control on SC2/SID.
+jointAp_spat	-	ok	Paired-set A spatial control (data-only control: C's gain is from the swap objective), frozen on the spatial tasks.
+jointAp_spat_probe	-	ok	Leakage probe: paired-set A spatial control (data-only control for C) on SC2/SID.
 random_spec_on_spatial	random init	ok	Leakage baseline (check 2): random-init spectral encoder (Pilot A's input stats) on T60/DRR, frozen.
 jointC9_spat	pilotC_swap	ok	Pilot C seed 1 at EPOCH 9 (best checkpoint, before the step-3690 loss spike): spatial encoder alone, frozen.
 jointC9_concat	pilotC_swap	ok	Pilot C seed 1 at epoch 9 (pre-spike): concat, frozen.
@@ -84,4 +84,8 @@ jointC_ep2_spat_probe	-	ok	Early read: Pilot C seed 1 at epoch 2, spatial encode
 jointC_ep2_spec_on_spatial	pilotC_swap	ok	Early read: Pilot C seed 1 at epoch 2, spectral encoder on T60 (leakage), for the C2 comparison.
 jointC2_ep2_spat_probe	-	ok	Early read: C2 at epoch 2, spatial encoder on SC2/SID (leakage).
 jointC2_ep2_spec_on_spatial	pilotC2_ctr	ok	Early read: C2 at epoch 2, spectral encoder on T60 (leakage).
+jointC2_ep5_spat	pilotC2_ctr	ok	Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spatial encoder alone, frozen. Does dropping the wrong factor cost own tasks?
+jointC2_ep5_spec_probe	-	ok	Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spectral encoder on SC2/SID.
+jointC_ep5_spat	pilotC_swap	ok	Own-task read (11-22): Pilot C seed 1 at epoch 5, spatial encoder alone, frozen (same-epoch comparison for C2).
+jointC_ep5_spec_probe	-	ok	Own-task read (11-22): Pilot C seed 1 at epoch 5, spectral encoder on SC2/SID (same-epoch comparison for C2).
 pilotC2b_align	-	ok	C2b (if C2's leakage isn't moving): C2 + alignment 1 - cos(anchor, positive) per encoder (weight 1) + clipping at 3x the running median of the previous 200 gradient norms.
