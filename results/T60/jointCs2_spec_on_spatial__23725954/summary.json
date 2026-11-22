@@ -1,0 +1,32 @@
+{
+  "task": "T60",
+  "experiment": "jointCs2_spec_on_spatial",
+  "model": "upstream joint\nmode spec\nckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC_swap_s2/spec_encoder_final.pth",
+  "job_id": "23725954",
+  "status": "done",
+  "date": "2026-11-22T14:58:59+02:00",
+  "collected_at": "2026-11-22T14:59:00+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/T60/jointCs2_spec_on_spatial",
+  "metrics": {
+    "lineareval": {
+      "lowest": 0.06982404738664627,
+      "mean": 0.06982404738664627,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 0.056505754590034485,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.06982404738664627,
+          "loss_test": 0.00806829610443674
+        }
+      ]
+    }
+  }
+}
