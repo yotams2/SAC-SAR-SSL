@@ -1,0 +1,32 @@
+{
+  "task": "TDOA",
+  "experiment": "jointC_ep5_spat",
+  "model": "upstream ssamba_spatial\nssamba_ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC_swap/spat_encoder_epoch5.pth\nfill none\ntoken all\ninput ipd\npatch 16x16\nstem False\nnframes None",
+  "job_id": "23721593",
+  "status": "done",
+  "date": "2026-11-22T08:29:59+02:00",
+  "collected_at": "2026-11-22T08:30:00+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/jointC_ep5_spat",
+  "metrics": {
+    "lineareval": {
+      "lowest": 2.426694631576538,
+      "mean": 2.426694631576538,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 2.0217337608337402,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 2.426694631576538,
+          "loss_test": 9.97625348854065
+        }
+      ]
+    }
+  }
+}
