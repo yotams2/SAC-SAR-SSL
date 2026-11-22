@@ -25,7 +25,7 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
-| jointAp_spat | ok | pilotA_spat_paired | frz 2.46 | frz 0.093 |  |  |  | Paired-set A spatial control, frozen on the spatial tasks. |
+| jointAp_spat | ok | pilotA_spat_paired | frz 2.46 | frz 0.093 | frz 2.44 |  |  | Paired-set A spatial control, frozen on the spatial tasks. |
 | jointC2_ep2_spec_on_spatial | ok | pilotC2_ctr |  | frz 0.205 |  |  |  | Early read: C2 at epoch 2, spectral encoder on T60 (leakage). |
 | jointC9_concat | ok | pilotC_swap | frz 2.39 | frz 0.069 | frz 1.44 |  |  | Pilot C seed 1 at epoch 9 (pre-spike): concat, frozen. |
 | jointC9_spec_on_spatial | ok | pilotC_swap | frz 2.92 | frz 0.084 | frz 1.90 |  |  | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spectral encoder on the spatial tasks. |
