@@ -13,9 +13,10 @@ kept for the record, not for comparison.
 | pilotA_spec | joint | ok | streams=spec, fusion=False, nepoch=10, num_train=50000, seed=1, tar=simu_pretrain.tar | spec_mpg 0.302, spec_mpc 1.320, spec_acc 0.631, loss 4.343 (ep 10.0) | Pilot A spectral encoder alone: 128-mel log-mel of the mid channel (shared SAR-SSL STFT), MPG+MPC, 10 ep. |
 | pilotB_fusion | joint | ok | streams=joint, fusion=True, nepoch=10, num_train=50000, seed=1, tar=simu_pretrain.tar | spec_mpg 0.279, spat_mpg 0.790, spec_mpc 1.232, spec_acc 0.663, spat_mpc 1.430, spat_acc 0.595, loss 13.359 (ep 10.0) | Pilot B: both streams trained jointly with cross-stream fusion, 10 ep. |
 | pilotC2_ctr | joint | ok | nepoch=10, sac_lambda=0.0, swap_lambda=10.0, own_scale=0.1, seed=1, tar=simu_paired_pretrain.tar | spec_mpg 0.369, spat_mpg 0.817, spec_mpc 1.283, spec_acc 0.681, spat_mpc 1.218, spat_acc 0.660, swap_logL 0.256, swap_ILD 0.969, swap_cosIPD 0.518, swap_sinIPD 0.597, swap 0.585, emb_std_spec 0.191, align_spec 0.019, ctr_spec 0.024, ctr_spec_acc 1.000, ctr_spec_hard 1.000, emb_std_spat 0.263, align_spat 0.069, ctr_spat 0.049, ctr_spat_acc 1.000, ctr_spat_hard 1.000, swap_logL_shufspec 1.178, swap_ILD_shufspec 0.989, swap_cosIPD_shufspec 0.595, swap_sinIPD_shufspec 0.657, swap_shufspec 0.854, swap_logL_shufspat 0.266, swap_ILD_shufspat 0.983, swap_cosIPD_shufspat 0.571, swap_sinIPD_shufspat 0.642, swap_shufspat 0.615, loss 7.361 (ep 10.0) | C2 = Pilot C + exact-pair InfoNCE per encoder on mean-pooled tokens (no projection head; weight 1, temp 0.1; hard negatives = factor-swapped partners, no gradient; fixed validation pairing). |
+| pilotC2_ctr_s2 | joint | ok, running | nepoch=10, sac_lambda=0.0, swap_lambda=10.0, own_scale=0.1, seed=2, tar=simu_paired_pretrain.tar |  (ep None) | Pilot C2 seed 2 (agreed 11-22): C2 seed 1's config (--ctr-lambda 1 --ctr-temp 0.1, no grad clip, fixed val pairs), --seed 2. Replicates C2's TDOA. |
 | pilotC_swap | joint | ok | nepoch=10, swap_lambda=10.0, own_scale=0.1, seed=1, tar=simu_paired_pretrain.tar | spec_mpg 0.365, spat_mpg 0.819, spec_mpc 1.244, spec_acc 0.686, spat_mpc 1.233, spat_acc 0.661, swap_logL 0.283, swap_ILD 0.995, swap_cosIPD 0.565, swap_sinIPD 0.640, swap 0.621, swap_logL_shufspec 1.172, swap_ILD_shufspec 0.996, swap_cosIPD_shufspec 0.604, swap_sinIPD_shufspec 0.669, swap_shufspec 0.860, swap_logL_shufspat 0.289, swap_ILD_shufspat 0.998, swap_cosIPD_shufspat 0.599, swap_sinIPD_shufspat 0.665, swap_shufspat 0.638, loss 7.638 (ep 10.0) | Pilot C seed 1: A's two encoders + decoder rebuilding the target clip's ipd16 from (same utterance, other scene) -> spectral and (same scene, other utterance) -> spatial; own losses at 0.1x; paired 12.5k-scene set. NOTE: its validation curves used RANDOM pairing (new partners every pass, reset by the epoch-10 resume), so they are not comparable with C2 and later runs (fixed pairing). |
 | pilotC_swap_s2 | joint | ok | nepoch=10, sac_lambda=0.0, swap_lambda=10.0, own_scale=0.1, seed=2, tar=simu_paired_pretrain.tar | spec_mpg 0.368, spat_mpg 0.812, spec_mpc 1.253, spec_acc 0.688, spat_mpc 1.142, spat_acc 0.686, swap_logL 0.255, swap_ILD 0.966, swap_cosIPD 0.515, swap_sinIPD 0.594, swap 0.583, swap_logL_shufspec 1.190, swap_ILD_shufspec 0.989, swap_cosIPD_shufspec 0.592, swap_sinIPD_shufspec 0.658, swap_shufspec 0.857, swap_logL_shufspat 0.265, swap_ILD_shufspat 0.980, swap_cosIPD_shufspat 0.571, swap_sinIPD_shufspat 0.640, swap_shufspat 0.614, loss 7.247 (ep 10.0) | Pilot C seed 2 (same config, --seed 2; fixed validation pairing). |
-| pilotCsac | joint | ok, running | nepoch=10, sac_lambda=0.02, swap_lambda=10.0, own_scale=0.1, seed=1, tar=simu_paired_pretrain.tar | spec_mpg 0.428, spat_mpg 0.844, spec_mpc 1.740, spec_acc 0.553, spat_mpc 1.825, spat_acc 0.468, swap_logL 0.600, swap_ILD 1.001, swap_cosIPD 0.587, swap_sinIPD 0.664, swap 0.713, sac 4.349, swap_logL_shufspec 0.838, swap_ILD_shufspec 1.001, swap_cosIPD_shufspec 0.587, swap_sinIPD_shufspec 0.664, swap_shufspec 0.772, swap_logL_shufspat 0.601, swap_ILD_shufspat 1.001, swap_cosIPD_shufspat 0.614, swap_sinIPD_shufspat 0.678, swap_shufspat 0.723, loss 8.846 (ep 1.0) | C + SAC (agreed 11-22): Pilot C (base C: C2 was worse on T60/DRR at epoch 5) + in-batch SAC on the spatial encoder only (lambda 0.02, 5 SAR-SSL spatial features, as ipd16_sac), running-median grad clip (3x, 200 steps), fixed val pairs. Does SAC add on top of the swap? |
+| pilotCsac | joint | ok, running | nepoch=10, sac_lambda=0.02, swap_lambda=10.0, own_scale=0.1, seed=1, tar=simu_paired_pretrain.tar | spec_mpg 0.373, spat_mpg 0.816, spec_mpc 1.292, spec_acc 0.673, spat_mpc 1.225, spat_acc 0.661, swap_logL 0.263, swap_ILD 0.971, swap_cosIPD 0.522, swap_sinIPD 0.600, swap 0.589, sac 4.284, swap_logL_shufspec 1.147, swap_ILD_shufspec 0.987, swap_cosIPD_shufspec 0.587, swap_sinIPD_shufspec 0.654, swap_shufspec 0.844, swap_logL_shufspat 0.271, swap_ILD_shufspat 0.984, swap_cosIPD_shufspat 0.575, swap_sinIPD_shufspat 0.643, swap_shufspat 0.618, loss 7.415 (ep 7.0) | C + SAC (agreed 11-22): Pilot C (base C: C2 was worse on T60/DRR at epoch 5) + in-batch SAC on the spatial encoder only (lambda 0.02, 5 SAR-SSL spatial features, as ipd16_sac), running-median grad clip (3x, 200 steps), fixed val pairs. Does SAC add on top of the swap? |
 | ipd16_nosac | ssamba | ok | nepoch=30, num_train=50000, sac_lambda=0.0, seed=1, tar=simu_pretrain.tar | mpg 0.795, acc 0.605, mpc 1.534, loss 9.484 (ep 30.0) | SSAMBA spatial encoder on ipd16 (logL, ILD, cos/sin IPD), MPG+MPC only, 30 ep. The no-SAC arm. |
 | ipd16_sac | ssamba | ok | nepoch=30, num_train=50000, sac_lambda=0.02, seed=1, tar=simu_pretrain.tar | mpg 0.795, acc 0.600, mpc 1.553, sac 4.155, loss 9.588 (ep 30.0) | Same as ipd16_nosac + in-batch CWCL SAC (lambda 0.02, spatial cues). The SAC arm. |
 | sacform_cwcl10 | ssamba | ok | nepoch=10, num_train=50000, sac_lambda=0.02, sac_form=cwcl, seed=1, tar=simu_pretrain.tar | mpg 0.801, acc 0.532, mpc 1.765, sac 4.176, loss 9.861 (ep 10.0) | In-batch SAC rerun, final (10 ep). Compare with pre_sac_ep10: same loss, new code. |
@@ -26,22 +27,23 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
-| jointC2_concat | ok | pilotC2_ctr | frz 1.30 | frz 0.116 | frz 1.69 |  |  | C2 spectral + spatial concatenated, frozen. |
+| jointC_concat_ps | ok | pilotC_swap | frz 2.29 |  |  |  |  | C concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
+| jointC2_concat | ok | pilotC2_ctr | frz 1.30 | frz 0.116 | frz 1.69 |  |  | C2 spectral + spatial concatenated, frozen. PROVISIONAL: concat probe under check (11-23). |
 | jointC2_spat | ok | pilotC2_ctr | frz 1.24 | frz 0.100 | frz 1.60 |  |  | C2 spatial encoder alone, frozen. |
 | jointC2_spec_on_spatial | ok | pilotC2_ctr | frz 2.91 | frz 0.196 | frz 2.73 |  |  | Leakage probe: C2 spectral encoder on the spatial tasks. |
-| jointCs2_concat | ok | pilotC_swap_s2 | frz 2.49 | frz 0.063 | frz 1.36 |  |  | C seed 2 concat, frozen. |
+| jointCs2_concat | ok | pilotC_swap_s2 | frz 2.49 | frz 0.063 | frz 1.36 |  |  | C seed 2 concat, frozen. PROVISIONAL: concat probe under check (11-23). |
 | jointCs2_spat | ok | pilotC_swap_s2 | frz 2.38 | frz 0.063 | frz 1.41 |  |  | C seed 2 spatial encoder alone, frozen. |
 | jointCs2_spec_on_spatial | ok | pilotC_swap_s2 | frz 2.92 | frz 0.070 | frz 1.78 |  |  | Leakage probe: C seed 2 spectral encoder on the spatial tasks. |
 | jointC_ep5_spat | ok | pilotC_swap | frz 2.43 | frz 0.069 | frz 1.56 |  |  | Own-task read (11-22): Pilot C seed 1 at epoch 5, spatial encoder alone, frozen (same-epoch comparison for C2). |
 | jointC2_ep5_spat | ok | pilotC2_ctr | frz 1.20 | frz 0.110 | frz 1.72 |  |  | Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spatial encoder alone, frozen. Does dropping the wrong factor cost own tasks? |
 | jointAp_spat | ok | pilotA_spat_paired | frz 2.46 | frz 0.093 | frz 2.44 |  |  | Paired-set A spatial control (data-only control: C's gain is from the swap objective), frozen on the spatial tasks. |
 | jointC2_ep2_spec_on_spatial | ok | pilotC2_ctr |  | frz 0.205 |  |  |  | Early read: C2 at epoch 2, spectral encoder on T60 (leakage). |
-| jointC9_concat | ok | pilotC_swap | frz 2.39 | frz 0.069 | frz 1.44 |  |  | Pilot C seed 1 at epoch 9 (pre-spike): concat, frozen. |
+| jointC9_concat | ok | pilotC_swap | frz 2.39 | frz 0.069 | frz 1.44 |  |  | Pilot C seed 1 at epoch 9 (pre-spike): concat, frozen. PROVISIONAL: concat probe under check (11-23). |
 | jointC9_spec_on_spatial | ok | pilotC_swap | frz 2.92 | frz 0.084 | frz 1.90 |  |  | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spectral encoder on the spatial tasks. |
 | jointC_ep2_spec_on_spatial | ok | pilotC_swap |  | frz 0.109 |  |  |  | Early read: Pilot C seed 1 at epoch 2, spectral encoder on T60 (leakage), for the C2 comparison. |
 | jointC9_spat | ok | pilotC_swap | frz 2.39 | frz 0.071 | frz 1.42 |  |  | Pilot C seed 1 at EPOCH 9 (best checkpoint, before the step-3690 loss spike): spatial encoder alone, frozen. |
 | random_spec_on_spatial | ok | random init |  | frz 0.198 | frz 2.63 |  |  | Leakage baseline (check 2): random-init spectral encoder (Pilot A's input stats) on T60/DRR, frozen. |
-| jointC_concat | ok | pilotC_swap | frz 2.25 | frz 0.075 | frz 1.46 |  |  | Pilot C spectral + spatial concatenated, frozen. |
+| jointC_concat | ok | pilotC_swap | frz 2.25 | frz 0.075 | frz 1.46 |  |  | Pilot C spectral + spatial concatenated, frozen. PROVISIONAL: concat probe under check (11-23). |
 | jointC_spec_on_spatial | ok | pilotC_swap | frz 2.91 | frz 0.075 | frz 1.81 |  |  | Leakage probe: Pilot C spectral encoder on the spatial tasks. |
 | jointC_spat | ok | pilotC_swap | frz 2.23 | frz 0.076 | frz 1.55 |  |  | Pilot C spatial encoder alone, frozen. |
 | sacform_sig10 | ok | sacform_sig10 | ft 0.529 / frz 2.26 | ft 0.066 / frz 0.068 |  |  |  | Sigmoid SAC, final (10 ep). |
@@ -50,7 +52,7 @@ kept for the record, not for comparison.
 | jointA_spec_on_spatial | ok | pilotA_spec | frz 2.94 | frz 0.099 | frz 2.33 |  |  | Leakage probe: Pilot A spectral encoder alone on the spatial tasks (should be near chance). |
 | jointB_fusion_on | ok | pilotB_fusion | frz 2.55 | frz 0.061 | frz 1.95 |  |  | Pilot B checkpoint, fusion on at eval, frozen. |
 | jointB_spat_off | ok | pilotB_fusion | frz 2.53 | frz 0.082 | frz 2.33 |  |  | Pilot B checkpoint, fusion off at eval (streams encoded separately, concatenated), frozen. |
-| jointA_concat | ok | pilotA_spec+pilotA_spat | frz 2.57 | frz 0.066 | frz 2.07 |  |  | Pilot A spectral + spatial encoders, embeddings concatenated, frozen. The go/no-go baseline. |
+| jointA_concat | ok | pilotA_spec+pilotA_spat | frz 2.57 | frz 0.066 | frz 2.07 |  |  | Pilot A spectral + spatial encoders, embeddings concatenated, frozen. The go/no-go baseline. PROVISIONAL: concat probe under check (11-23). |
 | jointA_spat | ok | pilotA_spat | frz 2.57 | frz 0.084 | frz 2.32 |  |  | Pilot A spatial encoder alone, frozen. |
 | pre_sac_final | ok | ipd16_sac | ft 0.230 / frz 1.31 | ft 0.049 / frz 0.047 | ft 1.58 / frz 1.57 (n=2) | ft 0.63 / frz 0.39 | ft 0.05 / frz 0.05 | ipd16_sac final (30 ep). |
 | ctrl_ipd16_n256 | ok | random init | scr 1.04 | scr 0.133 | scr 2.17 (n=2) | scr 1.08 | scr 0.06 | Random-init ipd16 SSAMBA, 256 frames, trained from scratch (scratchLOW): the no-pretraining control. |
@@ -77,7 +79,7 @@ kept for the record, not for comparison.
 | ipd16_probe_2026-11-17 | ok | ipd16_nosac | 19.1 | 15.7 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
 | ipd16_probe_2026-11-17 | ok | random init | 3.1 | 9.1 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
 | ipd16_probe_2026-11-17 | ok | gramt | 71.2 | 62.4 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
-| jointA_concat_probe | ok | pilotA_spec+pilotA_spat | 14.0 | 18.9 | Pilot A concat on SC2/SID (SID with 16 rows of concat is unreliable). |
+| jointA_concat_probe | ok | pilotA_spec+pilotA_spat | 14.0 | 18.9 | Pilot A concat on SC2/SID (SID with 16 rows of concat is unreliable). PROVISIONAL: concat probe under check (11-23). |
 | jointA_spat_probe | ok | pilotA_spat | 10.9 | 8.5 | Leakage probe: Pilot A spatial encoder on SC2/SID (random ipd16 = 3.1 / 9.1). |
 | jointA_spat_probe_2026-11-18_VOID_flippair_bug | void | pilotA_spat | 5.9 | 1.8 | Void: flip-pair layer-order bug (fixed 11-18). |
 | jointA_spec_probe | ok | pilotA_spec | 14.8 | 34.0 | Pilot A spectral encoder on SC2/SID (+ random-init row). |
@@ -88,20 +90,20 @@ kept for the record, not for comparison.
 | jointAp_spat_probe | ok | pilotA_spat_paired | 9.7 | 8.1 | Leakage probe: paired-set A spatial control (data-only control for C) on SC2/SID. |
 | jointB_fusion_on_probe | ok | pilotB_fusion | 16.4 | 15.7 | Pilot B, fusion on, on SC2/SID. |
 | jointB_spec_off_probe | ok | pilotB_fusion | 13.5 | 29.7 | Pilot B, fusion off, on SC2/SID. |
-| jointC2_concat_probe | ok | pilotC2_ctr | 21.1 | 8.7 | C2 concat on SC2/SID (SID with concat unreliable). |
+| jointC2_concat_probe | ok | pilotC2_ctr | 21.1 | 8.7 | C2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
 | jointC2_ep2_spat_probe | ok | pilotC2_ctr | 4.8 | 0.4 | Early read: C2 at epoch 2, spatial encoder on SC2/SID (leakage). |
 | jointC2_ep5_spec_probe | ok | pilotC2_ctr | 24.4 | 26.4 | Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spectral encoder on SC2/SID. |
 | jointC2_spat_probe | ok | pilotC2_ctr | 8.3 | 0.6 | Leakage probe: C2 spatial encoder on SC2/SID. |
 | jointC2_spec_probe | ok | pilotC2_ctr | 26.6 | 26.0 | C2 spectral encoder on SC2/SID. |
-| jointC9_concat_probe | ok | pilotC_swap | 19.0 | 21.0 | Pilot C seed 1 at epoch 9 (pre-spike): concat on SC2/SID (SID with concat unreliable). |
+| jointC9_concat_probe | ok | pilotC_swap | 19.0 | 21.0 | Pilot C seed 1 at epoch 9 (pre-spike): concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
 | jointC9_spat_probe | ok | pilotC_swap | 12.3 | 4.4 | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spatial encoder on SC2/SID. |
 | jointC9_spec_probe | ok | pilotC_swap | 20.3 | 43.4 | Pilot C seed 1 at epoch 9 (pre-spike): spectral encoder on SC2/SID. |
-| jointC_concat_probe | ok | pilotC_swap | 17.9 | 19.1 | Pilot C concat on SC2/SID (SID with concat unreliable). |
+| jointC_concat_probe | ok | pilotC_swap | 17.9 | 19.1 | Pilot C concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
 | jointC_ep2_spat_probe | ok | pilotC_swap | 7.5 | 3.6 | Early read: Pilot C seed 1 at epoch 2, spatial encoder on SC2/SID (leakage), for the C2 comparison. |
 | jointC_ep5_spec_probe | ok | pilotC_swap | 18.4 | 41.4 | Own-task read (11-22): Pilot C seed 1 at epoch 5, spectral encoder on SC2/SID (same-epoch comparison for C2). |
 | jointC_spat_probe | ok | pilotC_swap | 9.6 | 3.9 | Leakage probe: Pilot C spatial encoder on SC2/SID. |
 | jointC_spec_probe | ok | pilotC_swap | 20.9 | 43.8 | Pilot C spectral encoder on SC2/SID. |
-| jointCs2_concat_probe | ok | pilotC_swap_s2 | 19.5 | 22.1 | C seed 2 concat on SC2/SID (SID with concat unreliable). |
+| jointCs2_concat_probe | ok | pilotC_swap_s2 | 19.5 | 22.1 | C seed 2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
 | jointCs2_spat_probe | ok | pilotC_swap_s2 | 11.0 | 4.4 | Leakage probe: C seed 2 spatial encoder on SC2/SID. |
 | jointCs2_spec_probe | ok | pilotC_swap_s2 | 20.9 | 44.5 | C seed 2 spectral encoder on SC2/SID. |
 | mono_on_binaural_2026-11-17_bin_left | ok | sac-ssamba amba_seed1:final | 24.4 | 38.9 | Mono amba s1 on binaural SC2/SID, left channel. |

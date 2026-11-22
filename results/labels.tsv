@@ -20,12 +20,12 @@ sacform_queue10	-	ok	Queue SAC, final (10 ep). Compare with pre_sac_ep10 (in-bat
 sacform_cwcl10	-	ok	In-batch SAC rerun, final (10 ep). Compare with pre_sac_ep10: same loss, new code.
 sacform_sig10	-	ok	Sigmoid SAC, final (10 ep).
 jointA_spat	-	ok	Pilot A spatial encoder alone, frozen.
-jointA_concat	-	ok	Pilot A spectral + spatial encoders, embeddings concatenated, frozen. The go/no-go baseline.
+jointA_concat	-	ok	Pilot A spectral + spatial encoders, embeddings concatenated, frozen. The go/no-go baseline. PROVISIONAL: concat probe under check (11-23).
 jointB_spat_off	-	ok	Pilot B checkpoint, fusion off at eval (streams encoded separately, concatenated), frozen.
 jointB_fusion_on	-	ok	Pilot B checkpoint, fusion on at eval, frozen.
 jointA_spec_on_spatial	-	ok	Leakage probe: Pilot A spectral encoder alone on the spatial tasks (should be near chance).
 jointC_spat	-	ok	Pilot C spatial encoder alone, frozen.
-jointC_concat	-	ok	Pilot C spectral + spatial concatenated, frozen.
+jointC_concat	-	ok	Pilot C spectral + spatial concatenated, frozen. PROVISIONAL: concat probe under check (11-23).
 jointC_spec_on_spatial	-	ok	Leakage probe: Pilot C spectral encoder on the spatial tasks.
 gramt_bf	-	ok	RQ1: GRAM-T binaural-frame (2-ch log-mel magnitude, no phase) on SAR-SSL tasks.
 gramt_smoke	-	smoke	GRAM-T 1-epoch smoke test.
@@ -42,7 +42,7 @@ ssamba_pitchfix_lrsweep	-	old	Binaural sac-ssamba pitchfix encoder (magnitude in
 ipd16_probe_2026-11-17	-	ok	RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID.
 jointA_spec_probe	-	ok	Pilot A spectral encoder on SC2/SID (+ random-init row).
 jointA_spat_probe	-	ok	Leakage probe: Pilot A spatial encoder on SC2/SID (random ipd16 = 3.1 / 9.1).
-jointA_concat_probe	-	ok	Pilot A concat on SC2/SID (SID with 16 rows of concat is unreliable).
+jointA_concat_probe	-	ok	Pilot A concat on SC2/SID (SID with 16 rows of concat is unreliable). PROVISIONAL: concat probe under check (11-23).
 jointB_spec_off_probe	-	ok	Pilot B, fusion off, on SC2/SID.
 jointB_fusion_on_probe	-	ok	Pilot B, fusion on, on SC2/SID.
 jointA_spat_probe_2026-11-18_VOID_flippair_bug	-	void	Void: flip-pair layer-order bug (fixed 11-18).
@@ -55,31 +55,31 @@ mono_on_binaural_2026-11-17_bin_left	-	ok	Mono amba s1 on binaural SC2/SID, left
 mono_on_binaural_2026-11-17_binmodel	-	ok	Binaural spectral_only_logmel encoder on binaural SC2/SID.
 jointC_spec_probe	-	ok	Pilot C spectral encoder on SC2/SID.
 jointC_spat_probe	-	ok	Leakage probe: Pilot C spatial encoder on SC2/SID.
-jointC_concat_probe	-	ok	Pilot C concat on SC2/SID (SID with concat unreliable).
+jointC_concat_probe	-	ok	Pilot C concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23).
 pilotC_swap_s2	-	ok	Pilot C seed 2 (same config, --seed 2; fixed validation pairing).
 pilotC2_ctr	-	ok	C2 = Pilot C + exact-pair InfoNCE per encoder on mean-pooled tokens (no projection head; weight 1, temp 0.1; hard negatives = factor-swapped partners, no gradient; fixed validation pairing).
 pilotA_spat_paired	-	ok	Control: Pilot A spatial recipe (own MPG/MPC, column masking 7/16, 10 ep) on the paired set (C's 12k training scenes; val = C's last 500 scenes). = C without the swap gradient to the spatial encoder. DATA-ONLY CONTROL for Pilot C: frozen TDOA/T60/DRR 2.46/0.093/2.44 vs C 2.23/0.076/1.55 (A 2.57/0.084/2.32), so C's gain is from the swap objective, not the paired data.
 jointC2_spat	-	ok	C2 spatial encoder alone, frozen.
-jointC2_concat	-	ok	C2 spectral + spatial concatenated, frozen.
+jointC2_concat	-	ok	C2 spectral + spatial concatenated, frozen. PROVISIONAL: concat probe under check (11-23).
 jointC2_spec_on_spatial	-	ok	Leakage probe: C2 spectral encoder on the spatial tasks.
 jointC2_spec_probe	-	ok	C2 spectral encoder on SC2/SID.
 jointC2_spat_probe	-	ok	Leakage probe: C2 spatial encoder on SC2/SID.
-jointC2_concat_probe	-	ok	C2 concat on SC2/SID (SID with concat unreliable).
+jointC2_concat_probe	-	ok	C2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23).
 jointCs2_spat	-	ok	C seed 2 spatial encoder alone, frozen.
-jointCs2_concat	-	ok	C seed 2 concat, frozen.
+jointCs2_concat	-	ok	C seed 2 concat, frozen. PROVISIONAL: concat probe under check (11-23).
 jointCs2_spec_on_spatial	-	ok	Leakage probe: C seed 2 spectral encoder on the spatial tasks.
 jointCs2_spec_probe	-	ok	C seed 2 spectral encoder on SC2/SID.
 jointCs2_spat_probe	-	ok	Leakage probe: C seed 2 spatial encoder on SC2/SID.
-jointCs2_concat_probe	-	ok	C seed 2 concat on SC2/SID (SID with concat unreliable).
+jointCs2_concat_probe	-	ok	C seed 2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23).
 jointAp_spat	-	ok	Paired-set A spatial control (data-only control: C's gain is from the swap objective), frozen on the spatial tasks.
 jointAp_spat_probe	-	ok	Leakage probe: paired-set A spatial control (data-only control for C) on SC2/SID.
 random_spec_on_spatial	random init	ok	Leakage baseline (check 2): random-init spectral encoder (Pilot A's input stats) on T60/DRR, frozen.
 jointC9_spat	pilotC_swap	ok	Pilot C seed 1 at EPOCH 9 (best checkpoint, before the step-3690 loss spike): spatial encoder alone, frozen.
-jointC9_concat	pilotC_swap	ok	Pilot C seed 1 at epoch 9 (pre-spike): concat, frozen.
+jointC9_concat	pilotC_swap	ok	Pilot C seed 1 at epoch 9 (pre-spike): concat, frozen. PROVISIONAL: concat probe under check (11-23).
 jointC9_spec_on_spatial	pilotC_swap	ok	Pilot C seed 1 at epoch 9 (pre-spike): leakage, spectral encoder on the spatial tasks.
 jointC9_spec_probe	-	ok	Pilot C seed 1 at epoch 9 (pre-spike): spectral encoder on SC2/SID.
 jointC9_spat_probe	-	ok	Pilot C seed 1 at epoch 9 (pre-spike): leakage, spatial encoder on SC2/SID.
-jointC9_concat_probe	-	ok	Pilot C seed 1 at epoch 9 (pre-spike): concat on SC2/SID (SID with concat unreliable).
+jointC9_concat_probe	-	ok	Pilot C seed 1 at epoch 9 (pre-spike): concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23).
 jointC_ep2_spat_probe	-	ok	Early read: Pilot C seed 1 at epoch 2, spatial encoder on SC2/SID (leakage), for the C2 comparison.
 jointC_ep2_spec_on_spatial	pilotC_swap	ok	Early read: Pilot C seed 1 at epoch 2, spectral encoder on T60 (leakage), for the C2 comparison.
 jointC2_ep2_spat_probe	-	ok	Early read: C2 at epoch 2, spatial encoder on SC2/SID (leakage).
@@ -91,8 +91,19 @@ jointC_ep5_spec_probe	-	ok	Own-task read (11-22): Pilot C seed 1 at epoch 5, spe
 pilotCsac	-	ok	C + SAC (agreed 11-22): Pilot C (base C: C2 was worse on T60/DRR at epoch 5) + in-batch SAC on the spatial encoder only (lambda 0.02, 5 SAR-SSL spatial features, as ipd16_sac), running-median grad clip (3x, 200 steps), fixed val pairs. Does SAC add on top of the swap?
 jointCsac_spat	-	ok	C + SAC spatial encoder alone, frozen.
 jointCsac_spec_probe	-	ok	C + SAC spectral encoder on SC2/SID.
-jointCsac_concat	-	ok	C + SAC concat, frozen.
-jointCsac_concat_probe	-	ok	C + SAC concat on SC2/SID (SID with concat unreliable).
+jointCsac_concat	-	ok	C + SAC concat, frozen. PROVISIONAL: concat probe under check (11-23).
+jointCsac_concat_probe	-	ok	C + SAC concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23).
 jointCsac_spec_on_spatial	pilotCsac	ok	Leakage: C + SAC spectral encoder on the spatial tasks.
 jointCsac_spat_probe	-	ok	Leakage: C + SAC spatial encoder on SC2/SID.
 pilotC2b_align	-	ok	C2b (if C2's leakage isn't moving): C2 + alignment 1 - cos(anchor, positive) per encoder (weight 1) + clipping at 3x the running median of the previous 200 gradient norms.
+pilotC2_ctr_s2	-	ok	Pilot C2 seed 2 (agreed 11-22): C2 seed 1's config (--ctr-lambda 1 --ctr-temp 0.1, no grad clip, fixed val pairs), --seed 2. Replicates C2's TDOA.
+jointC2s2_spat	-	ok	C2 seed 2 spatial encoder alone, frozen.
+jointC2s2_concat	-	ok	C2 seed 2 concat, frozen. PROVISIONAL until the concat probe is checked.
+jointC2s2_spec_on_spatial	-	ok	Leakage probe: C2 seed 2 spectral encoder on the spatial tasks.
+jointC2s2_spec_probe	-	ok	C2 seed 2 spectral encoder on SC2/SID.
+jointC2s2_spat_probe	-	ok	Leakage probe: C2 seed 2 spatial encoder on SC2/SID.
+jointC2s2_concat_probe	-	ok	C2 seed 2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23).
+jointA_concat_ps	-	ok	A concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23.
+jointC_concat_ps	-	ok	C concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23.
+jointC2_concat_ps	-	ok	C2 concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23.
+jointCs2_concat_ps	-	ok	Cs2 concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23.
