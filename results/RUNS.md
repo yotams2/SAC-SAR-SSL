@@ -25,8 +25,8 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointC2_ep5_spat | ok | pilotC2_ctr | frz 1.20 | frz 0.110 |  |  |  | Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spatial encoder alone, frozen. Does dropping the wrong factor cost own tasks? |
 | jointC_ep5_spat | ok | pilotC_swap | frz 2.43 |  |  |  |  | Own-task read (11-22): Pilot C seed 1 at epoch 5, spatial encoder alone, frozen (same-epoch comparison for C2). |
-| jointC2_ep5_spat | ok | pilotC2_ctr | frz 1.20 |  |  |  |  | Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spatial encoder alone, frozen. Does dropping the wrong factor cost own tasks? |
 | jointAp_spat | ok | pilotA_spat_paired | frz 2.46 | frz 0.093 | frz 2.44 |  |  | Paired-set A spatial control (data-only control: C's gain is from the swap objective), frozen on the spatial tasks. |
 | jointC2_ep2_spec_on_spatial | ok | pilotC2_ctr |  | frz 0.205 |  |  |  | Early read: C2 at epoch 2, spectral encoder on T60 (leakage). |
 | jointC9_concat | ok | pilotC_swap | frz 2.39 | frz 0.069 | frz 1.44 |  |  | Pilot C seed 1 at epoch 9 (pre-spike): concat, frozen. |
