@@ -28,7 +28,7 @@ REPO_ROOT=${SLURM_SUBMIT_DIR:-$(pwd)}
 SAC_SSAMBA=${SAC_SSAMBA:-$HOME/sac-ssamba}
 source "${SAC_SSAMBA}/env.sh"
 export SAC_SSAMBA_SRC=${SAC_SSAMBA}/src
-TAR=${SARSSL_DATA_DIR:-/scratch200/yotams2/SAC-SAR-SSL/data}/MicSig/simu_pretrain.tar
+TAR=${JOINT_TAR:-${SARSSL_DATA_DIR:-/scratch200/yotams2/SAC-SAR-SSL/data}/MicSig/simu_pretrain.tar}  # JOINT_TAR: another tar (paired-set control)
 EXP=${SARSSL_EXP_ROOT:-/scratch200/yotams2/SAC-SAR-SSL/exp}/joint_pretrain/${LABEL}
 [ -f "$TAR" ] || { echo "no $TAR: run scripts/stage_simu_pretrain.sbatch first"; exit 1; }
 mkdir -p "$EXP"

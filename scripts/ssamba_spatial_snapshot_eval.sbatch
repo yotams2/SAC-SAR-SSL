@@ -19,7 +19,8 @@
 #   sbatch scripts/ssamba_spatial_snapshot_eval.sbatch <encoder .pth> <label> [modes, default "finetune lineareval"]
 #   random-init control at the same 256-frame setup:
 #   sbatch scripts/ssamba_spatial_snapshot_eval.sbatch random <label> scratchLOW
-#   env EVAL_TASKS="TDOA T60 DRR" picks tasks; EXTRA_ARGS is appended to every run_downstream call.
+#   env EVAL_TASKS="TDOA T60 DRR" picks tasks; EXTRA_ARGS is appended to every run_downstream call;
+#   CLEAN_FROZEN_CKPT=1 deletes the model copies of finished lineareval runs (results kept).
 set -uo pipefail
 CKPT=$1 LABEL=$2
 MODES=(${3:-finetune lineareval})
@@ -35,6 +36,12 @@ for task in "${TASKS[@]}"; do
     echo "===== $(date) ${task} ${mode}"
     bash scripts/ssamba_spatial_downstream.sbatch "$task" "$CKPT" "$LABEL" 8 "$mode" "${COMMON[@]}" \
       || echo "===== ${task} ${mode} FAILED (exit $?)"
+    # CLEAN_FROZEN_CKPT=1: once a frozen (lineareval) result is written, drop its 3 full-model copies per lr
+    # (~0.8 GB each: frozen encoder + linear head; the head retrains in ~1 h). Results/curves are kept.
+    D=${SARSSL_EXP_ROOT:-/scratch200/yotams2/SAC-SAR-SSL/exp}/${task}/${LABEL}
+    if [ -n "${CLEAN_FROZEN_CKPT:-}" ] && [ "$mode" = lineareval ] && [ -f "$D/downstream_test_res_lineareval.json" ]; then
+      find "$D" -path '*lineareval-*' -name '*_model.tar' -delete && echo "===== ${task}: frozen-eval model copies removed"
+    fi
   done
 done
 echo "$(date) all done"

@@ -372,6 +372,7 @@ def main():
 	ap.add_argument('--mask-cols', type=int, default=7, help='masked columns of 16 (fallback 6)')
 	ap.add_argument('--num-train', type=int, default=50000, help='50000 = the ipd16 runs (masking ablation)')
 	ap.add_argument('--num-val', type=int, default=None)
+	ap.add_argument('--val-from-train', type=int, default=None, help='tar without a preval split: val = pretrain clips from this index on (paired set: 48000 = its last 500 scenes, as swap_pretrain)')
 	ap.add_argument('--bs', type=int, default=128)
 	ap.add_argument('--lr', type=float, default=4e-4)
 	ap.add_argument('--nepoch', type=int, default=10)
@@ -391,7 +392,12 @@ def main():
 	torch.manual_seed(args.seed); np.random.seed(args.seed); random.seed(args.seed)
 
 	ds_train = TarMicSigDataset(args.tar, 'pretrain', args.num_train)
-	ds_val = TarMicSigDataset(args.tar, 'preval', args.num_val)
+	if args.val_from_train is None:
+		ds_val = TarMicSigDataset(args.tar, 'preval', args.num_val)
+	else:  # tar with one split (the paired set): val = pretrain clips [val_from_train:], disjoint from --num-train
+		assert args.num_train <= args.val_from_train, 'train and val would overlap'
+		ds_val = TarMicSigDataset(args.tar, 'pretrain')
+		ds_val.items = ds_val.items[args.val_from_train:][:args.num_val]
 	print(f'[data] train {len(ds_train)}, val {len(ds_val)}', flush=True)
 	kw = dict(num_workers=args.num_workers, pin_memory=device == 'cuda', persistent_workers=args.num_workers > 0)
 	val_loader = torch.utils.data.DataLoader(ds_val, batch_size=args.bs, shuffle=False, **kw)

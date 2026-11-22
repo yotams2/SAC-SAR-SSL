@@ -66,6 +66,12 @@ for name, n in (('4.1 s', int(jp.T_SEC * jp.FS)), ('1 s', 16384)):
 		  f'(|e| max {float(e.abs().max()):.2f})')
 	assert d_spat < 1e-3 and d_spec < 1e-3
 
+	# 2c. spec mode (leakage probe) == the concat's spectral half
+	so = joint_spatial.JointSpatialDownstream(f'{out}/spec_encoder_final.pth', 'spec').to(dev).eval()
+	d_so = float((so.embed(reim) - e[:, :768]).abs().max())
+	print(f'[check] {name}: spec-only vs concat spec half {d_so:.2e}')
+	assert d_so < 1e-3 and so.mlp_head[1].in_features == 768 and 'spat' not in so.model.streams
+
 	# 3. fusion: zero gates == concat of the same weights; random gates differ
 	fz = joint_spatial.JointSpatialDownstream(f'{out}/joint_zero_gate.pth', 'fusion').to(dev).eval()
 	fr = joint_spatial.JointSpatialDownstream(f'{out}/joint_final.pth', 'fusion').to(dev).eval()

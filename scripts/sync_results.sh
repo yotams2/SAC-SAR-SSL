@@ -3,6 +3,7 @@
 # Usage: scripts/sync_results.sh [commit message]
 # Always exits 0, so a job is never marked failed because of it. A push that fails leaves the commit in place, and the
 # next sync from any job or session pushes it, even if that sync has nothing of its own to commit.
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)  # before any cd: jobs call this script by a relative path
 ROOT=${SAC_RESULTS_ROOT:-$HOME/SAC-SAR-SSL-results}
 MSG=${1:-results: sync}
 LOCK_WAIT=${RESULTS_LOCK_WAIT:-300}
@@ -18,6 +19,9 @@ rm -f "$(git rev-parse --git-path index.lock)"
 if [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
     git rebase --abort
 fi
+
+# Rebuild results/RUNS.md + copy pretraining logs and speech probes (scripts/build_registry.py); never blocks the sync
+timeout 120 python3 "$SCRIPT_DIR/build_registry.py" "$ROOT/results" || echo "[sync_results] registry build failed"
 
 git add -A results/ README.md .gitignore
 if ! git diff --cached --quiet; then
