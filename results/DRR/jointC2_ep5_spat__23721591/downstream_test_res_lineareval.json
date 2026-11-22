@@ -1,0 +1,11 @@
+[
+    {
+        "task": "DRR",
+        "trial_idx": 0,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 4.690642867803573,
+        "metric_test": 1.7201980352401733,
+        "metric_test_std": 1.31588876247406
+    }
+]
