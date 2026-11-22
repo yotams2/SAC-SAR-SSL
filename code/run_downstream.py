@@ -55,7 +55,7 @@ config_path = os.path.join(dirs['log_pretrain'], 'config.json')
 if args.upstream == 'joint':
 	os.makedirs(dirs['log_pretrain'], exist_ok=True)
 	with open(os.path.join(dirs['log_pretrain'], 'description.txt'), 'w') as f:
-		f.write(f'upstream joint\nmode {args.joint_mode}\nckpt {args.joint_ckpt}\n')
+		f.write(f'upstream joint\nmode {args.joint_mode}\nckpt {args.joint_ckpt}\nhead_norm {args.joint_head_norm}\n')
 if args.upstream in ['ssamba_spatial', 'gramt', 'joint']:
 	pass
 elif os.path.exists(config_path):
@@ -154,7 +154,7 @@ if args.upstream == 'ssamba_spatial':
 		flops_input_shape = None
 elif args.upstream == 'joint':
 	import joint_spatial
-	net = joint_spatial.JointSpatialDownstream(args.joint_ckpt, args.joint_mode, dlabel=dlabel)
+	net = joint_spatial.JointSpatialDownstream(args.joint_ckpt, args.joint_mode, dlabel=dlabel, head_norm=args.joint_head_norm)
 	layer_keys = ['model', 'mlp_head']
 	LearnerClass = at_learner.STFTLearner  # SAR-SSL's own STFT and normalisation, as ssamba_spatial ipd
 	flops_input_shape = None

@@ -3,6 +3,9 @@
 Both encoders of a joint_pretrain.py run (spectral log-mel + spatial ipd16), fed from SAR-SSL's own STFT (STFTLearner:
 Hann 512 / hop 256, / mean |L|, bins 1..256), exactly as in pretraining. Each stream is mean-pooled over its real
 patches (as SSAMBASpatialDownstream), the two vectors are concatenated [2 * D] -> LayerNorm -> Linear head.
+	head_norm 'joint' (default, all rows before 2026-11-23): one LayerNorm over the 2 * D vector, so each sample's
+	           normalisation depends on both encoders' scales. 'per_stream': one LayerNorm per encoder half, then one
+	           Linear (same parameter count); each half is normalised exactly as in the single-encoder head.
 	mode 'concat': Pilot A-concat. ckpt = '<spec_encoder.pth>,<spat_encoder.pth>' (two separately trained encoders,
 	               each with its own input statistics), run independently.
 	mode 'fusion': Pilot B with fusion on. ckpt = <joint_{best,final}.pth> (both encoders + fusion), run jointly.
@@ -22,10 +25,23 @@ import joint_pretrain as jp  # noqa: E402
 import ssamba_spatial  # noqa: E402
 
 
+class PerStreamHead(nn.Module):
+	""" LayerNorm on each encoder's D-dim half separately, then one Linear over the concatenation. """
+	def __init__(self, n, D, dlabel):
+		super().__init__()
+		self.D = D
+		self.norms = nn.ModuleList(nn.LayerNorm(D) for _ in range(n))
+		self.linear = nn.Linear(n * D, dlabel)
+
+	def forward(self, x):
+		return self.linear(torch.cat([ln(c) for ln, c in zip(self.norms, x.split(self.D, dim=-1))], dim=-1))
+
+
 class JointSpatialDownstream(nn.Module):
-	def __init__(self, ckpt, mode, dlabel=1):
+	def __init__(self, ckpt, mode, dlabel=1, head_norm='joint'):
 		super().__init__()
 		assert mode in ('concat', 'fusion', 'spec'), mode
+		assert head_norm in ('joint', 'per_stream'), head_norm
 		self.mode = mode
 		self.names = ('spec',) if mode == 'spec' else ('spec', 'spat')
 		self.model = jp.JointPretrain('spec' if mode == 'spec' else 'joint', mode == 'fusion', 0.3, 7, 10.0, 1.0,
@@ -52,7 +68,11 @@ class JointSpatialDownstream(nn.Module):
 		for p in self.model.parameters():
 			p.requires_grad = False
 		D = 768
-		self.mlp_head = nn.Sequential(nn.LayerNorm(len(self.names) * D), nn.Linear(len(self.names) * D, dlabel))
+		if head_norm == 'per_stream' and len(self.names) > 1:
+			self.mlp_head = PerStreamHead(len(self.names), D, dlabel)
+		else:
+			self.mlp_head = nn.Sequential(nn.LayerNorm(len(self.names) * D), nn.Linear(len(self.names) * D, dlabel))
+		print(f'[joint] head_norm {head_norm}', flush=True)
 
 	def train(self, mode=True):
 		super().train(mode)

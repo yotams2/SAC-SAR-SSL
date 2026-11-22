@@ -280,6 +280,7 @@ class opt_downstream():
         # upstream encoder (default: this repo's SARSSL model, pretrained under <exp>/pretrain/<time>)
         parser.add_argument('--upstream', type=str, default='sarssl', choices=['sarssl', 'ssamba_spatial', 'gramt', 'joint'], help='downstream encoder (default: sarssl)')
         parser.add_argument('--joint-mode', type=str, default='concat', choices=['concat', 'fusion', 'spec'], help='joint (code/joint_spatial.py): spec = spectral encoder alone (leakage probe), concat = two separately trained encoders (Pilot A-concat), fusion = joint_pretrain.py --fusion model run with fusion on (Pilot B)')
+        parser.add_argument('--joint-head-norm', type=str, default='joint', choices=['joint', 'per_stream'], help='joint concat head: one LayerNorm over both halves (default, all rows before 2026-11-23) or one per encoder half')
         parser.add_argument('--joint-ckpt', type=str, default='', help="joint: concat '<spec_encoder.pth>,<spat_encoder.pth>'; fusion <joint_final.pth>")
         parser.add_argument('--gramt-model', type=str, default='labhamlet/gramt-binaural-frame', help='gramt: HF model id or local dir (code/gramt_spatial.py)')
         parser.add_argument('--ssamba-ckpt', type=str, default='', help='ssamba_spatial: BinauralSSAMBASACModel checkpoint (sac-ssamba audio_model.final.pth); not needed for scratchLOW')
