@@ -27,6 +27,7 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointCs2_concat_ps | ok | pilotC_swap_s2 | frz 2.49 |  |  |  |  | Cs2 concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
 | jointC_concat_ps | ok | pilotC_swap | frz 2.29 | frz 0.075 | frz 1.46 |  |  | C concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
 | jointC2_concat_ps | ok | pilotC2_ctr | frz 1.36 |  |  |  |  | C2 concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
 | jointA_concat_ps | ok | pilotA_spec+pilotA_spat | frz 2.63 |  |  |  |  | A concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
