@@ -88,4 +88,11 @@ jointC2_ep5_spat	pilotC2_ctr	ok	Own-task read (11-22): C2 at epoch 5 (pre-crash 
 jointC2_ep5_spec_probe	-	ok	Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spectral encoder on SC2/SID.
 jointC_ep5_spat	pilotC_swap	ok	Own-task read (11-22): Pilot C seed 1 at epoch 5, spatial encoder alone, frozen (same-epoch comparison for C2).
 jointC_ep5_spec_probe	-	ok	Own-task read (11-22): Pilot C seed 1 at epoch 5, spectral encoder on SC2/SID (same-epoch comparison for C2).
+pilotCsac	-	ok	C + SAC (agreed 11-22): Pilot C (base C: C2 was worse on T60/DRR at epoch 5) + in-batch SAC on the spatial encoder only (lambda 0.02, 5 SAR-SSL spatial features, as ipd16_sac), running-median grad clip (3x, 200 steps), fixed val pairs. Does SAC add on top of the swap?
+jointCsac_spat	-	ok	C + SAC spatial encoder alone, frozen.
+jointCsac_spec_probe	-	ok	C + SAC spectral encoder on SC2/SID.
+jointCsac_concat	-	ok	C + SAC concat, frozen.
+jointCsac_concat_probe	-	ok	C + SAC concat on SC2/SID (SID with concat unreliable).
+jointCsac_spec_on_spatial	pilotCsac	ok	Leakage: C + SAC spectral encoder on the spatial tasks.
+jointCsac_spat_probe	-	ok	Leakage: C + SAC spatial encoder on SC2/SID.
 pilotC2b_align	-	ok	C2b (if C2's leakage isn't moving): C2 + alignment 1 - cos(anchor, positive) per encoder (weight 1) + clipping at 3x the running median of the previous 200 gradient norms.
