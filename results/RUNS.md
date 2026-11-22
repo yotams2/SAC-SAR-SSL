@@ -25,6 +25,7 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointCs2_spec_on_spatial | ok | pilotC_swap_s2 | frz 2.92 |  |  |  |  | Leakage probe: C seed 2 spectral encoder on the spatial tasks. |
 | jointCs2_spat | ok | pilotC_swap_s2 | frz 2.38 |  |  |  |  | C seed 2 spatial encoder alone, frozen. |
 | jointC_ep5_spat | ok | pilotC_swap | frz 2.43 | frz 0.069 | frz 1.56 |  |  | Own-task read (11-22): Pilot C seed 1 at epoch 5, spatial encoder alone, frozen (same-epoch comparison for C2). |
 | jointC2_ep5_spat | ok | pilotC2_ctr | frz 1.20 | frz 0.110 | frz 1.72 |  |  | Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spatial encoder alone, frozen. Does dropping the wrong factor cost own tasks? |
