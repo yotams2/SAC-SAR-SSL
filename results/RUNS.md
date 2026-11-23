@@ -39,6 +39,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointCswapv2r_concat | ok | pilotCswap_v2r | paired v2 | frz 2.37 |  |  |  |  | C swap-only (own-scale 0) 10 ep v2: concat (appendix only; concat settled 11-23). |
 | jointCswapv2r_spec_on_spatial | ok | pilotCswap_v2r | paired v2 | frz 2.92 |  |  |  |  | Leakage: C swap-only (own-scale 0) 10 ep v2, spectral encoder on the spatial tasks. |
 | jointC2s2_spec_on_spatial | ok | pilotC2_ctr_s2 | paired v1 | frz 2.93 | frz 0.220 | frz 2.71 |  |  | Leakage probe: C2 seed 2 spectral encoder on the spatial tasks. |
 | jointC2s2_concat | ok | pilotC2_ctr_s2 | paired v1 | frz 2.07 | frz 0.109 | frz 1.61 |  |  | C2 seed 2 concat, frozen. PROVISIONAL until the concat probe is checked. |
