@@ -107,3 +107,17 @@ jointA_concat_ps	-	ok	A concat, frozen, one LayerNorm per encoder half (--joint-
 jointC_concat_ps	-	ok	C concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23.
 jointC2_concat_ps	-	ok	C2 concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23.
 jointCs2_concat_ps	-	ok	Cs2 concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23.
+pilotC_v2r	-	ok	C, 10 ep, on the paired v2 set (seeded RIRs) with the new recipe (warmup + cosine LR, running-median grad clip x3): baseline for the V1/V2 pilots and validation of the v2 data (agreed 11-23).
+pilotC30_v2r	-	ok	C reference, 30 ep, paired v2, new recipe (warmup + cosine, running-median clip x3); launched only if the go/no-go confirms C (agreed 11-23).
+jointCv2r_spat	-	ok	C 10 ep v2 + new recipe: spatial encoder alone, frozen.
+jointCv2r_concat	-	ok	C 10 ep v2 + new recipe: concat (appendix only; concat settled 11-23).
+jointCv2r_spec_on_spatial	-	ok	Leakage: C 10 ep v2 + new recipe, spectral encoder on the spatial tasks.
+jointCv2r_spec_probe	-	ok	C 10 ep v2 + new recipe: spectral encoder on SC2/SID.
+jointCv2r_spat_probe	-	ok	Leakage: C 10 ep v2 + new recipe, spatial encoder on SC2/SID.
+jointCv2r_concat_probe	-	ok	C 10 ep v2 + new recipe: concat on SC2/SID (appendix only).
+jointC30v2r_spat	-	ok	C 30 ep reference (v2, new recipe): spatial encoder alone, frozen.
+jointC30v2r_concat	-	ok	C 30 ep reference: concat (appendix only).
+jointC30v2r_spec_on_spatial	-	ok	Leakage: C 30 ep reference, spectral encoder on the spatial tasks.
+jointC30v2r_spec_probe	-	ok	C 30 ep reference: spectral encoder on SC2/SID.
+jointC30v2r_spat_probe	-	ok	Leakage: C 30 ep reference, spatial encoder on SC2/SID.
+jointC30v2r_concat_probe	-	ok	C 30 ep reference: concat on SC2/SID (appendix only).
