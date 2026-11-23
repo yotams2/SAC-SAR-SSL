@@ -27,7 +27,7 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
-| jointCsac_concat | ok | pilotCsac | frz 2.19 | frz 0.073 |  |  |  | C + SAC concat, frozen. PROVISIONAL: concat probe under check (11-23). |
+| jointCsac_concat | ok | pilotCsac | frz 2.19 | frz 0.073 | frz 1.32 |  |  | C + SAC concat, frozen. PROVISIONAL: concat probe under check (11-23). |
 | jointCsac_spat | ok | pilotCsac | frz 2.19 | frz 0.074 | frz 1.37 |  |  | C + SAC spatial encoder alone, frozen. |
 | jointCsac_spec_on_spatial | ok | pilotCsac | frz 2.91 | frz 0.069 | frz 1.74 |  |  | Leakage: C + SAC spectral encoder on the spatial tasks. |
 | jointA_concat_ps | ok | pilotA_spec+pilotA_spat | frz 2.63 | frz 0.072 | frz 2.18 |  |  | A concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
