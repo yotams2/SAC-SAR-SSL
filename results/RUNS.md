@@ -29,8 +29,8 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointC2s2_concat | ok | pilotC2_ctr_s2 | paired v1 | frz 2.07 | frz 0.109 |  |  |  | C2 seed 2 concat, frozen. PROVISIONAL until the concat probe is checked. |
 | jointC2s2_spat | ok | pilotC2_ctr_s2 | paired v1 | frz 1.97 | frz 0.105 | frz 1.52 |  |  | C2 seed 2 spatial encoder alone, frozen. |
-| jointC2s2_concat | ok | pilotC2_ctr_s2 | paired v1 | frz 2.07 |  |  |  |  | C2 seed 2 concat, frozen. PROVISIONAL until the concat probe is checked. |
 | jointCsac_concat | ok | pilotCsac | paired v1 | frz 2.19 | frz 0.073 | frz 1.32 |  |  | C + SAC concat, frozen. PROVISIONAL: concat probe under check (11-23). |
 | jointCsac_spat | ok | pilotCsac | paired v1 | frz 2.19 | frz 0.074 | frz 1.37 |  |  | C + SAC spatial encoder alone, frozen. |
 | jointCsac_spec_on_spatial | ok | pilotCsac | paired v1 | frz 2.91 | frz 0.069 | frz 1.74 |  |  | Leakage: C + SAC spectral encoder on the spatial tasks. |
