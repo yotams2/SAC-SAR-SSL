@@ -6,6 +6,11 @@ kept for the record, not for comparison.
 
 Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reproducible, no RIRs kept); paired v2 = simu_paired_pretrain_v2.tar (11-23; same scenes / utterances, per-scene gpuRIR seed, RIRs saved); unpaired-4s v1 = simu_pretrain.tar (Pilot A); unpaired-8s v2 = simu_unpaired8_pretrain.tar (V3).
 
+## Decisions
+
+<!-- Hand-edited; copied into RUNS.md by scripts/build_registry.py. Newest first. -->
+- **2026-11-23, sprint go/no-go: GO on the joint (two-encoder) design, with Pilot C as the base.** C beats A on all five frozen tasks, each encoder alone, on both seeds (TDOA 2.23 / 2.38 vs 2.57; T60 0.076 / 0.063 vs 0.084; DRR 1.55 / 1.41 vs 2.32; SC2 20.9 / 20.9 vs 14.8; SID 43.8 / 44.5 vs 34.0). Concat goes to an appendix (ridge concat is worse than the best single encoder on TDOA, SC2 and SID). Pre-agreed rule met: C2 seed 2 neither keeps C2's TDOA gain nor removes its T60 / SID losses. **C2 is kept as the contrastive variant:** best TDOA (1.24 / 1.97, the gain mostly from seed 1) and SC2 (26.6 / 28.4), leakage at random-init level both ways (spectral on T60 0.196 / 0.220 vs random 0.198; spatial on SID 0.6 / 1.0 vs 9.1), but it loses T60 (0.100 / 0.105) and ~19 points of SID (26.0 / 25.0, below the random-init spectral encoder's 36.6). Follow-ups: C 10 ep + swap-only ablation + C 30 ep reference on paired v2 with the new recipe; C2 + 2-layer head diagnostic (pilotC2_head, paired v1, lower priority). Table: exp/gonogo_table_2026-11-23.md (scripts/gonogo_table.py).
+
 ## Pretraining runs
 
 | run | family | status | data | recipe | last val (epoch) | description |

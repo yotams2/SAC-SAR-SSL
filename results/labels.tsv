@@ -128,3 +128,10 @@ jointCswapv2r_spec_on_spatial	-	ok	Leakage: C swap-only (own-scale 0) 10 ep v2, 
 jointCswapv2r_spec_probe	-	ok	C swap-only (own-scale 0) 10 ep v2: spectral encoder on SC2/SID.
 jointCswapv2r_spat_probe	-	ok	Leakage: C swap-only (own-scale 0) 10 ep v2, spatial encoder on SC2/SID.
 jointCswapv2r_concat_probe	-	ok	C swap-only (own-scale 0) 10 ep v2: concat on SC2/SID (appendix only).
+pilotC2_head	-	ok	C2 + 2-layer head per encoder before the InfoNCE (diagnostic agreed 11-21, triggered by C2's SID drop; queued 11-23 at nice 100): C2 seed 1's config on paired v1.
+jointC2head_spat	-	ok	C2 + head: spatial encoder alone, frozen.
+jointC2head_concat	-	ok	C2 + head: concat (appendix only).
+jointC2head_spec_on_spatial	-	ok	Leakage: C2 + head, spectral encoder on the spatial tasks.
+jointC2head_spec_probe	-	ok	C2 + head: spectral encoder on SC2/SID.
+jointC2head_spat_probe	-	ok	Leakage: C2 + head, spatial encoder on SC2/SID.
+jointC2head_concat_probe	-	ok	C2 + head: concat on SC2/SID (appendix only).
