@@ -29,7 +29,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
-| jointC2s2_spat | ok | pilotC2_ctr_s2 | paired v1 | frz 1.97 |  |  |  |  | C2 seed 2 spatial encoder alone, frozen. |
+| jointC2s2_spat | ok | pilotC2_ctr_s2 | paired v1 | frz 1.97 | frz 0.105 |  |  |  | C2 seed 2 spatial encoder alone, frozen. |
 | jointCsac_concat | ok | pilotCsac | paired v1 | frz 2.19 | frz 0.073 | frz 1.32 |  |  | C + SAC concat, frozen. PROVISIONAL: concat probe under check (11-23). |
 | jointCsac_spat | ok | pilotCsac | paired v1 | frz 2.19 | frz 0.074 | frz 1.37 |  |  | C + SAC spatial encoder alone, frozen. |
 | jointCsac_spec_on_spatial | ok | pilotCsac | paired v1 | frz 2.91 | frz 0.069 | frz 1.74 |  |  | Leakage: C + SAC spectral encoder on the spatial tasks. |
@@ -105,6 +105,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointC2_spat_probe | ok | pilotC2_ctr | paired v1 | 8.3 | 0.6 | Leakage probe: C2 spatial encoder on SC2/SID. |
 | jointC2_spec_probe | ok | pilotC2_ctr | paired v1 | 26.6 | 26.0 | C2 spectral encoder on SC2/SID. |
 | jointC2s2_concat_probe | ok | pilotC2_ctr_s2 | paired v1 | 19.7 | 9.3 | C2 seed 2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
+| jointC2s2_spat_probe | ok | pilotC2_ctr_s2 | paired v1 | 6.3 | 1.0 | Leakage probe: C2 seed 2 spatial encoder on SC2/SID. |
 | jointC2s2_spec_probe | ok | pilotC2_ctr_s2 | paired v1 | 28.4 | 25.0 | C2 seed 2 spectral encoder on SC2/SID. |
 | jointC9_concat_probe | ok | pilotC_swap | paired v1 | 19.0 | 21.0 | Pilot C seed 1 at epoch 9 (pre-spike): concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
 | jointC9_spat_probe | ok | pilotC_swap | paired v1 | 12.3 | 4.4 | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spatial encoder on SC2/SID. |
