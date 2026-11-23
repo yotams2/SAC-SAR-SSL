@@ -27,10 +27,10 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointA_concat_ps | ok | pilotA_spec+pilotA_spat | frz 2.63 | frz 0.072 |  |  |  | A concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
 | jointC2_concat_ps | ok | pilotC2_ctr | frz 1.36 | frz 0.116 |  |  |  | C2 concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
 | jointCs2_concat_ps | ok | pilotC_swap_s2 | frz 2.49 |  |  |  |  | Cs2 concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
 | jointC_concat_ps | ok | pilotC_swap | frz 2.29 | frz 0.075 | frz 1.46 |  |  | C concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
-| jointA_concat_ps | ok | pilotA_spec+pilotA_spat | frz 2.63 |  |  |  |  | A concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
 | jointC2_concat | ok | pilotC2_ctr | frz 1.30 | frz 0.116 | frz 1.69 |  |  | C2 spectral + spatial concatenated, frozen. PROVISIONAL: concat probe under check (11-23). |
 | jointC2_spat | ok | pilotC2_ctr | frz 1.24 | frz 0.100 | frz 1.60 |  |  | C2 spatial encoder alone, frozen. |
 | jointC2_spec_on_spatial | ok | pilotC2_ctr | frz 2.91 | frz 0.196 | frz 2.73 |  |  | Leakage probe: C2 spectral encoder on the spatial tasks. |
