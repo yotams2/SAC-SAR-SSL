@@ -27,6 +27,7 @@ kept for the record, not for comparison.
 
 | label | status | pretrain run (ckpt) | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|
+| jointCsac_spec_on_spatial | ok | pilotCsac | frz 2.91 |  |  |  |  | Leakage: C + SAC spectral encoder on the spatial tasks. |
 | jointA_concat_ps | ok | pilotA_spec+pilotA_spat | frz 2.63 | frz 0.072 | frz 2.18 |  |  | A concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
 | jointC2_concat_ps | ok | pilotC2_ctr | frz 1.36 | frz 0.116 | frz 1.69 |  |  | C2 concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
 | jointCs2_concat_ps | ok | pilotC_swap_s2 | frz 2.49 | frz 0.064 | frz 1.36 |  |  | Cs2 concat, frozen, one LayerNorm per encoder half (--joint-head-norm per_stream); concat probe check 11-23. |
@@ -109,6 +110,9 @@ kept for the record, not for comparison.
 | jointCs2_concat_probe | ok | pilotC_swap_s2 | 19.5 | 22.1 | C seed 2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
 | jointCs2_spat_probe | ok | pilotC_swap_s2 | 11.0 | 4.4 | Leakage probe: C seed 2 spatial encoder on SC2/SID. |
 | jointCs2_spec_probe | ok | pilotC_swap_s2 | 20.9 | 44.5 | C seed 2 spectral encoder on SC2/SID. |
+| jointCsac_concat_probe | ok | pilotCsac | 19.0 | 21.2 | C + SAC concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
+| jointCsac_spat_probe | ok | pilotCsac | 10.2 | 4.6 | Leakage: C + SAC spatial encoder on SC2/SID. |
+| jointCsac_spec_probe | ok | pilotCsac | 21.2 | 44.2 | C + SAC spectral encoder on SC2/SID. |
 | mono_on_binaural_2026-11-17_bin_left | ok | sac-ssamba amba_seed1:final | 24.4 | 38.9 | Mono amba s1 on binaural SC2/SID, left channel. |
 | mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed1:final | 26.4 | 40.3 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
 | mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed2:final | 22.3 | 36.5 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
