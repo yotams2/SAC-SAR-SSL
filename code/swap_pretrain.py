@@ -35,6 +35,10 @@
 	candidates = all positives + all hard negatives of the batch; candidates sharing the anchor's factor (utterance /
 	scene) other than its positive are masked (false negatives). No gradient through the hard negatives. Logged per
 	encoder: ctr_<k> (loss), ctr_<k>_acc (top-1 over all candidates), ctr_<k>_hard (positive scored above its hard negative).
+	C2 + head (--ctr-head, agreed 2026-11-21 as the diagnostic if C2's SC2 / SID drop; triggered 11-23 by the SID drop):
+	a small 2-layer head per encoder, Linear(768, 768)-GELU-Linear(768, 256), on the mean-pooled embedding before the
+	normalisation, for the InfoNCE (and alignment) only: anchors, positives and hard negatives all pass through it. The
+	probes still read the encoder's pooled embedding. Off by default (built only when on).
 	C2b (--align-lambda > 0, agreed 2026-11-21): + alignment 1 - cos(anchor, positive) per encoder on the same pooled
 	pairs (does not saturate once the positive ranks first). Logged: align_<k>, emb_std_<k> (per-dimension std over the
 	batch of the pooled anchor embeddings, before normalisation; a fall towards 0 = collapse).
@@ -50,6 +54,14 @@
 	head on the mean-pooled unmasked spatial tokens; loss model.SARSSL._calc_single_feat_sim_loss (sigma 0.613, temp
 	0.15 by default). Logged: sac. Off by default (the head is only built when on, so older checkpoints load unchanged).
 	--spat-mpg-no-logL: the spatial encoder's own MPG target without the log|L| channel (input unchanged).
+	V2 (--cka-lambda > 0, agreed 2026-11-23; post-sprint candidate): + independence penalty between the two encoders on
+	the SAME clip (the target x(s, r), the C2 anchors; encoded with gradient, reused from C2's pass when C2 is on):
+	debiased linear CKA (unbiased HSIC estimator, Song et al. 2012; as in Nguyen et al. 2021) between the mean-pooled
+	embeddings, batch-level. Unbiased because at batch 128 vs 768 dims the plain estimator is biased upward. Penalty =
+	max(CKA, 0) (the debiased estimate is ~0 under independence and can dip below). Logged: cka, emb_std_tgt_{spec,spat}.
+	--lr-schedule cosine (agreed 2026-11-23 as the recipe for all full runs): linear warmup over --warmup-frac of the
+	steps from 0, then cosine decay to --min-lr-ratio x lr at the last step; stepped per optimiser step. Default
+	'plateau' = the ReduceLROnPlateau of every run so far (unchanged).
 	Validation pairs: --val-pairing fixed (default) draws each validation target's partners from its own seed, so every
 	validation pass sees the same triplets; Pilot C seed 1 ran with 'random' (new partners every pass).
 
@@ -139,11 +151,14 @@ class SwapDecoder(nn.Module):
 class SwapPretrain(jp.JointPretrain):
 	def __init__(self, mask_cols, recon_lambda, classif_lambda, swap_lambda, own_scale, use_checkpointing=True,
 				 ctr_lambda=0.0, ctr_temp=0.1, spat_mpg_no_logL=False, align_lambda=0.0,
-				 sac_lambda=0.0, sac_sigma=0.613, sac_temp=0.15):
+				 sac_lambda=0.0, sac_sigma=0.613, sac_temp=0.15, cka_lambda=0.0, ctr_head=False):
 		super().__init__('joint', False, 0.0, mask_cols, recon_lambda, classif_lambda, use_checkpointing)
 		self.swap_lambda, self.own_scale = swap_lambda, own_scale
 		self.ctr_lambda, self.ctr_temp, self.spat_mpg_no_logL = ctr_lambda, ctr_temp, spat_mpg_no_logL
 		self.align_lambda = align_lambda
+		self.ctr_head = nn.ModuleDict({k: nn.Sequential(nn.Linear(768, 768), nn.GELU(), nn.Linear(768, 256))
+									   for k in ('spec', 'spat')}) if ctr_head else None
+		self.cka_lambda = cka_lambda
 		self.P = 16 * 16  # values per patch per channel
 		self.decoder = SwapDecoder(n_queries=16 * 16, out_dim=4 * self.P)
 		self.sac_lambda, self.sac_sigma, self.sac_temp = sac_lambda, sac_sigma, sac_temp
@@ -185,8 +200,31 @@ class SwapPretrain(jp.JointPretrain):
 		""" what the frozen probes read: mean over the real tokens (cls dropped), L2-normalised for the InfoNCE. """
 		return F.normalize(h[:, 1:].float().mean(dim=1), dim=-1)
 
-	def ctr_losses(self, toks, Xpos, Xneg, ids):
-		pos = self.encode(Xpos, None, fusion=False)
+	@staticmethod
+	def debiased_cka(x, y):
+		""" Debiased linear CKA between (n, d1) and (n, d2) (unbiased HSIC, Song et al. 2012). ~0 if independent. """
+		x, y = x.float(), y.float()
+		n = x.shape[0]
+		def hsic(K, L):
+			K, L = K.clone(), L.clone()
+			K.fill_diagonal_(0); L.fill_diagonal_(0)
+			one = torch.ones(n, 1, device=K.device)
+			t = (K * L).sum() + (one.T @ K @ one) * (one.T @ L @ one) / ((n - 1) * (n - 2)) \
+				- 2.0 / (n - 2) * (one.T @ K @ L @ one)
+			return t.squeeze() / (n * (n - 3))
+		K, L = x @ x.T, y @ y.T
+		return hsic(K, L) / (hsic(K, K) * hsic(L, L)).clamp_min(1e-12).sqrt()
+
+	def cka_loss(self, pos):
+		""" V2: pos = both encoders on the target clip (with gradient). """
+		e = {k: pos[k][:, 1:].float().mean(dim=1) for k in ('spec', 'spat')}
+		out = {f'emb_std_tgt_{k}': v.std(dim=0).mean().detach() for k, v in e.items()}
+		out['cka'] = self.debiased_cka(e['spec'], e['spat'])
+		return out
+
+	def ctr_losses(self, toks, Xpos, Xneg, ids, pos=None):
+		if pos is None:
+			pos = self.encode(Xpos, None, fusion=False)
 		with torch.no_grad():
 			neg = self.encode(Xneg, None, fusion=False)
 		B = ids.shape[0]
@@ -195,7 +233,13 @@ class SwapPretrain(jp.JointPretrain):
 		for k, vp, vn, f in (('spec', 1, 2, 0), ('spat', 2, 1, 1)):  # anchor = view 0 (target); f: 0 utterance, 1 scene
 			va = 0
 			out[f'emb_std_{k}'] = pos[k][:, 1:].float().mean(dim=1).std(dim=0).mean().detach()
-			a, p, h = self.pooled(pos[k]), self.pooled(toks[k]), self.pooled(neg[k])  # target, own input, hard negative
+			if self.ctr_head is None:
+				a, p, h = self.pooled(pos[k]), self.pooled(toks[k]), self.pooled(neg[k])  # target, own input, hard negative
+			else:  # C2 + head: the head on the pooled embedding, then normalised
+				hd = lambda x: F.normalize(self.ctr_head[k](x[:, 1:].float().mean(dim=1)), dim=-1)
+				a, p = hd(pos[k]), hd(toks[k])
+				with torch.no_grad():
+					h = hd(neg[k])
 			out[f'align_{k}'] = (1 - (a * p).sum(dim=-1)).mean()
 			logits = a @ torch.cat([p, h]).T / self.ctr_temp  # (B, 2B): positives, then hard negatives
 			same = ids[:, va, f][:, None] == torch.cat([ids[:, vp, f], ids[:, vn, f]])[None, :]
@@ -221,7 +265,8 @@ class SwapPretrain(jp.JointPretrain):
 
 	def forward(self, sig3, stft_mod, diag=False, ids=None):
 		use_ctr = self.ctr_lambda > 0 or self.align_lambda > 0
-		spec, spat, tgt, w, Xpos, Xneg = self.views(sig3, stft_mod, extra=use_ctr)
+		use_cka = self.cka_lambda > 0
+		spec, spat, tgt, w, Xpos, Xneg = self.views(sig3, stft_mod, extra=use_ctr or use_cka)
 		Xn = {'spec': spec, 'spat': spat}
 		B, dev = spec.shape[0], spec.device
 		out, loss = {}, 0.0
@@ -249,9 +294,15 @@ class SwapPretrain(jp.JointPretrain):
 			out['sac'], _ = at_model.SARSSL._calc_single_feat_sim_loss(
 				self, z_proj, feats, SAC_FEATURES, self.sac_temp, self.sac_sigma, 1e-8, False)
 			loss = loss + self.sac_lambda * out['sac']
+		pos = None
+		if use_cka:  # both encoders on the target clip; shared with C2's anchor pass
+			pos = self.encode(Xpos, None, fusion=False)
+			ck = self.cka_loss(pos)
+			out.update(ck)
+			loss = loss + self.cka_lambda * ck['cka'].clamp_min(0)
 		if use_ctr:
 			assert ids is not None, 'the contrastive term needs the view ids'
-			ct = self.ctr_losses(toks, Xpos, Xneg, ids)
+			ct = self.ctr_losses(toks, Xpos, Xneg, ids, pos=pos)
 			out.update(ct)
 			loss = loss + self.ctr_lambda * (ct['ctr_spec'] + ct['ctr_spat'])
 			if self.align_lambda > 0:
@@ -313,6 +364,7 @@ def main():
 	ap.add_argument('--own-scale', type=float, default=0.1, help='weight of Pilot A per-stream losses (0 = swap only)')
 	ap.add_argument('--ctr-lambda', type=float, default=0.0, help='C2: weight of each encoder\'s exact-pair InfoNCE (0 = Pilot C)')
 	ap.add_argument('--ctr-temp', type=float, default=0.1)
+	ap.add_argument('--ctr-head', action='store_true', help='C2 + head: 2-layer head per encoder before the InfoNCE (diagnostic)')
 	ap.add_argument('--align-lambda', type=float, default=0.0, help='C2b: weight of each encoder\'s 1 - cos(anchor, positive)')
 	ap.add_argument('--grad-clip', type=float, default=0.0, help='clip the total gradient norm at this value (0 = off)')
 	ap.add_argument('--grad-clip-median-mult', type=float, default=0.0,
@@ -321,6 +373,11 @@ def main():
 	ap.add_argument('--sac-lambda', type=float, default=0.0, help='C + SAC: in-batch SAC on the spatial encoder (0 = off)')
 	ap.add_argument('--sac-sigma', type=float, default=0.613)
 	ap.add_argument('--sac-temp', type=float, default=0.15)
+	ap.add_argument('--cka-lambda', type=float, default=0.0, help='V2: debiased-CKA penalty between the encoders on the target (0 = off)')
+	ap.add_argument('--lr-schedule', choices=['plateau', 'cosine'], default='plateau',
+					help='plateau: ReduceLROnPlateau on val loss (all runs before 11-23); cosine: warmup + cosine decay per step')
+	ap.add_argument('--warmup-frac', type=float, default=0.05, help='cosine: fraction of the steps for linear warmup')
+	ap.add_argument('--min-lr-ratio', type=float, default=0.01, help='cosine: final lr / lr')
 	ap.add_argument('--spat-mpg-no-logL', action='store_true', help='spatial own MPG target without the log|L| channel')
 	ap.add_argument('--val-pairing', choices=['fixed', 'random'], default='fixed',
 					help='fixed: same validation triplets every pass (Pilot C seed 1 ran with random)')
@@ -350,17 +407,32 @@ def main():
 	model = SwapPretrain(args.mask_cols, args.recon_lambda, args.classif_lambda, args.swap_lambda, args.own_scale,
 						 ctr_lambda=args.ctr_lambda, ctr_temp=args.ctr_temp, spat_mpg_no_logL=args.spat_mpg_no_logL,
 						 align_lambda=args.align_lambda, sac_lambda=args.sac_lambda, sac_sigma=args.sac_sigma,
-						 sac_temp=args.sac_temp).to(device)
+						 sac_temp=args.sac_temp, cka_lambda=args.cka_lambda, ctr_head=args.ctr_head).to(device)
 	n_par = {k: sum(p.numel() for p in s.parameters()) / 1e6 for k, s in model.streams.items()}
 	n_par['decoder'] = sum(p.numel() for p in model.decoder.parameters()) / 1e6
 	print(f'[model] ctr x{args.ctr_lambda} (temp {args.ctr_temp}), align x{args.align_lambda}, grad clip {args.grad_clip}, '
 		  f'(median x{args.grad_clip_median_mult} over {args.grad_clip_window}), '
 		  f'spat MPG no logL {args.spat_mpg_no_logL}, val pairing {args.val_pairing}, '
-		  f'SAC x{args.sac_lambda} (sigma {args.sac_sigma}, temp {args.sac_temp})', flush=True)
+		  f'SAC x{args.sac_lambda} (sigma {args.sac_sigma}, temp {args.sac_temp}), CKA x{args.cka_lambda}, '
+		  f'lr schedule {args.lr_schedule}' + (f' (warmup {args.warmup_frac}, min ratio {args.min_lr_ratio})'
+		                                       if args.lr_schedule == 'cosine' else ''), flush=True)
 	print(f'[model] swap x{args.swap_lambda}, own x{args.own_scale} (MPG {args.recon_lambda}, MPC {args.classif_lambda}, '
 		  f'mask {args.mask_cols}/{jp.N_COLS}), params (M) { {k: round(v, 1) for k, v in n_par.items()} }', flush=True)
 	opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], args.lr, weight_decay=5e-8, betas=(0.95, 0.999))
-	sched = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode='min', factor=0.5, patience=args.lr_patience)
+	total_steps = steps_per_epoch * args.nepoch
+	if args.max_steps:
+		total_steps = min(total_steps, args.max_steps)
+	if args.lr_schedule == 'cosine':
+		n_sched = steps_per_epoch * args.nepoch  # the full run, independent of --max-steps (pieces / resumes)
+		n_warm = max(1, int(round(args.warmup_frac * n_sched)))
+		def lr_at(s):  # multiplier of args.lr after s optimiser steps
+			if s < n_warm:
+				return (s + 1) / n_warm
+			t = min(1.0, (s - n_warm) / max(1, n_sched - n_warm))
+			return args.min_lr_ratio + (1 - args.min_lr_ratio) * 0.5 * (1 + np.cos(np.pi * t))
+		sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_at)
+	else:
+		sched = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode='min', factor=0.5, patience=args.lr_patience)
 	ckargs = argparse.Namespace(**vars(args), streams='joint', fusion=False)  # what save_encoders records
 
 	assert not (args.grad_clip > 0 and args.grad_clip_median_mult > 0), 'use --grad-clip or --grad-clip-median-mult, not both'
@@ -406,9 +478,6 @@ def main():
 	params = [p for p in model.parameters() if p.requires_grad]
 	gmax, gclip, thr = 0.0, 0, float('inf')
 	clipping = args.grad_clip > 0 or args.grad_clip_median_mult > 0
-	total_steps = steps_per_epoch * args.nepoch
-	if args.max_steps:
-		total_steps = min(total_steps, args.max_steps)
 	model.train()
 	t0, acc = time.time(), {}
 	while step < total_steps:
@@ -435,6 +504,8 @@ def main():
 			if not np.isfinite(gn):
 				raise RuntimeError(f'non-finite gradient norm at step {step}')
 			opt.step()
+			if args.lr_schedule == 'cosine':
+				sched.step()
 			step += 1
 			gnf.write(f'{step}\t{gn:.5g}\n')
 			out['grad_norm'] = gn
@@ -458,7 +529,8 @@ def main():
 				val = evaluate(model, stft_mod, val_loader, device)
 				rec = {'step': step, 'epoch': step / steps_per_epoch, 'val': val}
 				print(json.dumps(rec), flush=True); logf.write(json.dumps(rec) + '\n'); logf.flush()
-				sched.step(val['loss'])
+				if args.lr_schedule == 'plateau':
+					sched.step(val['loss'])
 				ep = step // steps_per_epoch
 				if step % steps_per_epoch == 0 and ep in args.snapshot_epochs:
 					model.save_encoders(ckargs, f'epoch{ep}')
