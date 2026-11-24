@@ -28,15 +28,21 @@ def bench(tar, wpe, idx, workers=5):
 
 
 def main(out):
-	res = {'tmpdir': os.environ.get('TMPDIR'), 'host': os.uname().nodename}
+	res = {'tmpdir': os.environ.get('TMPDIR'), 'stage_dir': os.environ.get('STAGE_DIR'), 'host': os.uname().nodename}
+	from ssamba_spatial_pretrain import tar_index
+	for sh in sorted(os.listdir(WPE)):  # build the shard index caches once (the loader reuses them)
+		if sh.endswith('.tar'):
+			tar_index(os.path.join(WPE, sh))
 	t0 = time.time()
-	ltar, lwpe = stage_local(TAR, WPE)
-	res['stage_s'], res['staged'] = time.time() - t0, ltar != TAR
+	ltar, lwpe = stage_local(TAR, WPE)  # copies the shard index caches built above
+	res['stage_s'], res['staged_tar'], res['staged_wpe'] = time.time() - t0, ltar != TAR, lwpe != WPE
 	rng = np.random.default_rng(1)
-	idx_a, idx_b = (rng.choice(22500, 640, replace=False).tolist() for _ in range(2))
-	if res['staged']:
-		res['local'] = bench(ltar, lwpe, idx_a)
-	res['scratch'] = bench(TAR, WPE, idx_b)  # different items: no page-cache reuse from the local pass
+	perm = rng.permutation(22500).tolist()
+	sets = [perm[i * 640:(i + 1) * 640] for i in range(5)]  # disjoint items: no page-cache reuse between passes
+	bench(TAR, WPE, sets[0][:128])  # warm-up (imports, worker start, RIR pool)
+	order = [('scratch', TAR, WPE), ('local', ltar, lwpe)] * 2 if ltar != TAR or lwpe != WPE else [('scratch', TAR, WPE)] * 2
+	for k, (name, t, w) in enumerate(order):
+		res[f'{name}_{k // 2 + 1}' if len(order) == 4 else f'{name}_{k + 1}'] = bench(t, w, sets[k + 1])
 	print(json.dumps(res, indent=1), flush=True)
 	json.dump(res, open(out, 'w'), indent=1)
 

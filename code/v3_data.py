@@ -18,7 +18,6 @@ use a per-item seed (fixed triplets). ids (3, 2) int64 = [[clip, clip]] * 3 (V1 
 """
 import io
 import os
-import tarfile
 
 import numpy as np
 import soundfile
@@ -30,51 +29,50 @@ EQ_N, EQ_GAIN, EQ_FC, EQ_Q, TILT = (3, 5), 6.0, (100.0, 7000.0), (0.7, 2.0), 3.0
 
 
 def stage_local(tar, wpe_dir, margin_gb=2.0, log=print):
-	""" Optional (--v3-stage-local, off by default; 11-24): copy the unpaired tar (+ .index.json, .meta.npz) and the
-		WPE shards to node-local $TMPDIR (else /tmp) at job start, to take random reads off /scratch200. Falls back to
-		the originals (returns them unchanged) if the local disk lacks room or the copy fails. copy2 keeps mtimes, so
-		tar_index's cache (<tar>.index.json, valid if not older than the tar) is reused. -> (tar, wpe_dir) to use. """
+	""" Optional (--v3-stage-local, off by default; 11-24): copy the unpaired tar (+ .index.json, .meta.npz) and, if
+		there is still room, the WPE shards to node-local $STAGE_DIR (set per job by scripts/job_tmp.sh; default
+		/tmp/v3stage_<job id>; never $TMPDIR, which is on /scratch200) at job start, to take random reads off
+		/scratch200. Greedy: tar first (the larger random-read load), then the WPE shards; anything that does not fit
+		(free space < size + margin) or fails to copy is read from /scratch200 as before. copy2 keeps mtimes, so
+		tar_index's cache (<tar>.index.json, valid if not older than the tar) is reused. The copy is removed at exit.
+		-> (tar, wpe_dir) to use. """
+	import atexit
 	import shutil
 	import time
-	root = os.environ.get('TMPDIR') or '/tmp'
-	dst = os.path.join(root, f'v3_stage_{os.environ.get("SLURM_JOB_ID", os.getpid())}')
-	extras = [tar + s for s in ('.index.json', '.meta.npz') if os.path.exists(tar + s)]
-	shards = sorted(os.path.join(wpe_dir, f) for f in os.listdir(wpe_dir) if f.endswith('.tar'))
-	need = sum(os.path.getsize(p) for p in [tar] + extras + shards)
+	dst = os.environ.get('STAGE_DIR') or f'/tmp/v3stage_{os.environ.get("SLURM_JOB_ID", os.getpid())}'
+	root = os.path.dirname(dst)
 	try:
 		os.makedirs(dst, exist_ok=True)
+	except OSError as e:
+		log(f'[v3 stage] {root} unusable ({e}); reading from /scratch200')
+		return tar, wpe_dir
+	atexit.register(shutil.rmtree, dst, True)  # /tmp is not always job-scoped
+
+	def copy(srcs, out_dir, what):
+		need = sum(os.path.getsize(p) for p in srcs)
 		free = shutil.disk_usage(dst).free
-	except OSError as e:
-		log(f'[v3 stage] {root} unusable ({e}); reading from {os.path.dirname(tar)}')
-		return tar, wpe_dir
-	if free < need + margin_gb * 2 ** 30:
-		log(f'[v3 stage] {root}: {free / 2 ** 30:.1f} GB free < {need / 2 ** 30:.1f} GB + {margin_gb} GB margin; '
-			f'reading from {os.path.dirname(tar)}')
-		shutil.rmtree(dst, ignore_errors=True)
-		return tar, wpe_dir
-	t0 = time.time()
-	try:
-		ltar = os.path.join(dst, os.path.basename(tar))
-		for p in [tar] + extras:  # the tar first, then its index: the index's mtime stays >= the tar's
-			shutil.copy2(p, os.path.join(dst, os.path.basename(p)))
-		lwpe = os.path.join(dst, 'wpe')
-		os.makedirs(lwpe, exist_ok=True)
-		for p in shards:
-			shutil.copy2(p, os.path.join(lwpe, os.path.basename(p)))
-	except OSError as e:
-		log(f'[v3 stage] copy failed ({e}); reading from {os.path.dirname(tar)}')
-		shutil.rmtree(dst, ignore_errors=True)
-		return tar, wpe_dir
-	log(f'[v3 stage] {need / 2 ** 30:.1f} GB -> {dst} in {time.time() - t0:.0f} s')
-	import atexit
-	atexit.register(shutil.rmtree, dst, True)  # /tmp is not always job-scoped: remove the copy when the process exits
-	return ltar, lwpe
+		if free < need + margin_gb * 2 ** 30:
+			log(f'[v3 stage] {what}: {free / 2 ** 30:.1f} GB free < {need / 2 ** 30:.1f} GB + {margin_gb} GB; stays on /scratch200')
+			return False
+		t0 = time.time()
+		try:
+			os.makedirs(out_dir, exist_ok=True)
+			for p in srcs:  # for the tar: the tar first, then its index (index mtime stays >= tar mtime)
+				shutil.copy2(p, os.path.join(out_dir, os.path.basename(p)))
+		except OSError as e:
+			log(f'[v3 stage] {what}: copy failed ({e}); stays on /scratch200')
+			shutil.rmtree(out_dir if out_dir != dst else os.path.join(dst, os.path.basename(tar)), ignore_errors=True)
+			return False
+		log(f'[v3 stage] {what}: {need / 2 ** 30:.1f} GB -> {out_dir} in {time.time() - t0:.0f} s')
+		return True
 
-
-def _tar_members(path):
-	""" {member name: (offset, size)} of a small tar (the WPE shards: 2,000 members each). """
-	with tarfile.open(path, 'r:') as tf:
-		return {m.name: (m.offset_data, m.size) for m in tf if m.isfile()}
+	extras = [tar + s for s in ('.index.json', '.meta.npz') if os.path.exists(tar + s)]
+	out_tar = os.path.join(dst, os.path.basename(tar)) if copy([tar] + extras, dst, 'unpaired tar') else tar
+	shards = sorted(os.path.join(wpe_dir, f) for f in os.listdir(wpe_dir) if f.endswith('.tar') or f.endswith('.tar.index.json'))
+	shards.sort(key=lambda p: p.endswith('.json'))  # each shard before its index (index mtime >= shard mtime)
+	lwpe = os.path.join(dst, 'wpe')
+	out_wpe = lwpe if copy(shards, lwpe, 'WPE shards') else wpe_dir
+	return out_tar, out_wpe
 
 
 def peaking_mag(f, fc, gain_db, q):
@@ -133,7 +131,8 @@ class V3Dataset(torch.utils.data.Dataset):
 		s = clip // self.shard_size
 		if s not in self._wpe_idx:
 			p = os.path.join(self.wpe_dir, f'shard_{s:02d}.tar')
-			self._wpe_idx[s], self._wpe_fh[s] = _tar_members(p), open(p, 'rb')
+			from ssamba_spatial_pretrain import tar_index  # cached <shard>.index.json: no header scan per worker
+			self._wpe_idx[s], self._wpe_fh[s] = tar_index(p), open(p, 'rb')
 		off, size = self._wpe_idx[s][f'wpe/{clip}_{h}.wav']
 		fh = self._wpe_fh[s]
 		fh.seek(off)
