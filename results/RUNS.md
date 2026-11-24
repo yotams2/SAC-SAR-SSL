@@ -44,9 +44,9 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointC2head_concat | ok | pilotC2_head | paired v1 | frz 1.67 | frz 0.106 |  |  |  | C2 + head: concat (appendix only). |
 | jointC2head_spec_on_spatial | ok | pilotC2_head | paired v1 | frz 2.93 | frz 0.086 |  |  |  | Leakage: C2 + head, spectral encoder on the spatial tasks. |
 | jointC2head_spat | ok | pilotC2_head | paired v1 | frz 1.55 | frz 0.101 | frz 1.62 |  |  | C2 + head: spatial encoder alone, frozen. |
-| jointC2head_concat | ok | pilotC2_head | paired v1 | frz 1.67 |  |  |  |  | C2 + head: concat (appendix only). |
 | jointCv2r_concat | ok | pilotC_v2r | paired v2 | frz 2.41 | frz 0.065 | frz 1.37 |  |  | C 10 ep v2 + new recipe: concat (appendix only; concat settled 11-23). |
 | jointCv2r_spat | ok | pilotC_v2r | paired v2 | frz 2.38 | frz 0.067 | frz 1.40 |  |  | C 10 ep v2 + new recipe: spatial encoder alone, frozen. |
 | jointCv2r_spec_on_spatial | ok | pilotC_v2r | paired v2 | frz 2.92 | frz 0.064 | frz 1.77 |  |  | Leakage: C 10 ep v2 + new recipe, spectral encoder on the spatial tasks. |
