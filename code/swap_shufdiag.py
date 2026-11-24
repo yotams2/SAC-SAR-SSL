@@ -120,7 +120,7 @@ def main():
 		exp, ck = rest.split(':', 1)
 		a = json.load(open(os.path.join(exp, 'args.json')))
 		model = sp.SwapPretrain(a['mask_cols'], a['recon_lambda'], a['classif_lambda'], a['swap_lambda'], a['own_scale'],
-								sac_lambda=a.get('sac_lambda', 0.0)).to(dev)  # SAC head present in C + SAC checkpoints
+								sac_lambda=a.get('sac_lambda', 0.0), ctr_head=a.get('ctr_head', False)).to(dev)  # SAC / ctr heads present in C + SAC / C2-head checkpoints
 		model.load_state_dict(torch.load(os.path.join(exp, ck), map_location='cpu', weights_only=False)['model'])
 		model.eval()
 		n_scenes = int(np.load(a['tar'] + '.meta.npz')['n_scenes'])
