@@ -1,0 +1,32 @@
+{
+  "task": "TDOA",
+  "experiment": "jointC2head_concat",
+  "model": "upstream joint\nmode concat\nckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC2_head/spec_encoder_final.pth,/scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC2_head/spat_encoder_final.pth\nhead_norm joint",
+  "job_id": "23767092",
+  "status": "done",
+  "date": "2026-11-24T18:22:08+02:00",
+  "collected_at": "2026-11-24T18:22:09+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/jointC2head_concat",
+  "metrics": {
+    "lineareval": {
+      "lowest": 1.6718934774398804,
+      "mean": 1.6718934774398804,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 1.4962079524993896,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 1.6718934774398804,
+          "loss_test": 5.033867221832275
+        }
+      ]
+    }
+  }
+}
