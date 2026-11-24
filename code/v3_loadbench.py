@@ -1,0 +1,45 @@
+""" V3 load-time benchmark (CPU, 11-24): --v3-stage-local (node-local $TMPDIR) vs reading /scratch200.
+Stages the unpaired tar + WPE shards with v3_data.stage_local (timed), then loads the same random training items
+(5 workers, batch 32) from each copy; reports s / item and the implied s per batch of 128. Usage: v3_loadbench.py <out json>
+"""
+import json
+import os
+import sys
+import time
+
+import numpy as np
+import torch
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v3_data import V3Dataset, stage_local  # noqa: E402
+
+M = '/scratch200/yotams2/SAC-SAR-SSL/data/MicSig'
+TAR, WPE, POOL = f'{M}/simu_unpaired8_pretrain.tar', f'{M}/simu_unpaired8_wpe', f'{M}/simu_paired_pretrain_v2.tar.rirs.npz'
+
+
+def bench(tar, wpe, idx, workers=5):
+	ds = V3Dataset(tar, wpe, POOL, 0, 22500, swap_halves=True)
+	dl = torch.utils.data.DataLoader(torch.utils.data.Subset(ds, idx), batch_size=32, num_workers=workers)
+	t0, n = time.time(), 0
+	for sig3, _ in dl:
+		n += sig3.shape[0]
+	dt = time.time() - t0
+	return {'items': n, 's_per_item': dt / n, 's_per_batch128': dt / n * 128}
+
+
+def main(out):
+	res = {'tmpdir': os.environ.get('TMPDIR'), 'host': os.uname().nodename}
+	t0 = time.time()
+	ltar, lwpe = stage_local(TAR, WPE)
+	res['stage_s'], res['staged'] = time.time() - t0, ltar != TAR
+	rng = np.random.default_rng(1)
+	idx_a, idx_b = (rng.choice(22500, 640, replace=False).tolist() for _ in range(2))
+	if res['staged']:
+		res['local'] = bench(ltar, lwpe, idx_a)
+	res['scratch'] = bench(TAR, WPE, idx_b)  # different items: no page-cache reuse from the local pass
+	print(json.dumps(res, indent=1), flush=True)
+	json.dump(res, open(out, 'w'), indent=1)
+
+
+if __name__ == '__main__':
+	main(sys.argv[1])

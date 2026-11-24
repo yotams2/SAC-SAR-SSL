@@ -518,6 +518,13 @@ def main():
 					help='V1b spatial cues: L2-normalised (cosine; learned teachers) or as they are (euclid; the oracle '
 						 'parameter teacher B, like the z-normed handcrafted SAC cues)')
 	ap.add_argument('--tsac-cue-file-spat', default=None, help='V1b: precomputed final spatial cues (n_scenes, k), used as they are')
+	ap.add_argument('--v3', action='store_true', help='V3 unpaired swap (v3_data.py); --tar = the unpaired 8.224-s tar')
+	ap.add_argument('--v3-wpe-dir', default='/scratch200/yotams2/SAC-SAR-SSL/data/MicSig/simu_unpaired8_wpe')
+	ap.add_argument('--v3-rir-pool', default='/scratch200/yotams2/SAC-SAR-SSL/data/MicSig/simu_paired_pretrain_v2.tar.rirs.npz',
+					help='V3: disjoint RIR pool (first 12000 = paired v2 training scenes)')
+	ap.add_argument('--v3-swap-halves', action='store_true', help='V3: draw which half is h1 per access (default h1 = first)')
+	ap.add_argument('--v3-stage-local', action='store_true', help='V3: copy the unpaired tar + WPE shards to $TMPDIR at start')
+	ap.add_argument('--v3-no-eq', action='store_true', help='V3: no random EQ on the spectral input')
 	ap.add_argument('--grad-share-every', type=int, default=0, help='log each term\'s share of each encoder\'s gradient every N steps')
 	ap.add_argument('--spat-mpg-no-logL', action='store_true', help='spatial own MPG target without the log|L| channel')
 	ap.add_argument('--val-pairing', choices=['fixed', 'random'], default='fixed',
@@ -536,9 +543,22 @@ def main():
 	torch.manual_seed(args.seed); np.random.seed(args.seed); random.seed(args.seed)
 
 	n_scenes = int(np.load(args.tar + '.meta.npz')['n_scenes'])
-	ds_train = PairedDataset(args.tar, 0, n_scenes - args.val_scenes, args.num_train)
-	ds_val = PairedDataset(args.tar, n_scenes - args.val_scenes, n_scenes, args.num_val,
-						   fixed_seed=12345 if args.val_pairing == 'fixed' else None)
+	if args.v3:  # V3 (11-24): unpaired swap; --tar = the unpaired 8.224-s set (1 clip per scene), see v3_data.py
+		from v3_data import V3Dataset
+		assert not (args.lat_lambda > 0 or args.tsac_lambda_spec > 0 or args.tsac_lambda_spat > 0 or args.ctr_lambda > 0), \
+			'V3 runs without the V1 / contrastive terms (ids carry no utterance / scene structure)'
+		v3kw = dict(swap_halves=args.v3_swap_halves, eq=not args.v3_no_eq)
+		v3_tar, v3_wpe = args.tar, args.v3_wpe_dir  # args keep the /scratch200 paths (args.json is read by the evals)
+		if args.v3_stage_local:  # copy the unpaired tar + WPE shards to node-local disk (falls back to /scratch200)
+			from v3_data import stage_local
+			v3_tar, v3_wpe = stage_local(args.tar, args.v3_wpe_dir, log=lambda m: print(m, flush=True))
+		ds_train = V3Dataset(v3_tar, v3_wpe, args.v3_rir_pool, 0, n_scenes - args.val_scenes, args.num_train, **v3kw)
+		ds_val = V3Dataset(v3_tar, v3_wpe, args.v3_rir_pool, n_scenes - args.val_scenes, n_scenes, args.num_val,
+						   fixed_seed=12345, **v3kw)
+	else:
+		ds_train = PairedDataset(args.tar, 0, n_scenes - args.val_scenes, args.num_train)
+		ds_val = PairedDataset(args.tar, n_scenes - args.val_scenes, n_scenes, args.num_val,
+							   fixed_seed=12345 if args.val_pairing == 'fixed' else None)
 	print(f'[data] {n_scenes} scenes x {ds_train.k}: train {len(ds_train)} targets, val {len(ds_val)}', flush=True)
 	kw = dict(num_workers=args.num_workers, pin_memory=device == 'cuda', persistent_workers=args.num_workers > 0)
 	val_loader = torch.utils.data.DataLoader(ds_val, batch_size=args.bs, shuffle=False, **kw)
