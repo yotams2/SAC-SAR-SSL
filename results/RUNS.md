@@ -39,6 +39,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointCv2r_concat | ok | pilotC_v2r | paired v2 | frz 2.41 |  |  |  |  | C 10 ep v2 + new recipe: concat (appendix only; concat settled 11-23). |
 | jointCv2r_spec_on_spatial | ok | pilotC_v2r | paired v2 | frz 2.92 |  |  |  |  | Leakage: C 10 ep v2 + new recipe, spectral encoder on the spatial tasks. |
 | jointCv2r_spat | ok | pilotC_v2r | paired v2 | frz 2.38 |  |  |  |  | C 10 ep v2 + new recipe: spatial encoder alone, frozen. |
 | jointCswapv2r_spat | ok | pilotCswap_v2r | paired v2 | frz 2.28 | frz 0.074 | frz 1.46 |  |  | C swap-only (own-scale 0) 10 ep v2: spatial encoder alone, frozen. |
