@@ -45,6 +45,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1al1_concat | ok | pilotc_v1a_l1 | paired v2 | frz 1.79 |  |  |  |  | UNDESCRIBED |
 | jointcv1al1_spat | ok | pilotc_v1a_l1 | paired v2 | frz 1.75 |  |  |  |  | UNDESCRIBED |
 | jointcv1bBl1_spec_on_spatial | ok | pilotc_v1bB_l1 | paired v2 | frz 2.92 |  |  |  |  | UNDESCRIBED |
 | jointcv1bBl1_spat | ok | pilotc_v1bB_l1 | paired v2 | frz 1.37 | frz 0.065 | frz 1.43 |  |  | UNDESCRIBED |
