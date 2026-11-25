@@ -14,6 +14,7 @@
 # (scripts/gen_simu_paired.sbatch -> MicSig/simu_paired_pretrain.tar). Runs in the sac-ssamba venv (mamba_ssm).
 #
 # TRAINER=<script in code/> (default swap_pretrain.py; V1: _swap_pretrain_v1.py, exported to the chained pieces).
+# EXCLUDE=<nodelist> (11-25): passed as --exclude to the chained pieces too (give the same list to the first sbatch).
 # Usage, from the SAC-SAR-SSL root:  [NICE=<n>] sbatch [--nice=<n>] scripts/swap_pretrain.sbatch <label> [swap_pretrain.py args]  (NICE: also for the chained pieces)
 # Output: ${SARSSL_EXP_ROOT}/joint_pretrain/<label>/ (resumes from latest.pth if present).
 # Chunks: the job runs in 12-h pieces (short jobs start sooner through backfill). On its first start each job queues
@@ -35,7 +36,7 @@ if [ -f "$EXP/.done" ]; then echo "$(date) $LABEL already finished"; exit 0; fi
 
 # queue the next 12-h piece once per job id (a requeued job keeps its id and must not queue a second one)
 if [ -n "${SLURM_JOB_ID:-}" ] && [ -z "${NO_CHAIN:-}" ] && [ ! -f "$EXP/.chained_${SLURM_JOB_ID}" ]; then
-	next=$(sbatch --parsable ${NICE:+--nice=$NICE} --dependency=afterany:${SLURM_JOB_ID} --chdir="$REPO_ROOT" \
+	next=$(sbatch --parsable ${NICE:+--nice=$NICE} ${EXCLUDE:+--exclude=$EXCLUDE} --dependency=afterany:${SLURM_JOB_ID} --chdir="$REPO_ROOT" \
 		"$REPO_ROOT/scripts/swap_pretrain.sbatch" "$LABEL" "$@")
 	echo "$next" > "$EXP/.chained_${SLURM_JOB_ID}"
 	echo "next piece: $next"
