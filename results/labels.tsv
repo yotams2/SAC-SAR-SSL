@@ -165,15 +165,15 @@ jointcv1al1_spec_on_spatial	-	ok	Leakage: V1a λ1 (latent prediction), spectral 
 jointcv1al1_spec_probe	-	ok	V1a λ1 (latent prediction): spectral encoder on SC2/SID.
 jointcv1al1_spat_probe	-	ok	Leakage: V1a λ1 (latent prediction), spatial encoder on SC2/SID.
 jointcv1al1_concat_probe	-	ok	V1a λ1 (latent prediction): concat on SC2/SID (appendix only).
-jointccsacl1_spat	-	ok	C + SAC λ1 control (hand-crafted spatial cues, spatial encoder only), 10 ep paired v2: spatial encoder alone, frozen.
-jointccsacl1_concat	-	ok	C + SAC λ1 control (hand-crafted spatial cues, spatial encoder only): concat (appendix only).
-jointccsacl1_spec_on_spatial	-	ok	Leakage: C + SAC λ1 control (hand-crafted spatial cues, spatial encoder only), spectral encoder on the spatial tasks.
-jointccsacl1_spec_probe	-	ok	C + SAC λ1 control (hand-crafted spatial cues, spatial encoder only): spectral encoder on SC2/SID.
-jointccsacl1_spat_probe	-	ok	Leakage: C + SAC λ1 control (hand-crafted spatial cues, spatial encoder only), spatial encoder on SC2/SID.
-jointccsacl1_concat_probe	-	ok	C + SAC λ1 control (hand-crafted spatial cues, spatial encoder only): concat on SC2/SID (appendix only).
-jointccsacl01_spat	-	ok	C + SAC λ0.1 control (hand-crafted spatial cues, spatial encoder only), 10 ep paired v2: spatial encoder alone, frozen.
-jointccsacl01_concat	-	ok	C + SAC λ0.1 control (hand-crafted spatial cues, spatial encoder only): concat (appendix only).
-jointccsacl01_spec_on_spatial	-	ok	Leakage: C + SAC λ0.1 control (hand-crafted spatial cues, spatial encoder only), spectral encoder on the spatial tasks.
-jointccsacl01_spec_probe	-	ok	C + SAC λ0.1 control (hand-crafted spatial cues, spatial encoder only): spectral encoder on SC2/SID.
-jointccsacl01_spat_probe	-	ok	Leakage: C + SAC λ0.1 control (hand-crafted spatial cues, spatial encoder only), spatial encoder on SC2/SID.
-jointccsacl01_concat_probe	-	ok	C + SAC λ0.1 control (hand-crafted spatial cues, spatial encoder only): concat on SC2/SID (appendix only).
+jointcv1bHCl1_spat	-	ok	V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen.
+jointcv1bHCl1_concat	-	ok	V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only).
+jointcv1bHCl1_spec_on_spatial	-	ok	Leakage: V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), spectral encoder on the spatial tasks.
+jointcv1bHCl1_spec_probe	-	ok	V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): spectral encoder on SC2/SID.
+jointcv1bHCl1_spat_probe	-	ok	Leakage: V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), spatial encoder on SC2/SID.
+jointcv1bHCl1_concat_probe	-	ok	V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): concat on SC2/SID (appendix only).
+jointcv1bHCl01_spat	-	ok	V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen.
+jointcv1bHCl01_concat	-	ok	V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only).
+jointcv1bHCl01_spec_on_spatial	-	ok	Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spectral encoder on the spatial tasks.
+jointcv1bHCl01_spec_probe	-	ok	V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): spectral encoder on SC2/SID.
+jointcv1bHCl01_spat_probe	-	ok	Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spatial encoder on SC2/SID.
+jointcv1bHCl01_concat_probe	-	ok	V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat on SC2/SID (appendix only).
