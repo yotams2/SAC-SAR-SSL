@@ -183,3 +183,10 @@ jointcv1bAnoancl01_spec_on_spatial	-	ok	Leakage: V1b-A′-noanc (V1b A′ λ0.1,
 jointcv1bAnoancl01_spec_probe	-	ok	V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): spectral encoder on SC2/SID.
 jointcv1bAnoancl01_spat_probe	-	ok	Leakage: V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), spatial encoder on SC2/SID.
 jointcv1bAnoancl01_concat_probe	-	ok	V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): concat on SC2/SID (appendix only).
+pilotc_v3	-	ok	V3 unpaired swap: C v2 10 ep's recipe (anchors on, own-scale 0.1) on the unpaired 8.224-s set with --v3 (target h1, spectral input = EQ(WPE(h1) * RIR of another paired-v2 training room), spatial input = h2); launched by scripts/launch_v3.sh. Compare with pilotC_v2r.
+jointcv3_spat	-	ok	V3 unpaired swap, 10 ep: spatial encoder alone, frozen.
+jointcv3_concat	-	ok	V3 unpaired swap: concat (appendix only).
+jointcv3_spec_on_spatial	-	ok	Leakage: V3 unpaired swap, spectral encoder on the spatial tasks.
+jointcv3_spec_probe	-	ok	V3 unpaired swap: spectral encoder on SC2/SID.
+jointcv3_spat_probe	-	ok	Leakage: V3 unpaired swap, spatial encoder on SC2/SID.
+jointcv3_concat_probe	-	ok	V3 unpaired swap: concat on SC2/SID (appendix only).
