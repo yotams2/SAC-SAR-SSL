@@ -51,9 +51,9 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointC30v2r_spat | ok | pilotC30_v2r | paired v2 | frz 2.47 | frz 0.070 |  |  |  | C 30 ep reference (v2, new recipe): spatial encoder alone, frozen. |
 | jointC30v2r_concat | ok | pilotC30_v2r | paired v2 | frz 2.50 | frz 0.077 |  |  |  | C 30 ep reference: concat (appendix only). |
 | jointC30v2r_spec_on_spatial | ok | pilotC30_v2r | paired v2 | frz 2.93 | frz 0.079 | frz 1.65 |  |  | Leakage: C 30 ep reference, spectral encoder on the spatial tasks. |
-| jointC30v2r_spat | ok | pilotC30_v2r | paired v2 | frz 2.47 |  |  |  |  | C 30 ep reference (v2, new recipe): spatial encoder alone, frozen. |
 | jointcv1bAl01_spec_on_spatial | ok | pilotc_v1bA_l01 | paired v2 | frz 2.92 | frz 0.118 | frz 1.97 |  |  | Leakage: V1b A′ λ0.1 (learned RIR teacher, the method), spectral encoder on the spatial tasks. |
 | jointcv1bAl01_spat | ok | pilotc_v1bA_l01 | paired v2 | frz 1.49 | frz 0.090 | frz 1.43 |  |  | V1b A′ λ0.1 (learned RIR teacher, the method), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1al1_spat | ok | pilotc_v1a_l1 | paired v2 | frz 1.75 | frz 0.164 | frz 1.50 |  |  | V1a λ1 (latent prediction), 10 ep paired v2: spatial encoder alone, frozen. |
@@ -185,6 +185,8 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv1bAl01_concat_probe | ok | pilotc_v1bA_l01 | paired v2 | 20.2 | 18.0 | V1b A′ λ0.1 (learned RIR teacher, the method): concat on SC2/SID (appendix only). |
 | jointcv1bAl01_spat_probe | ok | pilotc_v1bA_l01 | paired v2 | 10.4 | 4.3 | Leakage: V1b A′ λ0.1 (learned RIR teacher, the method), spatial encoder on SC2/SID. |
 | jointcv1bAl01_spec_probe | ok | pilotc_v1bA_l01 | paired v2 | 22.3 | 46.1 | V1b A′ λ0.1 (learned RIR teacher, the method): spectral encoder on SC2/SID. |
+| jointcv1bAl1_concat_probe | ok | pilotc_v1bA_l1 | paired v2 | 19.8 | 13.2 | V1b A′ λ1 (learned RIR teacher, the method): concat on SC2/SID (appendix only). |
+| jointcv1bAl1_spat_probe | ok | pilotc_v1bA_l1 | paired v2 | 10.8 | 2.0 | Leakage: V1b A′ λ1 (learned RIR teacher, the method), spatial encoder on SC2/SID. |
 | jointcv1bAl1_spec_probe | ok | pilotc_v1bA_l1 | paired v2 | 23.2 | 42.6 | V1b A′ λ1 (learned RIR teacher, the method): spectral encoder on SC2/SID. |
 | jointcv1bBl01_concat_probe | ok | pilotc_v1bB_l01 | paired v2 | 20.8 | 21.2 | V1b oracle B λ0.1 (analysis row): concat on SC2/SID (appendix only). |
 | jointcv1bBl01_spat_probe | ok | pilotc_v1bB_l01 | paired v2 | 11.2 | 3.7 | Leakage: V1b oracle B λ0.1 (analysis row), spatial encoder on SC2/SID. |
