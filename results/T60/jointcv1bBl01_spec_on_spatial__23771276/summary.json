@@ -1,0 +1,32 @@
+{
+  "task": "T60",
+  "experiment": "jointcv1bBl01_spec_on_spatial",
+  "model": "upstream joint\nmode spec\nckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotc_v1bB_l01/spec_encoder_final.pth\nhead_norm joint",
+  "job_id": "23771276",
+  "status": "done",
+  "date": "2026-11-25T05:32:34+02:00",
+  "collected_at": "2026-11-25T05:32:35+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/T60/jointcv1bBl01_spec_on_spatial",
+  "metrics": {
+    "lineareval": {
+      "lowest": 0.1260427087545395,
+      "mean": 0.1260427087545395,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 0.09261397272348404,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 1,
+          "bs_idx": 0,
+          "metric_test": 0.1260427087545395,
+          "loss_test": 0.02446411333233118
+        }
+      ]
+    }
+  }
+}
