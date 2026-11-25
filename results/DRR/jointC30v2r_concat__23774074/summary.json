@@ -1,0 +1,32 @@
+{
+  "task": "DRR",
+  "experiment": "jointC30v2r_concat",
+  "model": "upstream joint\nmode concat\nckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC30_v2r/spec_encoder_final.pth,/scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotC30_v2r/spat_encoder_final.pth\nhead_norm joint",
+  "job_id": "23774074",
+  "status": "done",
+  "date": "2026-11-25T13:33:25+02:00",
+  "collected_at": "2026-11-25T13:33:26+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/DRR/jointC30v2r_concat",
+  "metrics": {
+    "lineareval": {
+      "lowest": 1.2822301387786865,
+      "mean": 1.2822301387786865,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 1.0065138339996338,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 1.2822301387786865,
+          "loss_test": 2.6571839064359666
+        }
+      ]
+    }
+  }
+}
