@@ -8,9 +8,10 @@ Reference rows: random init (from the uniform run) and a ridge probe on the true
 gpuRIR sets the RIR length from the simulated T60 (Tmax = Sabine time to decay 40 dB), so every encoder that can see
 where the zero padding starts (A′ / v2 late envelope, A′-uniform's frame mask) can read T60 from it.
 Pass test = A′ design 1's: TDOA <= 1.95 samples, T60 / DRR / C50 no worse than random init. Decision rule (Yotam,
-revised 11-25): A′-uniform within ~10% of A′ on all four probes -> candidate to replace A′; worse by > 10% on C50 and / or
-DRR with TDOA within 10% -> the late-energy view matters. T60 is reported but uninformative (random init ~ trained, and
-the RIR length alone predicts it) and does not decide the late-view branch.
+revised twice 11-25): A′-uniform within ~10% of A′ on TDOA, DRR and C50 -> candidate to replace A′; worse by > 10% on C50
+and / or DRR with TDOA within 10% -> the late-energy view matters. T60 is reported but decides neither branch: A′'s
+envelope exposes the RIR length (random-init T60 0.0137) while A′-uniform's padding mask hides it (random-init 0.108),
+so T60 favours A′ for a leak, not for representation quality.
 Usage: python rir_compare.py --uniform <dir> --a1 <dir> --v2 <dir> --out <json>
 """
 import argparse
@@ -87,9 +88,9 @@ def main():
 	u, a1 = rows['A′-uniform']['probe_mae'], rows['A′ design 1']['probe_mae']
 	rel = {t: u[t] / a1[t] for t in TASKS}
 	passed = u['TDOA'] <= 1.95 and all(u[t] <= rnd[t] for t in ('T60', 'DRR', 'C50'))
-	within = all(r <= 1.10 for r in rel.values())
+	within = all(rel[t] <= 1.10 for t in ('TDOA', 'DRR', 'C50'))  # T60 excluded (length leak favours A′; 11-25)
 	worse_late_only = rel['TDOA'] <= 1.10 and any(rel[t] > 1.10 for t in ('C50', 'DRR'))  # T60 not used (11-25)
-	verdict = ('within 10% of A′ on all four probes: candidate to replace A′ (your call on rerunning V1b)' if within else
+	verdict = ('within 10% of A′ on TDOA, DRR and C50: candidate to replace A′ (your call on rerunning V1b)' if within else
 			   'worse than A′ by > 10% on C50 / DRR (TDOA within 10%): the late-energy view matters (report and stop)' if worse_late_only else
 			   'mixed: worse than A′ by > 10% on ' + ', '.join(t for t in TASKS if rel[t] > 1.10))
 	res = {'rows': rows, 'random_init': rnd, 'rir_len_only': lenrow, 'uniform_over_a1': rel, 'pass_test': passed,
@@ -107,7 +108,7 @@ def main():
 	print(f"| random init (uniform arch) | {rnd['TDOA']:.3f} | {rnd['T60']:.4f} | {rnd['DRR']:.3f} | {rnd['C50']:.3f} | | | |")
 	print(f"| log RIR length alone | {lenrow['TDOA']:.3f} | {lenrow['T60']:.4f} | {lenrow['DRR']:.3f} | {lenrow['C50']:.3f} | | | |")
 	print(f"uniform / A′: " + ', '.join(f'{t} {rel[t]:.2f}x' for t in TASKS) + f"; pass test {'PASS' if passed else 'FAIL'}"
-		  "  (T60 uninformative: random init ~ trained, RIR length alone predicts it)")
+		  "  (T60 reported, not deciding: A′'s envelope exposes the RIR length, A′-uniform's mask hides it)")
 	print(f'verdict: {verdict}')
 
 
