@@ -121,13 +121,20 @@ def main():
 		a = json.load(open(os.path.join(exp, 'args.json')))
 		model = sp.SwapPretrain(a['mask_cols'], a['recon_lambda'], a['classif_lambda'], a['swap_lambda'], a['own_scale'],
 								sac_lambda=a.get('sac_lambda', 0.0), ctr_head=a.get('ctr_head', False)).to(dev)  # SAC / ctr heads present in C + SAC / C2-head checkpoints
-		model.load_state_dict(torch.load(os.path.join(exp, ck), map_location='cpu', weights_only=False)['model'])
+		sd = torch.load(os.path.join(exp, ck), map_location='cpu', weights_only=False)['model']
+		# V1a checkpoints carry latent predictors (lat_pred.*) that SwapPretrain does not build and check 4a does not use:
+		# drop exactly those (logged), strict load for everything else (11-25).
+		skipped = sorted(k for k in sd if k.startswith('lat_pred.'))
+		if skipped:
+			print(f'[load] {label}: skipping {len(skipped)} keys not used by check 4a: {skipped}', flush=True)
+		model.load_state_dict({k: v for k, v in sd.items() if k not in skipped})
 		model.eval()
 		n_scenes = int(np.load(a['tar'] + '.meta.npz')['n_scenes'])
 		ds = sp.PairedDataset(a['tar'], n_scenes - a['val_scenes'], n_scenes, a.get('num_val'), fixed_seed=12345)
 		loader = torch.utils.data.DataLoader(ds, batch_size=a['bs'], shuffle=False, num_workers=5, pin_memory=True)
 		torch.manual_seed(1234)
 		r = run(model, loader, stft_mod, dev, ds.k)
+		r['skipped_keys'] = skipped
 		allres[label] = r
 		print(f'\n## {label} ({exp}/{ck}), {r["n_clips"]} validation targets, donor fallbacks {r["donor_fallbacks"]}')
 		print(f'cross-check raw normal vs swap_losses: {np.round(r["crosscheck_normal_raw_vs_swap_losses"], 4).tolist()}')

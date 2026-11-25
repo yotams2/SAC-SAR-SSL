@@ -5,11 +5,13 @@
 # Each run gets a gate -> scripts/evals/<run>.sh (copy of pilotC_v2r.sh: check 4a + ridge incl. the C v2 baseline + Pilot C's eval set).
 # Usage, from the SAC-SAR-SSL root: BASE=C bash scripts/launch_v2.sh [--hold]   (DRY=1: print the commands only)
 set -euo pipefail
+source scripts/space_guard.sh  # 11-25: refuse to submit with < 60 GB free on /scratch200 (MIN_FREE_GB, SPACE_GUARD_SKIP)
+[ -n "${DRY:-}" ] || space_guard
 BASE=${BASE:?set BASE=C or BASE=C2}
 X=/scratch200/yotams2/SAC-SAR-SSL/exp
 export PAIRED_TAR=/scratch200/yotams2/SAC-SAR-SSL/data/MicSig/simu_paired_pretrain_v2.tar
 [ -f $PAIRED_TAR ] || { echo "missing $PAIRED_TAR"; exit 1; }
-COMMON=(--lr-schedule cosine --warmup-frac 0.05 --grad-clip-median-mult 3)
+COMMON=(--snapshot-epochs --lr-schedule cosine --warmup-frac 0.05 --grad-clip-median-mult 3)
 [ "$BASE" = C2 ] && COMMON+=(--ctr-lambda 1)
 b=$(echo $BASE | tr C c)
 declare -A RUNS=([v2cka_l01]="--cka-lambda 0.1" [v2cka_l1]="--cka-lambda 1")
