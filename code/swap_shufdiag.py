@@ -129,8 +129,13 @@ def main():
 			print(f'[load] {label}: skipping {len(skipped)} keys not used by check 4a: {skipped}', flush=True)
 		model.load_state_dict({k: v for k, v in sd.items() if k not in skipped})
 		model.eval()
-		n_scenes = int(np.load(a['tar'] + '.meta.npz')['n_scenes'])
-		ds = sp.PairedDataset(a['tar'], n_scenes - a['val_scenes'], n_scenes, a.get('num_val'), fixed_seed=12345)
+		# SHUFDIAG_TAR / SHUFDIAG_VAL_SCENES (11-25, V3): evaluate on another paired set's validation split (V3 trains on the
+		# unpaired tar, which PairedDataset cannot read; it is checked on C v2's paired-v2 split). Unset = the run's own.
+		tar, nval = os.environ.get('SHUFDIAG_TAR', a['tar']), int(os.environ.get('SHUFDIAG_VAL_SCENES', a['val_scenes']))
+		if tar != a['tar']:
+			print(f'[data] {label}: validation set {tar} (last {nval} scenes), not the run\'s own {a["tar"]}', flush=True)
+		n_scenes = int(np.load(tar + '.meta.npz')['n_scenes'])
+		ds = sp.PairedDataset(tar, n_scenes - nval, n_scenes, a.get('num_val'), fixed_seed=12345)
 		loader = torch.utils.data.DataLoader(ds, batch_size=a['bs'], shuffle=False, num_workers=5, pin_memory=True)
 		torch.manual_seed(1234)
 		r = run(model, loader, stft_mod, dev, ds.k)
