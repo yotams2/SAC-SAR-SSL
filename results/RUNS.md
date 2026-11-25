@@ -45,9 +45,9 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1al1_spat | ok | pilotc_v1a_l1 | paired v2 | frz 1.75 | frz 0.164 |  |  |  | UNDESCRIBED |
 | jointcv1bBl1_concat | ok | pilotc_v1bB_l1 | paired v2 | frz 1.37 |  |  |  |  | UNDESCRIBED |
 | jointcv1al1_concat | ok | pilotc_v1a_l1 | paired v2 | frz 1.79 |  |  |  |  | UNDESCRIBED |
-| jointcv1al1_spat | ok | pilotc_v1a_l1 | paired v2 | frz 1.75 |  |  |  |  | UNDESCRIBED |
 | jointcv1bBl1_spec_on_spatial | ok | pilotc_v1bB_l1 | paired v2 | frz 2.92 |  |  |  |  | UNDESCRIBED |
 | jointcv1bBl1_spat | ok | pilotc_v1bB_l1 | paired v2 | frz 1.37 | frz 0.065 | frz 1.43 |  |  | UNDESCRIBED |
 | jointcv1bBl01_spec_on_spatial | ok | pilotc_v1bB_l01 | paired v2 | frz 2.93 | frz 0.126 | frz 1.96 |  |  | UNDESCRIBED |
@@ -168,6 +168,8 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv1al1_concat_probe | ok | pilotc_v1a_l1 | paired v2 | 18.9 | 17.6 | UNDESCRIBED |
 | jointcv1al1_spat_probe | ok | pilotc_v1a_l1 | paired v2 | 7.1 | 1.8 | UNDESCRIBED |
 | jointcv1al1_spec_probe | ok | pilotc_v1a_l1 | paired v2 | 26.0 | 48.7 | UNDESCRIBED |
+| jointcv1bAl01_concat_probe | ok | pilotc_v1bA_l01 | paired v2 | 20.2 | 18.0 | UNDESCRIBED |
+| jointcv1bAl01_spat_probe | ok | pilotc_v1bA_l01 | paired v2 | 10.4 | 4.3 | UNDESCRIBED |
 | jointcv1bAl01_spec_probe | ok | pilotc_v1bA_l01 | paired v2 | 22.3 | 46.1 | UNDESCRIBED |
 | jointcv1bBl01_concat_probe | ok | pilotc_v1bB_l01 | paired v2 | 20.8 | 21.2 | UNDESCRIBED |
 | jointcv1bBl01_spat_probe | ok | pilotc_v1bB_l01 | paired v2 | 11.2 | 3.7 | UNDESCRIBED |
