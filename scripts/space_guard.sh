@@ -1,8 +1,9 @@
 # Sourced by the launch scripts (11-25, after the 400 GB quota filled and killed a run + evals mid-write).
 # space_guard [min GB]: refuse to submit when /scratch200 has less than MIN_FREE_GB (default 60) free under the user
-# quota. Fails closed: if quota cannot be read, it refuses too (override for one launch: SPACE_GUARD_SKIP=1).
+# quota. Fails closed: if quota cannot be read (or hangs > 30 s, seen on compute-0-425 11-25), it refuses too
+# (override for one launch: SPACE_GUARD_SKIP=1).
 space_free_gb() {  # free GB under the /scratch200 user quota (quota -w: one line, 1 KB blocks; '*' when over)
-	quota -w -f /scratch200 2>/dev/null | awk '/scratch200/ {gsub(/[^0-9]/, "", $2); gsub(/[^0-9]/, "", $3);
+	timeout 30 quota -w -f /scratch200 2>/dev/null | awk '/scratch200/ {gsub(/[^0-9]/, "", $2); gsub(/[^0-9]/, "", $3);
 		if ($3 > 0) { printf "%d\n", ($3 - $2) / 1048576; found = 1 } } END { exit !found }'
 }
 space_guard() {
