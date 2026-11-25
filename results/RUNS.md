@@ -45,6 +45,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bBl01_concat | ok | pilotc_v1bB_l01 | paired v2 | frz 1.79 |  |  |  |  | UNDESCRIBED |
 | jointcv1bBl01_spat | ok | pilotc_v1bB_l01 | paired v2 | frz 1.73 |  |  |  |  | UNDESCRIBED |
 | jointC2head_concat | ok | pilotC2_head | paired v1 | frz 1.67 | frz 0.106 | frz 1.50 |  |  | C2 + head: concat (appendix only). |
 | jointC2head_spec_on_spatial | ok | pilotC2_head | paired v1 | frz 2.93 | frz 0.086 | frz 1.94 |  |  | Leakage: C2 + head, spectral encoder on the spatial tasks. |
