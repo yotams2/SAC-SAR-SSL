@@ -177,3 +177,9 @@ jointcv1bHCl01_spec_on_spatial	-	ok	Leakage: V1b-HC λ0.1 (matched control: V1b 
 jointcv1bHCl01_spec_probe	-	ok	V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): spectral encoder on SC2/SID.
 jointcv1bHCl01_spat_probe	-	ok	Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spatial encoder on SC2/SID.
 jointcv1bHCl01_concat_probe	-	ok	V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat on SC2/SID (appendix only).
+jointcv1bAnoancl01_spat	-	ok	V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), 10 ep paired v2: spatial encoder alone, frozen.
+jointcv1bAnoancl01_concat	-	ok	V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): concat (appendix only).
+jointcv1bAnoancl01_spec_on_spatial	-	ok	Leakage: V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), spectral encoder on the spatial tasks.
+jointcv1bAnoancl01_spec_probe	-	ok	V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): spectral encoder on SC2/SID.
+jointcv1bAnoancl01_spat_probe	-	ok	Leakage: V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), spatial encoder on SC2/SID.
+jointcv1bAnoancl01_concat_probe	-	ok	V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): concat on SC2/SID (appendix only).
