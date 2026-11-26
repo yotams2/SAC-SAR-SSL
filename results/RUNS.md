@@ -57,8 +57,8 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bHCl1_spat | ok | pilotc_v1bHC_l1 | paired v2 | frz 1.70 | frz 0.125 |  |  |  | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1bHCl1_concat | ok | pilotc_v1bHC_l1 | paired v2 | frz 1.70 |  |  |  |  | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only). |
-| jointcv1bHCl1_spat | ok | pilotc_v1bHC_l1 | paired v2 | frz 1.70 |  |  |  |  | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1bAl1_concat | ok | pilotc_v1bA_l1 | paired v2 | frz 1.86 | frz 0.093 | frz 1.63 |  |  | V1b A′ λ1 (learned RIR teacher, the method): concat (appendix only). |
 | jointcv1bAl1_spec_on_spatial | ok | pilotc_v1bA_l1 | paired v2 | frz 2.93 | frz 0.141 | frz 2.12 |  |  | Leakage: V1b A′ λ1 (learned RIR teacher, the method), spectral encoder on the spatial tasks. |
 | jointcv1bAl1_spat | ok | pilotc_v1bA_l1 | paired v2 | frz 1.79 | frz 0.082 | frz 1.55 |  |  | V1b A′ λ1 (learned RIR teacher, the method), 10 ep paired v2: spatial encoder alone, frozen. |
