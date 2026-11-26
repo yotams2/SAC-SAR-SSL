@@ -1,0 +1,1 @@
+{"model": "/scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotc_v1bHC_l01/spat_encoder_final.pth", "sc2/knn20_acc": 0.03523809462785721, "sc2/ncm_acc": 0.04285714402794838, "sc2/linear_acc": 0.1190476194024086, "sid/ncm_acc": 0.00624999962747097, "sid/linear_acc": 0.03999999910593033, "sid/eer": 0.48500001430511475, "probe_sec": 257.49353194236755}
