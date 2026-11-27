@@ -61,6 +61,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bHCl01_concat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.34 |  |  |  |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only). |
 | jointcv1bHCl01_spat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.32 |  |  |  |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv3_spat | ok | pilotc_v3 | unpaired-8s v2 | frz 2.62 |  |  |  |  | V3 unpaired swap, 10 ep: spatial encoder alone, frozen. |
 | jointcv1bAnoancl01_concat | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 1.34 |  |  |  |  | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): concat (appendix only). |

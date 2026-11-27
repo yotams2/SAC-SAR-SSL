@@ -1,0 +1,11 @@
+[
+    {
+        "task": "TDOA",
+        "trial_idx": 0,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 3.56413208091259,
+        "metric_test": 1.3449760675430298,
+        "metric_test_std": 1.324828863143921
+    }
+]
