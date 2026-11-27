@@ -61,6 +61,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bHCl01_concat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.34 | frz 0.092 |  |  |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only). |
 | jointcv1bHCl01_spat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.32 | frz 0.074 | frz 1.46 |  |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv3_spec_on_spatial | ok | pilotc_v3 | unpaired-8s v2 | frz 2.93 |  | frz 2.20 |  |  | Leakage: V3 unpaired swap, spectral encoder on the spatial tasks. |
 | jointcv1bAl01_spat_chkfull | smoke | pilotc_v1bA_l01 | paired v2 |  | frz 0.090 |  |  |  | Code check 11-27 (not a result): same T60 rerun on the old full-checkpoint path (SARSSL_FULL_EPOCH_CKPT=1), control for GPU nondeterminism; 0.0895. |
@@ -68,7 +69,6 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv1bHCl1_spec_on_spatial | ok | pilotc_v1bHC_l1 | paired v2 | frz 2.92 | frz 0.162 | frz 2.16 |  |  | Leakage: V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), spectral encoder on the spatial tasks. |
 | jointcv1bAnoancl01_spat | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 1.31 | frz 0.088 | frz 1.47 |  |  | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv3_concat | ok | pilotc_v3 | unpaired-8s v2 | frz 2.55 |  |  |  |  | V3 unpaired swap: concat (appendix only). |
-| jointcv1bHCl01_concat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.34 |  |  |  |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only). |
 | jointcv3_spat | ok | pilotc_v3 | unpaired-8s v2 | frz 2.62 |  |  |  |  | V3 unpaired swap, 10 ep: spatial encoder alone, frozen. |
 | jointcv1bAnoancl01_concat | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 1.34 |  |  |  |  | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): concat (appendix only). |
 | jointcv1bAnoancl01_spec_on_spatial | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 2.92 |  |  |  |  | Leakage: V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), spectral encoder on the spatial tasks. |
