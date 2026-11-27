@@ -223,6 +223,9 @@ if (args.ds_train):
 		early_stop_patience = 10 
 		smooth_alpha = 0.6
 		nepoch_ensemble = 5
+		# Light per-epoch checkpoints (learner.save_checkpoint_light; Yotam 11-27). SARSSL_FULL_EPOCH_CKPT=1: the old full copies.
+		# --checkpoint-start resumes from a per-epoch latest_model.tar, which only the old path writes.
+		light_ckpt = os.environ.get('SARSSL_FULL_EPOCH_CKPT', '') != '1' and not args.checkpoint_start
 			
 		if args.simu_exp:
 			ntrials = args.ds_setting[task]['ntrial']
@@ -387,7 +390,10 @@ if (args.ds_train):
 
 							# Save model
 							stop_flag, is_best_epoch = learner.early_stopping(current_score=loss_val_list_smooth[-1]*(-1), patience=early_stop_patience)
-							learner.save_checkpoint(epoch=epoch, checkpoints_dir=task_dir, is_best_epoch=is_best_epoch, save_extra_hist=True)
+							if light_ckpt:  # per-epoch deltas over one base; best / latest written once after training
+								learner.save_checkpoint_light(epoch=epoch, checkpoints_dir=task_dir, is_best_epoch=is_best_epoch)
+							else:
+								learner.save_checkpoint(epoch=epoch, checkpoints_dir=task_dir, is_best_epoch=is_best_epoch, save_extra_hist=True)
 							if is_best_epoch:
 								best_epoch = copy.deepcopy(epoch)
 							# Disk: drop per-epoch weights that can no longer enter the ensemble window
@@ -422,8 +428,10 @@ if (args.ds_train):
 									break 
 
 						print('\nTraining finished\n')
-						
-						# Ensemble model 
+						if light_ckpt:
+							learner.flush_checkpoints_light(checkpoints_dir=task_dir)  # best_model.tar + latest_model.tar (final)
+
+						# Ensemble model
 						st_epoch = np.maximum(1, best_epoch-nepoch_ensemble+1)
 						ed_epoch = copy.deepcopy(best_epoch)
 						epochs = [i for i in range(st_epoch, ed_epoch+1, 1)]
@@ -448,7 +456,9 @@ if (args.ds_train):
 							old_path = task_dir + '/model' + str(k) + '.tar'
 							if os.path.exists(old_path):
 								os.remove(old_path)
-						print('\nCheckpoints removed\n')	
+						if os.path.exists(task_dir + '/model_base.tar'):
+							os.remove(task_dir + '/model_base.tar')
+						print('\nCheckpoints removed\n')
 
 						# Save temporal results
 						val_losses[lr_idx, bs_idx, trial_idx] = best_loss_val

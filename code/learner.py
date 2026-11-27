@@ -715,6 +715,7 @@ class Learner(ABC):
 		"""
 		nepoch_ave = len(epochs)
 		state_dicts = {}
+		base = None
 		for idx in range(nepoch_ave):
 			epoch = epochs[idx]
 
@@ -724,7 +725,13 @@ class Learner(ABC):
 
 			checkpoint = torch.load(best_model_path, map_location=self.device)
 
-			state_dict_one_epoch = checkpoint["model"]
+			if "model_delta" in checkpoint:  # save_checkpoint_light: this epoch = model_base.tar + the entries that changed
+				if base is None:
+					base = torch.load(checkpoints_dir + '/' + checkpoint["base"], map_location=self.device)["model"]
+				state_dict_one_epoch = dict(base)
+				state_dict_one_epoch.update(checkpoint["model_delta"])
+			else:
+				state_dict_one_epoch = checkpoint["model"]
 			for key in state_dict_one_epoch.keys():
 				if idx == 0:
 					state_dicts[key] = state_dict_one_epoch[key] * 1/nepoch_ave
@@ -783,6 +790,42 @@ class Learner(ABC):
 		if is_best_epoch:
 			print(f"\t Found a max score in the {epoch} epoch, saving...")
 			torch.save(state_dict, checkpoints_dir + "/best_model.tar")
+
+	# Light per-epoch saving for the downstream probes (Yotam 11-27: the full ~0.8 GB copy per epoch, plus latest and
+	# best, made /scratch200 the bottleneck). Same files at the end, same best-selection rule, same ensemble:
+	#   - model_base.tar: the full state once (first saved epoch of this checkpoints_dir);
+	#   - model<N>.tar: only the state entries that differ from the base (frozen encoder: just the head), so
+	#     ensembling() rebuilds each epoch exactly (base + delta) and averages the same tensors as before;
+	#   - best_model.tar / latest_model.tar: held in CPU memory, written once by flush_checkpoints_light() after
+	#     training (latest = the final epoch). The caller removes model<N>.tar / model_base.tar after ensembling.
+	def _state_dict_light(self, epoch):
+		sd = {"epoch": epoch, "max_score": self.max_score}
+		if self.use_amp:
+			sd["scaler"] = copy.deepcopy(self.scaler.state_dict())
+		sd["model"] = {k: v.detach().to("cpu", copy=True) for k, v in self.model.state_dict().items()}
+		return sd
+
+	def save_checkpoint_light(self, epoch, checkpoints_dir, is_best_epoch=False):
+		print(f"\t Saving {epoch} epoch model checkpoint (light)...")
+		sd = self._state_dict_light(epoch)
+		if getattr(self, "_light_dir", None) != checkpoints_dir:
+			self._light_dir, self._light_best = checkpoints_dir, None
+			self._light_base = sd["model"]
+			torch.save({"epoch": epoch, "model": self._light_base}, checkpoints_dir + "/model_base.tar")
+		delta = {k: v for k, v in sd["model"].items() if not torch.equal(v, self._light_base[k])}
+		torch.save({"epoch": epoch, "max_score": self.max_score, "base": "model_base.tar", "model_delta": delta},
+			checkpoints_dir + "/model" + str(epoch) + ".tar")
+		self._light_latest = sd
+		if is_best_epoch:
+			print(f"\t Found a max score in the {epoch} epoch, kept (written after training)...")
+			self._light_best = sd
+
+	def flush_checkpoints_light(self, checkpoints_dir):
+		assert getattr(self, "_light_dir", None) == checkpoints_dir, f"no light checkpoints for {checkpoints_dir}"
+		torch.save(self._light_latest, checkpoints_dir + "/latest_model.tar")
+		if self._light_best is not None:
+			torch.save(self._light_best, checkpoints_dir + "/best_model.tar")
+		self._light_dir = self._light_base = self._light_latest = self._light_best = None
 
 
 	def resume_checkpoint(self, checkpoints_dir, from_latest = True, as_all_state = True, ex_key=''):
