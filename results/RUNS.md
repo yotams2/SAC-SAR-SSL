@@ -63,6 +63,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bHCl01_spec_on_spatial | ok | pilotc_v1bHC_l01 | paired v2 | frz 2.92 |  | frz 1.97 |  |  | Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spectral encoder on the spatial tasks. |
 | jointcv1bAnoancl01_concat | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 1.34 | frz 0.099 |  |  |  | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): concat (appendix only). |
 | jointcv3_spat | ok | pilotc_v3 | unpaired-8s v2 | frz 2.62 | frz 0.091 | frz 2.09 |  |  | V3 unpaired swap, 10 ep: spatial encoder alone, frozen. |
 | jointcv1bHCl01_concat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.34 | frz 0.092 | frz 1.42 |  |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only). |
@@ -74,7 +75,6 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv1bHCl1_spec_on_spatial | ok | pilotc_v1bHC_l1 | paired v2 | frz 2.92 | frz 0.162 | frz 2.16 |  |  | Leakage: V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), spectral encoder on the spatial tasks. |
 | jointcv1bAnoancl01_spat | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 1.31 | frz 0.088 | frz 1.47 |  |  | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv3_concat | ok | pilotc_v3 | unpaired-8s v2 | frz 2.55 |  |  |  |  | V3 unpaired swap: concat (appendix only). |
-| jointcv1bHCl01_spec_on_spatial | ok | pilotc_v1bHC_l01 | paired v2 | frz 2.92 |  |  |  |  | Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spectral encoder on the spatial tasks. |
 | jointcv1bHCl1_spat | ok | pilotc_v1bHC_l1 | paired v2 | frz 1.70 | frz 0.125 | frz 1.86 |  |  | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1bHCl1_concat | ok | pilotc_v1bHC_l1 | paired v2 | frz 1.70 | frz 0.113 | frz 1.71 |  |  | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only). |
 | jointcv1bAl1_concat | ok | pilotc_v1bA_l1 | paired v2 | frz 1.86 | frz 0.093 | frz 1.63 |  |  | V1b A′ λ1 (learned RIR teacher, the method): concat (appendix only). |

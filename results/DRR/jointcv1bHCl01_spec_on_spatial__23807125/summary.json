@@ -1,0 +1,32 @@
+{
+  "task": "DRR",
+  "experiment": "jointcv1bHCl01_spec_on_spatial",
+  "model": "upstream joint\nmode spec\nckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotc_v1bHC_l01/spec_encoder_final.pth\nhead_norm joint",
+  "job_id": "23807125",
+  "status": "done",
+  "date": "2026-11-28T01:39:54+02:00",
+  "collected_at": "2026-11-28T01:39:55+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/tmp/job_23807125/exp/DRR/jointcv1bHCl01_spec_on_spatial",
+  "metrics": {
+    "lineareval": {
+      "lowest": 1.9678891897201538,
+      "mean": 1.9678891897201538,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 1.5836600065231323,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 1.9678891897201538,
+          "loss_test": 6.380563610553741
+        }
+      ]
+    }
+  }
+}
