@@ -59,6 +59,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bAnoancl01_spec_on_spatial | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 2.92 |  |  |  |  | Leakage: V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), spectral encoder on the spatial tasks. |
 | jointcv1bHCl01_spec_on_spatial | ok | pilotc_v1bHC_l01 | paired v2 | frz 2.92 |  |  |  |  | Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spectral encoder on the spatial tasks. |
 | jointcv1bAnoancl01_spat | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 1.31 | frz 0.088 |  |  |  | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1bHCl1_spec_on_spatial | ok | pilotc_v1bHC_l1 | paired v2 | frz 2.92 |  |  |  |  | Leakage: V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), spectral encoder on the spatial tasks. |

@@ -1,0 +1,32 @@
+{
+  "task": "TDOA",
+  "experiment": "jointcv1bAnoancl01_spec_on_spatial",
+  "model": "upstream joint\nmode spec\nckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotc_v1bA_noanc_l01/spec_encoder_final.pth\nhead_norm joint",
+  "job_id": "23798201",
+  "status": "done",
+  "date": "2026-11-27T06:32:02+02:00",
+  "collected_at": "2026-11-27T06:32:03+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/scratch200/yotams2/SAC-SAR-SSL/exp/TDOA/jointcv1bAnoancl01_spec_on_spatial",
+  "metrics": {
+    "lineareval": {
+      "lowest": 2.922293186187744,
+      "mean": 2.922293186187744,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 2.1416664123535156,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 2.922293186187744,
+          "loss_test": 13.126532723903656
+        }
+      ]
+    }
+  }
+}
