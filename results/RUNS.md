@@ -59,9 +59,9 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bHCl1_spat | ok | pilotc_v1bHC_l1 | paired v2 | frz 1.70 | frz 0.125 | frz 1.86 |  |  | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1bAnoancl01_spat | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 1.31 |  |  |  |  | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1bHCl1_concat | ok | pilotc_v1bHC_l1 | paired v2 | frz 1.70 | frz 0.113 | frz 1.71 |  |  | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only). |
-| jointcv1bHCl1_spat | ok | pilotc_v1bHC_l1 | paired v2 | frz 1.70 | frz 0.125 |  |  |  | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1bAl1_concat | ok | pilotc_v1bA_l1 | paired v2 | frz 1.86 | frz 0.093 | frz 1.63 |  |  | V1b A′ λ1 (learned RIR teacher, the method): concat (appendix only). |
 | jointcv1bAl1_spec_on_spatial | ok | pilotc_v1bA_l1 | paired v2 | frz 2.93 | frz 0.141 | frz 2.12 |  |  | Leakage: V1b A′ λ1 (learned RIR teacher, the method), spectral encoder on the spatial tasks. |
 | jointcv1bAl1_spat | ok | pilotc_v1bA_l1 | paired v2 | frz 1.79 | frz 0.082 | frz 1.55 |  |  | V1b A′ λ1 (learned RIR teacher, the method), 10 ep paired v2: spatial encoder alone, frozen. |
@@ -218,6 +218,8 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv1bHCl1_concat_probe | ok | pilotc_v1bHC_l1 | paired v2 | 17.5 | 24.5 | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): concat on SC2/SID (appendix only). |
 | jointcv1bHCl1_spat_probe | ok | pilotc_v1bHC_l1 | paired v2 | 8.7 | 5.0 | Leakage: V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), spatial encoder on SC2/SID. |
 | jointcv1bHCl1_spec_probe | ok | pilotc_v1bHC_l1 | paired v2 | 21.0 | 42.1 | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): spectral encoder on SC2/SID. |
+| jointcv3_spat_probe | ok | pilotc_v3 | unpaired-8s v2 | 11.0 | 8.0 | Leakage: V3 unpaired swap, spatial encoder on SC2/SID. |
+| jointcv3_spec_probe | ok | pilotc_v3 | unpaired-8s v2 | 16.9 | 39.2 | V3 unpaired swap: spectral encoder on SC2/SID. |
 | mono_on_binaural_2026-11-17_bin_left | ok | sac-ssamba amba_seed1:final |  | 24.4 | 38.9 | Mono amba s1 on binaural SC2/SID, left channel. |
 | mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed1:final |  | 26.4 | 40.3 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
 | mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed2:final |  | 22.3 | 36.5 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
