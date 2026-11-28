@@ -1,4 +1,4 @@
-# label	pretrain run override ('-' = from the checkpoint path)	status ok|void|smoke|old	description
+# label	pretrain run override ('-' = from the checkpoint path)	status ok|void|smoke|old|cancelled	description
 # Hand-maintained; read by scripts/build_registry.py into RUNS.md. Labels = pretraining run names, eval labels, probe file stems.
 # ---- pretraining runs
 ipd16_nosac	-	ok	SSAMBA spatial encoder on ipd16 (logL, ILD, cos/sin IPD), MPG+MPC only, 30 ep. The no-SAC arm.
@@ -212,21 +212,28 @@ jointcv1bA30noancl01s2_spat_probe	-	ok	Leakage: FINAL V1b A′ λ0.1 anchors off
 jointcv1bA30noancl01s2_concat_probe	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat on SC2/SID (appendix only).
 jointcv1bAl01_spat_chklight	-	smoke	Code check 11-27 (not a result): V1b A′ λ0.1 T60 rerun with light per-epoch checkpoints + node-local staging (SAC-SAR-SSL 7402a06); 0.0895 = original.
 jointcv1bAl01_spat_chkfull	-	smoke	Code check 11-27 (not a result): same T60 rerun on the old full-checkpoint path (SARSSL_FULL_EPOCH_CKPT=1), control for GPU nondeterminism; 0.0895.
-jointcv1bAnoancl01s2_spat	-	ok	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh), 10 ep paired v2: spatial encoder alone, frozen.
-jointcv1bAnoancl01s2_concat	-	ok	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh): concat (appendix only).
-jointcv1bAnoancl01s2_spec_on_spatial	-	ok	Leakage: V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh), spectral encoder on the spatial tasks.
-jointcv1bAnoancl01s2_spec_probe	-	ok	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh): spectral encoder on SC2/SID.
-jointcv1bAnoancl01s2_spat_probe	-	ok	Leakage: V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh), spatial encoder on SC2/SID.
-jointcv1bAnoancl01s2_concat_probe	-	ok	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh): concat on SC2/SID (appendix only).
-jointcv1bHCnoancl01s1_spat	-	ok	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), 10 ep paired v2: spatial encoder alone, frozen.
-jointcv1bHCnoancl01s1_concat	-	ok	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat (appendix only).
-jointcv1bHCnoancl01s1_spec_on_spatial	-	ok	Leakage: V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spectral encoder on the spatial tasks.
-jointcv1bHCnoancl01s1_spec_probe	-	ok	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): spectral encoder on SC2/SID.
-jointcv1bHCnoancl01s1_spat_probe	-	ok	Leakage: V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spatial encoder on SC2/SID.
-jointcv1bHCnoancl01s1_concat_probe	-	ok	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat on SC2/SID (appendix only).
-jointcv1bHCnoancl01s2_spat	-	ok	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), 10 ep paired v2: spatial encoder alone, frozen.
-jointcv1bHCnoancl01s2_concat	-	ok	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat (appendix only).
-jointcv1bHCnoancl01s2_spec_on_spatial	-	ok	Leakage: V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spectral encoder on the spatial tasks.
-jointcv1bHCnoancl01s2_spec_probe	-	ok	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): spectral encoder on SC2/SID.
-jointcv1bHCnoancl01s2_spat_probe	-	ok	Leakage: V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spatial encoder on SC2/SID.
-jointcv1bHCnoancl01s2_concat_probe	-	ok	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat on SC2/SID (appendix only).
+jointcv1bAnoancl01s2_spat	-	cancelled	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh), 10 ep paired v2: spatial encoder alone, frozen. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bAnoancl01s2_concat	-	cancelled	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh): concat (appendix only). CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bAnoancl01s2_spec_on_spatial	-	cancelled	Leakage: V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh), spectral encoder on the spatial tasks. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bAnoancl01s2_spec_probe	-	cancelled	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh): spectral encoder on SC2/SID. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bAnoancl01s2_spat_probe	-	cancelled	Leakage: V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh), spatial encoder on SC2/SID. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bAnoancl01s2_concat_probe	-	cancelled	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh): concat on SC2/SID (appendix only). CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s1_spat	-	cancelled	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), 10 ep paired v2: spatial encoder alone, frozen. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s1_concat	-	cancelled	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat (appendix only). CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s1_spec_on_spatial	-	cancelled	Leakage: V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spectral encoder on the spatial tasks. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s1_spec_probe	-	cancelled	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): spectral encoder on SC2/SID. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s1_spat_probe	-	cancelled	Leakage: V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spatial encoder on SC2/SID. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s1_concat_probe	-	cancelled	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat on SC2/SID (appendix only). CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s2_spat	-	cancelled	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), 10 ep paired v2: spatial encoder alone, frozen. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s2_concat	-	cancelled	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat (appendix only). CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s2_spec_on_spatial	-	cancelled	Leakage: V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spectral encoder on the spatial tasks. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s2_spec_probe	-	cancelled	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): spectral encoder on SC2/SID. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s2_spat_probe	-	cancelled	Leakage: V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spatial encoder on SC2/SID. CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+jointcv1bHCnoancl01s2_concat_probe	-	cancelled	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat on SC2/SID (appendix only). CANCELLED 11-28 (post-sprint plan stopped): never evaluated.
+# ---- post-sprint runs cancelled 11-28 (Yotam: post-sprint plan stopped; checkpoints and partial logs kept)
+pilotc_v1bA_noanc_l01_s2	-	cancelled	V1b-A′-noanc seed 2, 10 ep paired v2 (post-sprint step 2). CANCELLED 11-28 14:12 at epoch ~5.8 / step ~2190 (job 23817314); latest.pth 14:00 + joint_best / spat_encoder_best 13:51 kept. Not comparable (partial).
+pilotc_v1bHC_noanc_l01_s1	-	cancelled	V1b-HC-noanc seed 1 (post-sprint step 2). CANCELLED 11-28 before it started (job 23817325); no checkpoint.
+pilotc_v1bHC_noanc_l01_s2	-	cancelled	V1b-HC-noanc seed 2 (post-sprint step 2). CANCELLED 11-28 before it started (job 23817328); no checkpoint.
+a1m_w1	-	cancelled	RIR teacher arm 1c: A′-metric NT-Xent w1 + tail crop (rir_encoder.py). CANCELLED 11-28 before it started (job 23817320).
+a1m_w01_nocrop	-	cancelled	RIR teacher arm 1c: A′-metric NT-Xent w0.1, no crop. CANCELLED 11-28 before it started (job 23817322).
+a1m_w01	-	ok	RIR teacher arm 1c: A′-metric NT-Xent w0.1 + tail crop (max(4096, 0.8 rir_len)), padded RIRs; exp/rir_encoder/a1m_w01. Fails gate 1 (see analysis/rir_teacher_gate).
