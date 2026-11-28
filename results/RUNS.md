@@ -63,10 +63,10 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bAl01_spat | ok | pilotc_v1bA_l01 | paired v2 | frz 1.49 | frz 0.090 | frz 1.43 | frz 0.56 | frz 0.08 | V1b A′ λ0.1 (learned RIR teacher, the method), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s2_spat | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | frz 1.38 | frz 0.086 | frz 1.39 | frz 0.60 | frz 0.07 | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s1_spat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.33 | frz 0.092 | frz 1.42 | frz 0.53 | frz 0.08 | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spatial encoder alone, frozen. |
 | jointcv1bHCl01_spat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.32 | frz 0.074 | frz 1.46 | frz 0.50 | frz 0.06 | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
-| jointcv1bAl01_spat | ok | pilotc_v1bA_l01 | paired v2 | frz 1.49 | frz 0.090 | frz 1.43 | frz 0.56 |  | V1b A′ λ0.1 (learned RIR teacher, the method), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointC30v2r_spat | ok | pilotC30_v2r | paired v2 | frz 2.47 | frz 0.070 | frz 1.27 | frz 0.39 | frz 0.07 | C 30 ep reference (v2, new recipe): spatial encoder alone, frozen. |
 | jointA_spat | ok | pilotA_spat | unpaired-4s v1 | frz 2.57 | frz 0.084 | frz 2.32 | frz 0.82 | frz 0.07 | Pilot A spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s1_concat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.36 | frz 0.100 | frz 1.52 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat (appendix only). |
