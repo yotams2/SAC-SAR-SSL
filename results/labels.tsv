@@ -41,6 +41,7 @@ ssamba_pitchfix_lrsweep	-	old	Binaural sac-ssamba pitchfix encoder (magnitude in
 # ---- speech probes (SC2 / SID, frozen), file stems
 ipd16_probe_2026-11-17	-	ok	RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID.
 jointA_spec_probe	-	ok	Pilot A spectral encoder on SC2/SID (+ random-init row).
+jointA_spec_er	-	ok	Pilot A: spectral encoder on ER (binaural IEMOCAP, fold 1, linear UA; coverage check Yotam 11-28, job list coverage_c50_abs_er_jobs.txt).
 jointA_spat_probe	-	ok	Leakage probe: Pilot A spatial encoder on SC2/SID (random ipd16 = 3.1 / 9.1).
 jointA_concat_probe	-	ok	Pilot A concat on SC2/SID (SID with 16 rows of concat is unreliable). PROVISIONAL: concat probe under check (11-23).
 jointB_spec_off_probe	-	ok	Pilot B, fusion off, on SC2/SID.
@@ -119,6 +120,7 @@ jointC30v2r_spat	-	ok	C 30 ep reference (v2, new recipe): spatial encoder alone,
 jointC30v2r_concat	-	ok	C 30 ep reference: concat (appendix only).
 jointC30v2r_spec_on_spatial	-	ok	Leakage: C 30 ep reference, spectral encoder on the spatial tasks.
 jointC30v2r_spec_probe	-	ok	C 30 ep reference: spectral encoder on SC2/SID.
+jointC30v2r_spec_er	-	ok	C 30 ep reference: spectral encoder on ER (binaural IEMOCAP, fold 1, linear UA; coverage check Yotam 11-28, job list coverage_c50_abs_er_jobs.txt).
 jointC30v2r_spat_probe	-	ok	Leakage: C 30 ep reference, spatial encoder on SC2/SID.
 jointC30v2r_concat_probe	-	ok	C 30 ep reference: concat on SC2/SID (appendix only).
 pilotCswap_v2r	-	ok	Swap-only ablation: as pilotC_v2r (C 10 ep, paired v2, new recipe) with --own-scale 0, i.e. no Pilot A anchor losses (agreed 11-23).
@@ -145,6 +147,7 @@ jointcv1bAl01_spat	-	ok	V1b A′ λ0.1 (learned RIR teacher, the method), 10 ep 
 jointcv1bAl01_concat	-	ok	V1b A′ λ0.1 (learned RIR teacher, the method): concat (appendix only).
 jointcv1bAl01_spec_on_spatial	-	ok	Leakage: V1b A′ λ0.1 (learned RIR teacher, the method), spectral encoder on the spatial tasks.
 jointcv1bAl01_spec_probe	-	ok	V1b A′ λ0.1 (learned RIR teacher, the method): spectral encoder on SC2/SID.
+jointcv1bAl01_spec_er	-	ok	V1b A′ λ0.1 (learned RIR teacher, the method), 10 ep: spectral encoder on ER (binaural IEMOCAP, fold 1, linear UA; coverage check Yotam 11-28, job list coverage_c50_abs_er_jobs.txt).
 jointcv1bAl01_spat_probe	-	ok	Leakage: V1b A′ λ0.1 (learned RIR teacher, the method), spatial encoder on SC2/SID.
 jointcv1bAl01_concat_probe	-	ok	V1b A′ λ0.1 (learned RIR teacher, the method): concat on SC2/SID (appendix only).
 jointcv1bBl1_spat	-	ok	V1b oracle B λ1 (analysis row), 10 ep paired v2: spatial encoder alone, frozen.
@@ -175,6 +178,7 @@ jointcv1bHCl01_spat	-	ok	V1b-HC λ0.1 (matched control: V1b A′ with hand-craft
 jointcv1bHCl01_concat	-	ok	V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only).
 jointcv1bHCl01_spec_on_spatial	-	ok	Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spectral encoder on the spatial tasks.
 jointcv1bHCl01_spec_probe	-	ok	V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): spectral encoder on SC2/SID.
+jointcv1bHCl01_spec_er	-	ok	V1b-HC λ0.1 (matched control), 10 ep: spectral encoder on ER (binaural IEMOCAP, fold 1, linear UA; coverage check Yotam 11-28, job list coverage_c50_abs_er_jobs.txt).
 jointcv1bHCl01_spat_probe	-	ok	Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spatial encoder on SC2/SID.
 jointcv1bHCl01_concat_probe	-	ok	V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat on SC2/SID (appendix only).
 jointcv1bAnoancl01_spat	-	ok	V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), 10 ep paired v2: spatial encoder alone, frozen.
@@ -195,6 +199,7 @@ jointcv1bA30noancl01s1_spat	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0
 jointcv1bA30noancl01s1_concat	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat (appendix only).
 jointcv1bA30noancl01s1_spec_on_spatial	-	ok	Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spectral encoder on the spatial tasks.
 jointcv1bA30noancl01s1_spec_probe	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spectral encoder on SC2/SID.
+jointcv1bA30noancl01s1_spec_er	-	ok	FINAL V1b A′ λ0.1 anchors off, 30 ep, seed 1: spectral encoder on ER (binaural IEMOCAP, fold 1, linear UA; coverage check Yotam 11-28, job list coverage_c50_abs_er_jobs.txt).
 jointcv1bA30noancl01s1_spat_probe	-	ok	Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spatial encoder on SC2/SID.
 jointcv1bA30noancl01s1_concat_probe	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat on SC2/SID (appendix only).
 pilotc_v1bA30noanc_l01_s2	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: paired v2, new recipe; scripts/launch_v1bA30.sh ANCHORS=off (Yotam 11-27, rule overridden). Compare with C 30 ep (pilotC30_v2r).
@@ -202,6 +207,7 @@ jointcv1bA30noancl01s2_spat	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0
 jointcv1bA30noancl01s2_concat	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat (appendix only).
 jointcv1bA30noancl01s2_spec_on_spatial	-	ok	Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2, spectral encoder on the spatial tasks.
 jointcv1bA30noancl01s2_spec_probe	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: spectral encoder on SC2/SID.
+jointcv1bA30noancl01s2_spec_er	-	ok	FINAL V1b A′ λ0.1 anchors off, 30 ep, seed 2: spectral encoder on ER (binaural IEMOCAP, fold 1, linear UA; coverage check Yotam 11-28, job list coverage_c50_abs_er_jobs.txt).
 jointcv1bA30noancl01s2_spat_probe	-	ok	Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2, spatial encoder on SC2/SID.
 jointcv1bA30noancl01s2_concat_probe	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat on SC2/SID (appendix only).
 jointcv1bAl01_spat_chklight	-	smoke	Code check 11-27 (not a result): V1b A′ λ0.1 T60 rerun with light per-epoch checkpoints + node-local staging (SAC-SAR-SSL 7402a06); 0.0895 = original.
