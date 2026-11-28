@@ -1,0 +1,11 @@
+[
+    {
+        "task": "ABS",
+        "trial_idx": 0,
+        "lr_idx": 0,
+        "bs_idx": 0,
+        "loss_test": 0.00873565977299586,
+        "metric_test": 0.07462605834007263,
+        "metric_test_std": 0.05627267062664032
+    }
+]

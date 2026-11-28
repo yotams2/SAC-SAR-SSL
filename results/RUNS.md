@@ -63,8 +63,8 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointC30v2r_spat | ok | pilotC30_v2r | paired v2 | frz 2.47 | frz 0.070 | frz 1.27 | frz 0.39 | frz 0.07 | C 30 ep reference (v2, new recipe): spatial encoder alone, frozen. |
 | jointA_spat | ok | pilotA_spat | unpaired-4s v1 | frz 2.57 | frz 0.084 | frz 2.32 | frz 0.82 | frz 0.07 | Pilot A spatial encoder alone, frozen. |
-| jointC30v2r_spat | ok | pilotC30_v2r | paired v2 | frz 2.47 | frz 0.070 | frz 1.27 | frz 0.39 |  | C 30 ep reference (v2, new recipe): spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s1_concat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.36 | frz 0.100 | frz 1.52 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat (appendix only). |
 | jointcv1bA30noancl01s1_spec_on_spatial | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 2.93 | frz 0.125 | frz 1.95 |  |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spectral encoder on the spatial tasks. |
 | jointcv1bA30noancl01s1_spat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.33 | frz 0.092 | frz 1.42 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spatial encoder alone, frozen. |
