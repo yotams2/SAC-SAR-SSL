@@ -1,0 +1,4 @@
+upstream joint
+mode spec
+ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotc_v1bA30noanc_l01_s2/spec_encoder_final.pth
+head_norm joint
