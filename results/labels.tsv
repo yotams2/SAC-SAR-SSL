@@ -212,3 +212,21 @@ jointcv1bA30noancl01s2_spat_probe	-	ok	Leakage: FINAL V1b A′ λ0.1 anchors off
 jointcv1bA30noancl01s2_concat_probe	-	ok	FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat on SC2/SID (appendix only).
 jointcv1bAl01_spat_chklight	-	smoke	Code check 11-27 (not a result): V1b A′ λ0.1 T60 rerun with light per-epoch checkpoints + node-local staging (SAC-SAR-SSL 7402a06); 0.0895 = original.
 jointcv1bAl01_spat_chkfull	-	smoke	Code check 11-27 (not a result): same T60 rerun on the old full-checkpoint path (SARSSL_FULL_EPOCH_CKPT=1), control for GPU nondeterminism; 0.0895.
+jointcv1bAnoancl01s2_spat	-	ok	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh), 10 ep paired v2: spatial encoder alone, frozen.
+jointcv1bAnoancl01s2_concat	-	ok	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh): concat (appendix only).
+jointcv1bAnoancl01s2_spec_on_spatial	-	ok	Leakage: V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh), spectral encoder on the spatial tasks.
+jointcv1bAnoancl01s2_spec_probe	-	ok	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh): spectral encoder on SC2/SID.
+jointcv1bAnoancl01s2_spat_probe	-	ok	Leakage: V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh), spatial encoder on SC2/SID.
+jointcv1bAnoancl01s2_concat_probe	-	ok	V1b-A′-noanc seed 2 (post-sprint step 2, scripts/launch_seed2.sh): concat on SC2/SID (appendix only).
+jointcv1bHCnoancl01s1_spat	-	ok	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), 10 ep paired v2: spatial encoder alone, frozen.
+jointcv1bHCnoancl01s1_concat	-	ok	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat (appendix only).
+jointcv1bHCnoancl01s1_spec_on_spatial	-	ok	Leakage: V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spectral encoder on the spatial tasks.
+jointcv1bHCnoancl01s1_spec_probe	-	ok	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): spectral encoder on SC2/SID.
+jointcv1bHCnoancl01s1_spat_probe	-	ok	Leakage: V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spatial encoder on SC2/SID.
+jointcv1bHCnoancl01s1_concat_probe	-	ok	V1b-HC-noanc seed 1 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat on SC2/SID (appendix only).
+jointcv1bHCnoancl01s2_spat	-	ok	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), 10 ep paired v2: spatial encoder alone, frozen.
+jointcv1bHCnoancl01s2_concat	-	ok	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat (appendix only).
+jointcv1bHCnoancl01s2_spec_on_spatial	-	ok	Leakage: V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spectral encoder on the spatial tasks.
+jointcv1bHCnoancl01s2_spec_probe	-	ok	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): spectral encoder on SC2/SID.
+jointcv1bHCnoancl01s2_spat_probe	-	ok	Leakage: V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2), spatial encoder on SC2/SID.
+jointcv1bHCnoancl01s2_concat_probe	-	ok	V1b-HC-noanc seed 2 (V1b-HC λ0.1, --own-scale 0; post-sprint step 2): concat on SC2/SID (appendix only).
