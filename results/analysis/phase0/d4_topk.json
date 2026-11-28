@@ -1,0 +1,310 @@
+{
+ "protocol": " Phase 0 D4 (Yotam 11-28, no training): does a low-dimensional view of the existing teachers already give\nlabel-aligned distances?\n\nFor each teacher, PCA is fitted on its fit rows (centred, no whitening), the rows are projected on the top-k components\nand L2-normalised (as the V1b cue), for k = 4, 8, 16, 32, 108 (and the full dimension). Labels are used for\nevaluation only. Metrics are teacher_geometry.py's (same probes, pairs and pattern-direction residual):\n  room (A\u2032-pad = rir_encoder/a1_pad60; A\u2032 = a1_design1 for reference): paired v2 set, fit [0, 12000), held out\n    [12000, 12500), all 124,750 held-out pairs: ridge probe MAE (TDOA, T60, DRR, C50); Spearman of the full k-dim\n    distance with |dlabel| and with the reverb factor; residual share outside the 6-label pattern span.\n  speech (dry-speech teacher v1_teacher_amba_s1, pooled z-scored tokens): fit = the 10,616 utterances outside the\n    held-out scenes, held out = 1,884; SID ridge accuracy; AUC of the k-dim distance, different vs same speaker; share\n    of the held-out pair distance outside the SID pattern span (90% energy) = residual.\nUsage: python d4_topk.py --out <dir> [--cache <teacher_geometry cache with speech_pooled_z.npy>]\n",
+ "ks": [
+  4,
+  8,
+  16,
+  32,
+  108
+ ],
+ "speech": {
+  "4": {
+   "SID_acc": 0.12208067940552017,
+   "auc_full_distance": 0.8701207879968413,
+   "spearman_vs_diff_speaker": 0.41003682920751683,
+   "residual_vs_SID_energy90": 0.24774417296555218,
+   "sid_span_dim": 3
+  },
+  "8": {
+   "SID_acc": 0.27123142250530785,
+   "auc_full_distance": 0.8952015606906093,
+   "spearman_vs_diff_speaker": 0.4357245087879538,
+   "residual_vs_SID_energy90": 0.2806217813402029,
+   "sid_span_dim": 5
+  },
+  "16": {
+   "SID_acc": 0.6029723991507431,
+   "auc_full_distance": 0.9183094601090958,
+   "spearman_vs_diff_speaker": 0.462401679973755,
+   "residual_vs_SID_energy90": 0.33606901707350045,
+   "sid_span_dim": 7
+  },
+  "32": {
+   "SID_acc": 0.7776008492569002,
+   "auc_full_distance": 0.9267834222329183,
+   "spearman_vs_diff_speaker": 0.4722104962468501,
+   "residual_vs_SID_energy90": 0.37078541805286136,
+   "sid_span_dim": 11
+  },
+  "108": {
+   "SID_acc": 0.9463906581740976,
+   "auc_full_distance": 0.9289905419607865,
+   "spearman_vs_diff_speaker": 0.474604091493572,
+   "residual_vs_SID_energy90": 0.4445494219095639,
+   "sid_span_dim": 14
+  },
+  "768": {
+   "SID_acc": 0.9904458598726115,
+   "auc_full_distance": 0.9285040459634709,
+   "spearman_vs_diff_speaker": 0.4740228040020598,
+   "residual_vs_SID_energy90": 0.49376819398913485,
+   "sid_span_dim": 13
+  }
+ },
+ "A\u2032-pad": {
+  "4": {
+   "probe_mae": {
+    "TDOA": 2.200726326965366,
+    "T60": 0.06500786008049708,
+    "DRR": 2.497229958339901,
+    "C50": 1.0804219515225164,
+    "volume": 113.041130431979,
+    "src_mic_dist": 1.2288024521669063
+   },
+   "rho": {
+    "TDOA": 0.20689272339567577,
+    "T60": 0.3053051013252836,
+    "DRR": 0.03271673210647057,
+    "C50": 0.19459034566311967,
+    "volume": 0.02902473051038593,
+    "src_mic_dist": 0.03227348426437479,
+    "reverb_factor": 0.1502683645434567
+   },
+   "residual": 1.1102230246251565e-16,
+   "reverb_span_share": 0.6843487925787379
+  },
+  "8": {
+   "probe_mae": {
+    "TDOA": 2.0343646928796133,
+    "T60": 0.055931265998709935,
+    "DRR": 2.2249986725952344,
+    "C50": 0.9871781510527021,
+    "volume": 109.53448838102724,
+    "src_mic_dist": 1.0483639534893645
+   },
+   "rho": {
+    "TDOA": 0.2245902022126205,
+    "T60": 0.26254335008397894,
+    "DRR": 0.049162290008690206,
+    "C50": 0.1687549578200743,
+    "volume": 0.029719572784005787,
+    "src_mic_dist": 0.0656217718369574,
+    "reverb_factor": 0.14444462936550664
+   },
+   "residual": 0.2040896622864714,
+   "reverb_span_share": 0.362155578805017
+  },
+  "16": {
+   "probe_mae": {
+    "TDOA": 1.974885940258309,
+    "T60": 0.047306375276098274,
+    "DRR": 2.0672223268832455,
+    "C50": 0.8957462076193001,
+    "volume": 109.0021671938683,
+    "src_mic_dist": 0.9008416227212662
+   },
+   "rho": {
+    "TDOA": 0.21636801032662079,
+    "T60": 0.22621874806990602,
+    "DRR": 0.05345811629244595,
+    "C50": 0.1492807271109643,
+    "volume": 0.02841585075446548,
+    "src_mic_dist": 0.07334112426415156,
+    "reverb_factor": 0.1328939566675853
+   },
+   "residual": 0.6060262024668581,
+   "reverb_span_share": 0.19991287110067776
+  },
+  "32": {
+   "probe_mae": {
+    "TDOA": 1.84613531247945,
+    "T60": 0.04111827918986614,
+    "DRR": 1.9424239419895901,
+    "C50": 0.8167621742369368,
+    "volume": 97.44026123025799,
+    "src_mic_dist": 0.8010013737836096
+   },
+   "rho": {
+    "TDOA": 0.20102490708483003,
+    "T60": 0.19899812775224643,
+    "DRR": 0.05340322086129704,
+    "C50": 0.13387685613808306,
+    "volume": 0.03885578870794875,
+    "src_mic_dist": 0.07113853277930991,
+    "reverb_factor": 0.11954240956514121
+   },
+   "residual": 0.7826953944618043,
+   "reverb_span_share": 0.11614525361401264
+  },
+  "108": {
+   "probe_mae": {
+    "TDOA": 1.496064535212855,
+    "T60": 0.030133596750597038,
+    "DRR": 1.254848251943496,
+    "C50": 0.5410327293414914,
+    "volume": 82.82882056637266,
+    "src_mic_dist": 0.6190268190579623
+   },
+   "rho": {
+    "TDOA": 0.18821732789215007,
+    "T60": 0.18192832213281362,
+    "DRR": 0.0613954876134764,
+    "C50": 0.1295015445449816,
+    "volume": 0.04046072481876185,
+    "src_mic_dist": 0.0760923525706648,
+    "reverb_factor": 0.11651412959383751
+   },
+   "residual": 0.904873816393636,
+   "reverb_span_share": 0.051432644117727765
+  },
+  "768": {
+   "probe_mae": {
+    "TDOA": 1.1206772818886952,
+    "T60": 0.020365430135620293,
+    "DRR": 0.9744836113430344,
+    "C50": 0.330010125156072,
+    "volume": 67.57357794174683,
+    "src_mic_dist": 0.4674013224370907
+   },
+   "rho": {
+    "TDOA": 0.18536904870318785,
+    "T60": 0.18226763391056044,
+    "DRR": 0.06130649938210551,
+    "C50": 0.13030484613287693,
+    "volume": 0.041161066416334234,
+    "src_mic_dist": 0.0762862294576955,
+    "reverb_factor": 0.1169278437153261
+   },
+   "residual": 0.9277075996999662,
+   "reverb_span_share": 0.03929671956671117
+  }
+ },
+ "A\u2032": {
+  "4": {
+   "probe_mae": {
+    "TDOA": 2.355411924939572,
+    "T60": 0.05393696722941518,
+    "DRR": 2.289607112817436,
+    "C50": 0.9407177380699081,
+    "volume": 116.77365336145019,
+    "src_mic_dist": 1.1987904388756094
+   },
+   "rho": {
+    "TDOA": 0.15452391095297036,
+    "T60": 0.4031621051640669,
+    "DRR": 0.07075980003410307,
+    "C50": 0.2663409965858731,
+    "volume": 0.012201976925302421,
+    "src_mic_dist": 0.03352887778423727,
+    "reverb_factor": 0.20320771137930213
+   },
+   "residual": 0.0,
+   "reverb_span_share": 0.689009147188244
+  },
+  "8": {
+   "probe_mae": {
+    "TDOA": 2.156884819247883,
+    "T60": 0.04355884838708002,
+    "DRR": 1.7767018747343508,
+    "C50": 0.7631152532223572,
+    "volume": 114.38712982110245,
+    "src_mic_dist": 0.9054949058771401
+   },
+   "rho": {
+    "TDOA": 0.1926302755652225,
+    "T60": 0.3670805578230539,
+    "DRR": 0.10894832572756716,
+    "C50": 0.2513497026317236,
+    "volume": 0.02090880199469826,
+    "src_mic_dist": 0.08308341728868772,
+    "reverb_factor": 0.21148784020362146
+   },
+   "residual": 0.2690312899223817,
+   "reverb_span_share": 0.41445624134819775
+  },
+  "16": {
+   "probe_mae": {
+    "TDOA": 1.497986054780387,
+    "T60": 0.03791005065920667,
+    "DRR": 1.4846248907048467,
+    "C50": 0.6150305154460329,
+    "volume": 96.89093423443265,
+    "src_mic_dist": 0.7370724883558105
+   },
+   "rho": {
+    "TDOA": 0.21031826801218742,
+    "T60": 0.3696252517297058,
+    "DRR": 0.10514284879072017,
+    "C50": 0.2536989564787817,
+    "volume": 0.04027156699999784,
+    "src_mic_dist": 0.0859482059097465,
+    "reverb_factor": 0.2127464864090073
+   },
+   "residual": 0.601542824266277,
+   "reverb_span_share": 0.22709999250850915
+  },
+  "32": {
+   "probe_mae": {
+    "TDOA": 1.3440689042004053,
+    "T60": 0.032058104570363906,
+    "DRR": 1.2975966303725255,
+    "C50": 0.5220696248468278,
+    "volume": 86.14159447125172,
+    "src_mic_dist": 0.6739684727226803
+   },
+   "rho": {
+    "TDOA": 0.20803850865989015,
+    "T60": 0.34654902906422497,
+    "DRR": 0.09839315060223706,
+    "C50": 0.2382549734089416,
+    "volume": 0.045581172705949,
+    "src_mic_dist": 0.08549037991409933,
+    "reverb_factor": 0.19793589580111282
+   },
+   "residual": 0.75593876743725,
+   "reverb_span_share": 0.15206333920870715
+  },
+  "108": {
+   "probe_mae": {
+    "TDOA": 1.166844716851007,
+    "T60": 0.023377726181354037,
+    "DRR": 1.1205600601350971,
+    "C50": 0.4543558319059743,
+    "volume": 72.34169642364303,
+    "src_mic_dist": 0.5962748797475663
+   },
+   "rho": {
+    "TDOA": 0.20174531814310911,
+    "T60": 0.34577235521966554,
+    "DRR": 0.09488678413734475,
+    "C50": 0.23433479542832453,
+    "volume": 0.045786705414178536,
+    "src_mic_dist": 0.08648426078349826,
+    "reverb_factor": 0.19128047235734963
+   },
+   "residual": 0.8494837919803143,
+   "reverb_span_share": 0.09566302610584869
+  },
+  "768": {
+   "probe_mae": {
+    "TDOA": 0.9931316622972932,
+    "T60": 0.01778870458118374,
+    "DRR": 0.938470803220744,
+    "C50": 0.3034545777782118,
+    "volume": 61.77802252644533,
+    "src_mic_dist": 0.45567602568283433
+   },
+   "rho": {
+    "TDOA": 0.201447748297574,
+    "T60": 0.34590305092688794,
+    "DRR": 0.0953305159891565,
+    "C50": 0.2345747299418936,
+    "volume": 0.045570094321531085,
+    "src_mic_dist": 0.08677669762417566,
+    "reverb_factor": 0.1915558978717902
+   },
+   "residual": 0.8575117640419034,
+   "reverb_span_share": 0.09053614426176557
+  }
+ }
+}

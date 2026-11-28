@@ -1,0 +1,688 @@
+{
+ "protocol": "\n    Phase 0 D2 (Yotam 11-28, data only, no model): how much of the swap target x(s, r) is determined by (dry s, RIR r),\n    and how much is per-clip noise? Extends check 3 (room_share.py), which could not separate the noise from the\n    source x room interaction.\n\n    Re-rendering. Every clip of paired v2 is rebuilt exactly as gen_simu_paired.Renderer.render: the dry source (the\n    md5-checked dry tar of check 3; paired v2 has the same seed and utterances as v1, checked here for every utterance) *\n    the stored two-channel RIR and direct-path RIR (<tar>.rirs.npz, x peak), then diffuse white noise at the clip's\n    stored SNR (re the direct path), peak-normalised. Two noise draws per clip: 'a' = the original seed\n    (seed + 2,000,000 + clip id; checked against the stored wav on the first clips), 'b' = an independent seed. Same\n    source, RIR and SNR: only the noise waveform differs.\n\n    Features (the swap loss's STFT and normalisation; ipd16 standardised with C v2's spatial input statistics):\n      frame   per-frame ipd16 channels: log|L|, ILD, cos IPD, sin IPD (the current swap target; IPD weighted per bin\n              by the loss's magnitude weight)\n      seg16   per 16-frame segment (256 ms = one decoder patch column), from the segment-summed spectra:\n              log sum|L|^2, ILD = log sum|R|^2 - log sum|L|^2, cos / sin of the cross-spectrum phase angle(sum L R*),\n              IC = |sum L R*| / sqrt(sum|L|^2 sum|R|^2) (interaural coherence)\n      clip    the same five over the whole clip (256 frames): one value per frequency bin per clip\n    Variance (around each bin's mean over all clips, frames or segments; weighted as above) is split into\n      noise        0.5 E[(f_a - f_b)^2]: what no model can predict, even knowing s and r exactly;\n      room main    from scene groups (500 held-out scenes x their 4 utterances): total - within-scene x k/(k-1);\n      speech main  from utterance groups (500 utterances x their 4 scenes): total - within-utterance x k/(k-1);\n      interaction  the rest (total - room - speech - noise): source x room, needs both encoders.\n    Ceiling = 1 - noise share: the explained variance a decoder that knew s and r exactly could reach.\n    Bands: 0-2 / 2-4 / 4-6 / 6-8 kHz and all.\n\n    Usage: python d2_ceiling.py --out <json> [--n_groups 500]\n",
+ "reproduction_error_db": [
+  -70.74340270932085,
+  -68.51498836089559,
+  -71.88927948245926,
+  -71.54144002134606,
+  -72.15844700721553,
+  -72.25938741183873,
+  -73.80371059381477,
+  -71.3460723218718
+ ],
+ "n_groups": 500,
+ "k": 4,
+ "bands": [
+  "0-2 kHz",
+  "2-4 kHz",
+  "4-6 kHz",
+  "6-8 kHz",
+  "all"
+ ],
+ "features": {
+  "frame": {
+   "logL": [
+    {
+     "noise": 0.02696524687118968,
+     "room_main": 0.0497055372273989,
+     "speech_main": 0.7321101014531994,
+     "interaction": 0.19121911444821194,
+     "ceiling": 0.9730347531288103,
+     "total_var_scene_groups": 0.8789030195257164,
+     "total_var_utt_groups": 0.8967020834224888
+    },
+    {
+     "noise": 0.06495772648511676,
+     "room_main": 0.04077182958550818,
+     "speech_main": 0.64944675240667,
+     "interaction": 0.244823691522705,
+     "ceiling": 0.9350422735148832,
+     "total_var_scene_groups": 0.6425956974387066,
+     "total_var_utt_groups": 0.6508332268765725
+    },
+    {
+     "noise": 0.09083876034016594,
+     "room_main": 0.028898570042471206,
+     "speech_main": 0.6745768293170056,
+     "interaction": 0.2056858403003573,
+     "ceiling": 0.9091612396598341,
+     "total_var_scene_groups": 0.7196732882629943,
+     "total_var_utt_groups": 0.7355314897745477
+    },
+    {
+     "noise": 0.13526123307046362,
+     "room_main": 0.033289795372004494,
+     "speech_main": 0.6370857975561366,
+     "interaction": 0.19436317400139524,
+     "ceiling": 0.8647387669295363,
+     "total_var_scene_groups": 0.699345293561125,
+     "total_var_utt_groups": 0.709732258915383
+    },
+    {
+     "noise": 0.07663194144182747,
+     "room_main": 0.03875669757739575,
+     "speech_main": 0.6774591214832,
+     "interaction": 0.20715223949757677,
+     "ceiling": 0.9233680585581725,
+     "total_var_scene_groups": 0.7351293246971355,
+     "total_var_utt_groups": 0.7481997647472479
+    }
+   ],
+   "ILD": [
+    {
+     "noise": 0.1334055169558644,
+     "room_main": 0.025559052202466903,
+     "speech_main": -4.653518208663776e-05,
+     "interaction": 0.8410819660237554,
+     "ceiling": 0.8665944830441357,
+     "total_var_scene_groups": 0.8310060618950367,
+     "total_var_utt_groups": 0.8249699887411659
+    },
+    {
+     "noise": 0.2162418939955429,
+     "room_main": 0.03462906809488353,
+     "speech_main": -0.0004955523527541139,
+     "interaction": 0.7496245902623278,
+     "ceiling": 0.7837581060044572,
+     "total_var_scene_groups": 1.0386069697694724,
+     "total_var_utt_groups": 1.036941846157619
+    },
+    {
+     "noise": 0.3376457812508392,
+     "room_main": 0.02766953445136544,
+     "speech_main": -0.0004192534303426587,
+     "interaction": 0.635103937728138,
+     "ceiling": 0.6623542187491608,
+     "total_var_scene_groups": 1.0574382307191013,
+     "total_var_utt_groups": 1.0563512123072734
+    },
+    {
+     "noise": 0.4765357932378326,
+     "room_main": 0.020470689548304777,
+     "speech_main": -7.932105853014626e-05,
+     "interaction": 0.5030728382723928,
+     "ceiling": 0.5234642067621674,
+     "total_var_scene_groups": 1.0810851221086293,
+     "total_var_utt_groups": 1.0807549061330881
+    },
+    {
+     "noise": 0.3014363425748867,
+     "room_main": 0.02709366394859225,
+     "speech_main": -0.0002702800050808918,
+     "interaction": 0.6717402734816019,
+     "ceiling": 0.6985636574251133,
+     "total_var_scene_groups": 1.0020340961230598,
+     "total_var_utt_groups": 0.9997544883347866
+    }
+   ],
+   "cosIPD": [
+    {
+     "noise": 0.016864202194642415,
+     "room_main": 0.3001964663059099,
+     "speech_main": 0.07784220314534285,
+     "interaction": 0.6050971283541048,
+     "ceiling": 0.9831357978053575,
+     "total_var_scene_groups": 0.6804503933009877,
+     "total_var_utt_groups": 0.679343143278426
+    },
+    {
+     "noise": 0.0531996943348854,
+     "room_main": 0.33296039932024546,
+     "speech_main": 0.04963462658358664,
+     "interaction": 0.5642052797612825,
+     "ceiling": 0.9468003056651146,
+     "total_var_scene_groups": 0.9746202161874641,
+     "total_var_utt_groups": 0.9682225315660694
+    },
+    {
+     "noise": 0.08773743451312435,
+     "room_main": 0.3509665603501978,
+     "speech_main": 0.05425426073600603,
+     "interaction": 0.5070417444006718,
+     "ceiling": 0.9122625654868757,
+     "total_var_scene_groups": 0.9650812210599461,
+     "total_var_utt_groups": 0.963250439192549
+    },
+    {
+     "noise": 0.13515276187977482,
+     "room_main": 0.36961091169228355,
+     "speech_main": 0.054759710519524996,
+     "interaction": 0.4404766159084167,
+     "ceiling": 0.8648472381202252,
+     "total_var_scene_groups": 0.9697330941945395,
+     "total_var_utt_groups": 0.9668703836454445
+    },
+    {
+     "noise": 0.05551593350466522,
+     "room_main": 0.3274512095480986,
+     "speech_main": 0.06318906666631796,
+     "interaction": 0.5538437902809182,
+     "ceiling": 0.9444840664953348,
+     "total_var_scene_groups": 0.8212235738991415,
+     "total_var_utt_groups": 0.8193641597062032
+    }
+   ],
+   "sinIPD": [
+    {
+     "noise": 0.017796053606483543,
+     "room_main": 0.23918399149524694,
+     "speech_main": 0.030194185211976032,
+     "interaction": 0.7128257696862935,
+     "ceiling": 0.9822039463935165,
+     "total_var_scene_groups": 0.7275658626533658,
+     "total_var_utt_groups": 0.7220562238280658
+    },
+    {
+     "noise": 0.054686424274234674,
+     "room_main": 0.30364267297735625,
+     "speech_main": 0.04818511121654456,
+     "interaction": 0.5934857915318645,
+     "ceiling": 0.9453135757257654,
+     "total_var_scene_groups": 1.0382598232243303,
+     "total_var_utt_groups": 1.0441682085692323
+    },
+    {
+     "noise": 0.08855492362883591,
+     "room_main": 0.34331779623903336,
+     "speech_main": 0.050463860491744894,
+     "interaction": 0.5176634196403859,
+     "ceiling": 0.9114450763711641,
+     "total_var_scene_groups": 1.051082574732307,
+     "total_var_utt_groups": 1.0530335287673944
+    },
+    {
+     "noise": 0.13341116770961214,
+     "room_main": 0.36134667786322294,
+     "speech_main": 0.05307499837464824,
+     "interaction": 0.45216715605251667,
+     "ceiling": 0.8665888322903879,
+     "total_var_scene_groups": 1.045961926166175,
+     "total_var_utt_groups": 1.0494632458675146
+    },
+    {
+     "noise": 0.05648910701073488,
+     "room_main": 0.29183916027760193,
+     "speech_main": 0.041760100257064336,
+     "interaction": 0.6099116324545989,
+     "ceiling": 0.9435108929892652,
+     "total_var_scene_groups": 0.8813865822009529,
+     "total_var_utt_groups": 0.8812856666490644
+    }
+   ]
+  },
+  "seg16": {
+   "logL": [
+    {
+     "noise": 0.0007933086621814234,
+     "room_main": 0.057315802312233655,
+     "speech_main": 0.92759556409193,
+     "interaction": 0.01429532493365493,
+     "ceiling": 0.9992066913378186,
+     "total_var_scene_groups": 4.60859544743714,
+     "total_var_utt_groups": 4.7445424766933195
+    },
+    {
+     "noise": 0.0024217080425013816,
+     "room_main": 0.05893266671865427,
+     "speech_main": 0.9149965158167191,
+     "interaction": 0.02364910942212517,
+     "ceiling": 0.9975782919574986,
+     "total_var_scene_groups": 3.125901274376405,
+     "total_var_utt_groups": 3.1748983104910478
+    },
+    {
+     "noise": 0.0035388374078916297,
+     "room_main": 0.04137863218473392,
+     "speech_main": 0.9158370494138428,
+     "interaction": 0.039245480993531645,
+     "ceiling": 0.9964611625921084,
+     "total_var_scene_groups": 3.9967008987833044,
+     "total_var_utt_groups": 4.126143692784085
+    },
+    {
+     "noise": 0.005884666754741256,
+     "room_main": 0.05055709998006441,
+     "speech_main": 0.8854521796034819,
+     "interaction": 0.0581060536617124,
+     "ceiling": 0.9941153332452587,
+     "total_var_scene_groups": 3.9911325380170575,
+     "total_var_utt_groups": 4.084751337555876
+    },
+    {
+     "noise": 0.003106435892393105,
+     "room_main": 0.05187024687655284,
+     "speech_main": 0.9114357477455529,
+     "interaction": 0.03358756948550112,
+     "ceiling": 0.9968935641076069,
+     "total_var_scene_groups": 3.930582539653477,
+     "total_var_utt_groups": 4.032583954381082
+    }
+   ],
+   "ILD": [
+    {
+     "noise": 0.024864528258758116,
+     "room_main": 0.3623944774296741,
+     "speech_main": 0.0007058851503827235,
+     "interaction": 0.6120351091611851,
+     "ceiling": 0.9751354717412419,
+     "total_var_scene_groups": 0.22389464893797442,
+     "total_var_utt_groups": 0.22464901466003123
+    },
+    {
+     "noise": 0.04853460156879408,
+     "room_main": 0.46336777505144966,
+     "speech_main": -0.0007358561401440422,
+     "interaction": 0.4888334795199003,
+     "ceiling": 0.9514653984312059,
+     "total_var_scene_groups": 0.3046125254266482,
+     "total_var_utt_groups": 0.3069710692802124
+    },
+    {
+     "noise": 0.09088576287116165,
+     "room_main": 0.4019767159879569,
+     "speech_main": -0.002135712861780048,
+     "interaction": 0.5092732340026614,
+     "ceiling": 0.9091142371288383,
+     "total_var_scene_groups": 0.3141891501612235,
+     "total_var_utt_groups": 0.31406890385161373
+    },
+    {
+     "noise": 0.15773220775155067,
+     "room_main": 0.3347771712301535,
+     "speech_main": 0.0003014422430368535,
+     "interaction": 0.507189178775259,
+     "ceiling": 0.8422677922484494,
+     "total_var_scene_groups": 0.30027341295915844,
+     "total_var_utt_groups": 0.29935625165830604
+    },
+    {
+     "noise": 0.08413982959898764,
+     "room_main": 0.3929301050578038,
+     "speech_main": -0.0005657702401913323,
+     "interaction": 0.5234958355833998,
+     "ceiling": 0.9158601704010123,
+     "total_var_scene_groups": 0.28574243437125113,
+     "total_var_utt_groups": 0.2862613098625409
+    }
+   ],
+   "cosIPD": [
+    {
+     "noise": 0.029532319160046498,
+     "room_main": 0.5804859085640242,
+     "speech_main": 0.013555517802838812,
+     "interaction": 0.3764262544730905,
+     "ceiling": 0.9704676808399535,
+     "total_var_scene_groups": 0.35380335162340987,
+     "total_var_utt_groups": 0.3486052789328204
+    },
+    {
+     "noise": 0.0713600263207207,
+     "room_main": 0.5403747629565712,
+     "speech_main": 0.0009325842236932447,
+     "interaction": 0.3873326264990149,
+     "ceiling": 0.9286399736792793,
+     "total_var_scene_groups": 0.526664838245819,
+     "total_var_utt_groups": 0.5184348879760489
+    },
+    {
+     "noise": 0.16000847664580914,
+     "room_main": 0.40564890596755687,
+     "speech_main": 0.0009328521718415805,
+     "interaction": 0.43340976521479235,
+     "ceiling": 0.8399915233541908,
+     "total_var_scene_groups": 0.5098229869727029,
+     "total_var_utt_groups": 0.5068606133654084
+    },
+    {
+     "noise": 0.2798090509020521,
+     "room_main": 0.31951329725324784,
+     "speech_main": 0.0009044657890476815,
+     "interaction": 0.3997731860556524,
+     "ceiling": 0.7201909490979479,
+     "total_var_scene_groups": 0.5181507524550579,
+     "total_var_utt_groups": 0.5172493004969912
+    },
+    {
+     "noise": 0.14415499180314528,
+     "room_main": 0.4518552156083534,
+     "speech_main": 0.00325181467378588,
+     "interaction": 0.40073797791471544,
+     "ceiling": 0.8558450081968547,
+     "total_var_scene_groups": 0.4771104823242474,
+     "total_var_utt_groups": 0.4727875201928173
+    }
+   ],
+   "sinIPD": [
+    {
+     "noise": 0.04021513531865929,
+     "room_main": 0.44160432274711925,
+     "speech_main": -0.002757084463573589,
+     "interaction": 0.5209376263977951,
+     "ceiling": 0.9597848646813407,
+     "total_var_scene_groups": 0.2942587685162937,
+     "total_var_utt_groups": 0.2920502354242317
+    },
+    {
+     "noise": 0.08297599087577073,
+     "room_main": 0.4703666277807661,
+     "speech_main": -0.0012788989639380688,
+     "interaction": 0.4479362803074012,
+     "ceiling": 0.9170240091242292,
+     "total_var_scene_groups": 0.47016484802949926,
+     "total_var_utt_groups": 0.47736457721585135
+    },
+    {
+     "noise": 0.1700683234417043,
+     "room_main": 0.37278654359926244,
+     "speech_main": -0.002765402411725182,
+     "interaction": 0.45991053537075843,
+     "ceiling": 0.8299316765582957,
+     "total_var_scene_groups": 0.4892099424987977,
+     "total_var_utt_groups": 0.49195682045035927
+    },
+    {
+     "noise": 0.2820124509941162,
+     "room_main": 0.29147191651993776,
+     "speech_main": -0.0009918622583331427,
+     "interaction": 0.4275074947442792,
+     "ceiling": 0.7179875490058838,
+     "total_var_scene_groups": 0.4812197995904095,
+     "total_var_utt_groups": 0.48238608427474605
+    },
+    {
+     "noise": 0.15546577814147128,
+     "room_main": 0.3883490991966637,
+     "speech_main": -0.0018664447051086608,
+     "interaction": 0.4580515673669737,
+     "ceiling": 0.8445342218585288,
+     "total_var_scene_groups": 0.43371333965875003,
+     "total_var_utt_groups": 0.4359394293412971
+    }
+   ],
+   "IC": [
+    {
+     "noise": 0.01815590817356748,
+     "room_main": 0.39467130092392944,
+     "speech_main": 0.20204601891144258,
+     "interaction": 0.3851267719910605,
+     "ceiling": 0.9818440918264325,
+     "total_var_scene_groups": 0.04818337379425682,
+     "total_var_utt_groups": 0.048806041087086215
+    },
+    {
+     "noise": 0.0578131882663651,
+     "room_main": 0.32959338975100805,
+     "speech_main": 0.1448103901478267,
+     "interaction": 0.4677830318348002,
+     "ceiling": 0.9421868117336349,
+     "total_var_scene_groups": 0.04018553597114113,
+     "total_var_utt_groups": 0.04098746944134931
+    },
+    {
+     "noise": 0.11031053243036401,
+     "room_main": 0.20354649543644843,
+     "speech_main": 0.19754705667627492,
+     "interaction": 0.4885959154569126,
+     "ceiling": 0.889689467569636,
+     "total_var_scene_groups": 0.03768948219129646,
+     "total_var_utt_groups": 0.03813874475855536
+    },
+    {
+     "noise": 0.17621428034168202,
+     "room_main": 0.14925503646764005,
+     "speech_main": 0.21899241112981727,
+     "interaction": 0.4555382720608607,
+     "ceiling": 0.823785719658318,
+     "total_var_scene_groups": 0.035582582622496146,
+     "total_var_utt_groups": 0.03571330224881924
+    },
+    {
+     "noise": 0.08417620687855326,
+     "room_main": 0.2799038030891936,
+     "speech_main": 0.1903602954567727,
+     "interaction": 0.4455596945754805,
+     "ceiling": 0.9158237931214468,
+     "total_var_scene_groups": 0.040410243644797644,
+     "total_var_utt_groups": 0.04091138938395252
+    }
+   ]
+  },
+  "clip": {
+   "logL": [
+    {
+     "noise": 2.138176426433614e-05,
+     "room_main": 0.13813053196250857,
+     "speech_main": 0.8286127059338358,
+     "interaction": 0.03323538033939122,
+     "ceiling": 0.9999786182357356,
+     "total_var_scene_groups": 1.1006464162304828,
+     "total_var_utt_groups": 1.1020692212771965
+    },
+    {
+     "noise": 0.00012152017364966712,
+     "room_main": 0.1151444546742989,
+     "speech_main": 0.8507563646416254,
+     "interaction": 0.033977660510426055,
+     "ceiling": 0.9998784798263504,
+     "total_var_scene_groups": 1.0035526621297666,
+     "total_var_utt_groups": 0.9719746955442953
+    },
+    {
+     "noise": 0.00016254705182945468,
+     "room_main": 0.09252032943902155,
+     "speech_main": 0.8860137327428312,
+     "interaction": 0.02130339076631771,
+     "ceiling": 0.9998374529481705,
+     "total_var_scene_groups": 1.4007233524102225,
+     "total_var_utt_groups": 1.3575055105034075
+    },
+    {
+     "noise": 0.00036017322924524115,
+     "room_main": 0.11347686718046135,
+     "speech_main": 0.8793010701397986,
+     "interaction": 0.006861889450494818,
+     "ceiling": 0.9996398267707548,
+     "total_var_scene_groups": 1.7134265312631851,
+     "total_var_utt_groups": 1.6963622854851428
+    },
+    {
+     "noise": 0.00018980252928455416,
+     "room_main": 0.11337226855242988,
+     "speech_main": 0.8647738424489615,
+     "interaction": 0.02166408646932405,
+     "ceiling": 0.9998101974707154,
+     "total_var_scene_groups": 1.3045872405084142,
+     "total_var_utt_groups": 1.2819779282025103
+    }
+   ],
+   "ILD": [
+    {
+     "noise": 0.00024120447140246135,
+     "room_main": 0.8025049246885445,
+     "speech_main": -0.0012054656859055157,
+     "interaction": 0.1984593365259586,
+     "ceiling": 0.9997587955285976,
+     "total_var_scene_groups": 0.13729088475569692,
+     "total_var_utt_groups": 0.1406021302541371
+    },
+    {
+     "noise": 0.0010984333417021308,
+     "room_main": 0.8855632754706019,
+     "speech_main": -0.0020208027361723335,
+     "interaction": 0.11535909392386834,
+     "ceiling": 0.9989015666582979,
+     "total_var_scene_groups": 0.21028467330548645,
+     "total_var_utt_groups": 0.21291545792300468
+    },
+    {
+     "noise": 0.0019144563364100289,
+     "room_main": 0.8644258824674809,
+     "speech_main": -0.003851336791203419,
+     "interaction": 0.13751099798731248,
+     "ceiling": 0.9980855436635899,
+     "total_var_scene_groups": 0.22923431482119286,
+     "total_var_utt_groups": 0.23042034084914717
+    },
+    {
+     "noise": 0.005649512260179481,
+     "room_main": 0.8363743321321664,
+     "speech_main": 0.0004244342902859355,
+     "interaction": 0.15755172131736817,
+     "ceiling": 0.9943504877398205,
+     "total_var_scene_groups": 0.2189370770544166,
+     "total_var_utt_groups": 0.22087118237178996
+    },
+    {
+     "noise": 0.0024345841530932846,
+     "room_main": 0.8516104544796413,
+     "speech_main": -0.0017313822572528892,
+     "interaction": 0.14768634362451827,
+     "ceiling": 0.9975654158469067,
+     "total_var_scene_groups": 0.1989367374841982,
+     "total_var_utt_groups": 0.20120227784951975
+    }
+   ],
+   "cosIPD": [
+    {
+     "noise": 0.0003563223003048078,
+     "room_main": 0.897311787874839,
+     "speech_main": -0.006495806989316177,
+     "interaction": 0.10882769681417237,
+     "ceiling": 0.9996436776996952,
+     "total_var_scene_groups": 0.3323583128856446,
+     "total_var_utt_groups": 0.32531569145894956
+    },
+    {
+     "noise": 0.002362847504784444,
+     "room_main": 0.8894155368375547,
+     "speech_main": -0.0001479949190146268,
+     "interaction": 0.10836961057667549,
+     "ceiling": 0.9976371524952156,
+     "total_var_scene_groups": 0.5337983962284039,
+     "total_var_utt_groups": 0.5208130622883123
+    },
+    {
+     "noise": 0.00784130171155756,
+     "room_main": 0.8375404621721433,
+     "speech_main": 0.00305488485746519,
+     "interaction": 0.1515633512588339,
+     "ceiling": 0.9921586982884424,
+     "total_var_scene_groups": 0.5127396187896891,
+     "total_var_utt_groups": 0.5088283464543932
+    },
+    {
+     "noise": 0.03984408393462098,
+     "room_main": 0.7843974609593594,
+     "speech_main": -0.001511780108104377,
+     "interaction": 0.177270235214124,
+     "ceiling": 0.960155916065379,
+     "total_var_scene_groups": 0.5219461155359651,
+     "total_var_utt_groups": 0.5231553012642899
+    },
+    {
+     "noise": 0.0138612398803699,
+     "room_main": 0.8479666527528381,
+     "speech_main": -0.000759671995905542,
+     "interaction": 0.13893177936269752,
+     "ceiling": 0.9861387601196301,
+     "total_var_scene_groups": 0.47521061085992566,
+     "total_var_utt_groups": 0.46952810036648623
+    }
+   ],
+   "sinIPD": [
+    {
+     "noise": 0.0004903846566782846,
+     "room_main": 0.8525894759791264,
+     "speech_main": -0.00786166219644846,
+     "interaction": 0.1547818015606438,
+     "ceiling": 0.9995096153433217,
+     "total_var_scene_groups": 0.26178274440969646,
+     "total_var_utt_groups": 0.26334854744688985
+    },
+    {
+     "noise": 0.0030791594896732552,
+     "room_main": 0.8690686397511062,
+     "speech_main": -0.0016497012829825852,
+     "interaction": 0.12950190204220313,
+     "ceiling": 0.9969208405103267,
+     "total_var_scene_groups": 0.4620397952877562,
+     "total_var_utt_groups": 0.4739700617727566
+    },
+    {
+     "noise": 0.009715130256082668,
+     "room_main": 0.8305330126896613,
+     "speech_main": -0.005194611227595791,
+     "interaction": 0.1649464682818519,
+     "ceiling": 0.9902848697439174,
+     "total_var_scene_groups": 0.4856659212918802,
+     "total_var_utt_groups": 0.48943116673010306
+    },
+    {
+     "noise": 0.03575313500613584,
+     "room_main": 0.7858319593483312,
+     "speech_main": 0.001451045081098279,
+     "interaction": 0.1769638605644347,
+     "ceiling": 0.9642468649938641,
+     "total_var_scene_groups": 0.4765220901265508,
+     "total_var_utt_groups": 0.4761898770174275
+    },
+    {
+     "noise": 0.013773591742424858,
+     "room_main": 0.8318841046861298,
+     "speech_main": -0.00276210492008655,
+     "interaction": 0.15710440849153184,
+     "ceiling": 0.9862264082575751,
+     "total_var_scene_groups": 0.4215026377789709,
+     "total_var_utt_groups": 0.4257349132417943
+    }
+   ],
+   "IC": [
+    {
+     "noise": 0.00016032101602422556,
+     "room_main": 0.8829392576353983,
+     "speech_main": 0.005291114383915718,
+     "interaction": 0.11160930696466176,
+     "ceiling": 0.9998396789839757,
+     "total_var_scene_groups": 0.03819057030808658,
+     "total_var_utt_groups": 0.03942750160694849
+    },
+    {
+     "noise": 0.0014211818449454108,
+     "room_main": 0.8539112613140816,
+     "speech_main": 0.013141376059387033,
+     "interaction": 0.13152618078158596,
+     "ceiling": 0.9985788181550546,
+     "total_var_scene_groups": 0.033060431578969,
+     "total_var_utt_groups": 0.03390835081282506
+    },
+    {
+     "noise": 0.0029982809855649928,
+     "room_main": 0.76679299052156,
+     "speech_main": 0.035779591883565165,
+     "interaction": 0.19442913660930983,
+     "ceiling": 0.997001719014435,
+     "total_var_scene_groups": 0.029717910761944338,
+     "total_var_utt_groups": 0.030691507915821252
+    },
+    {
+     "noise": 0.008381933208134903,
+     "room_main": 0.6898908063083755,
+     "speech_main": 0.06677597726997475,
+     "interaction": 0.23495128321351488,
+     "ceiling": 0.9916180667918651,
+     "total_var_scene_groups": 0.028432460127882003,
+     "total_var_utt_groups": 0.02880256864389001
+    },
+    {
+     "noise": 0.0029306213457382345,
+     "room_main": 0.8064319944562623,
+     "speech_main": 0.027671979766153876,
+     "interaction": 0.1629654044318456,
+     "ceiling": 0.9970693786542618,
+     "total_var_scene_groups": 0.032350343194220484,
+     "total_var_utt_groups": 0.03320748224487121
+    }
+   ]
+  }
+ }
+}
