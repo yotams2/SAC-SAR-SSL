@@ -63,6 +63,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bAl01_spat | ok | pilotc_v1bA_l01 | paired v2 | frz 1.49 | frz 0.090 | frz 1.43 | frz 0.56 |  | V1b A′ λ0.1 (learned RIR teacher, the method), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s2_spat | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | frz 1.38 | frz 0.086 | frz 1.39 | frz 0.60 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s1_spat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.33 | frz 0.092 | frz 1.42 | frz 0.53 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spatial encoder alone, frozen. |
 | jointcv1bHCl01_spat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.32 | frz 0.074 | frz 1.46 | frz 0.50 |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
@@ -93,7 +94,6 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv1bBl1_spec_on_spatial | ok | pilotc_v1bB_l1 | paired v2 | frz 2.92 | frz 0.134 | frz 2.17 |  |  | Leakage: V1b oracle B λ1 (analysis row), spectral encoder on the spatial tasks. |
 | jointC30v2r_spec_on_spatial | ok | pilotC30_v2r | paired v2 | frz 2.93 | frz 0.079 | frz 1.65 |  |  | Leakage: C 30 ep reference, spectral encoder on the spatial tasks. |
 | jointcv1bAl01_spec_on_spatial | ok | pilotc_v1bA_l01 | paired v2 | frz 2.92 | frz 0.118 | frz 1.97 |  |  | Leakage: V1b A′ λ0.1 (learned RIR teacher, the method), spectral encoder on the spatial tasks. |
-| jointcv1bAl01_spat | ok | pilotc_v1bA_l01 | paired v2 | frz 1.49 | frz 0.090 | frz 1.43 |  |  | V1b A′ λ0.1 (learned RIR teacher, the method), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1al1_spat | ok | pilotc_v1a_l1 | paired v2 | frz 1.75 | frz 0.164 | frz 1.50 |  |  | V1a λ1 (latent prediction), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv1al1_concat | ok | pilotc_v1a_l1 | paired v2 | frz 1.79 | frz 0.099 |  |  |  | V1a λ1 (latent prediction): concat (appendix only). |
 | jointcv1bBl1_concat | ok | pilotc_v1bB_l1 | paired v2 | frz 1.37 |  |  |  |  | V1b oracle B λ1 (analysis row): concat (appendix only). |
