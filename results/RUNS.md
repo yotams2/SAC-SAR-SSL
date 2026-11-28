@@ -63,6 +63,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointC30v2r_spat | ok | pilotC30_v2r | paired v2 | frz 2.47 | frz 0.070 | frz 1.27 | frz 0.39 |  | C 30 ep reference (v2, new recipe): spatial encoder alone, frozen. |
 | jointA_spat | ok | pilotA_spat | unpaired-4s v1 | frz 2.57 | frz 0.084 | frz 2.32 | frz 0.82 |  | Pilot A spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s1_concat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.36 | frz 0.100 | frz 1.52 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat (appendix only). |
 | jointcv1bA30noancl01s1_spec_on_spatial | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 2.93 | frz 0.125 | frz 1.95 |  |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spectral encoder on the spatial tasks. |
@@ -90,7 +91,6 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv1al1_spec_on_spatial | ok | pilotc_v1a_l1 | paired v2 | frz 2.92 | frz 0.091 | frz 1.90 |  |  | Leakage: V1a λ1 (latent prediction), spectral encoder on the spatial tasks. |
 | jointC30v2r_concat | ok | pilotC30_v2r | paired v2 | frz 2.50 | frz 0.077 | frz 1.28 |  |  | C 30 ep reference: concat (appendix only). |
 | jointcv1bBl1_spec_on_spatial | ok | pilotc_v1bB_l1 | paired v2 | frz 2.92 | frz 0.134 | frz 2.17 |  |  | Leakage: V1b oracle B λ1 (analysis row), spectral encoder on the spatial tasks. |
-| jointC30v2r_spat | ok | pilotC30_v2r | paired v2 | frz 2.47 | frz 0.070 | frz 1.27 |  |  | C 30 ep reference (v2, new recipe): spatial encoder alone, frozen. |
 | jointC30v2r_spec_on_spatial | ok | pilotC30_v2r | paired v2 | frz 2.93 | frz 0.079 | frz 1.65 |  |  | Leakage: C 30 ep reference, spectral encoder on the spatial tasks. |
 | jointcv1bAl01_spec_on_spatial | ok | pilotc_v1bA_l01 | paired v2 | frz 2.92 | frz 0.118 | frz 1.97 |  |  | Leakage: V1b A′ λ0.1 (learned RIR teacher, the method), spectral encoder on the spatial tasks. |
 | jointcv1bAl01_spat | ok | pilotc_v1bA_l01 | paired v2 | frz 1.49 | frz 0.090 | frz 1.43 |  |  | V1b A′ λ0.1 (learned RIR teacher, the method), 10 ep paired v2: spatial encoder alone, frozen. |
