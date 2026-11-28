@@ -63,6 +63,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bHCl01_spat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.32 | frz 0.074 | frz 1.46 | frz 0.50 |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointC30v2r_spat | ok | pilotC30_v2r | paired v2 | frz 2.47 | frz 0.070 | frz 1.27 | frz 0.39 | frz 0.07 | C 30 ep reference (v2, new recipe): spatial encoder alone, frozen. |
 | jointA_spat | ok | pilotA_spat | unpaired-4s v1 | frz 2.57 | frz 0.084 | frz 2.32 | frz 0.82 | frz 0.07 | Pilot A spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s1_concat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.36 | frz 0.100 | frz 1.52 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat (appendix only). |
@@ -76,7 +77,6 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv3_spat | ok | pilotc_v3 | unpaired-8s v2 | frz 2.62 | frz 0.091 | frz 2.09 |  |  | V3 unpaired swap, 10 ep: spatial encoder alone, frozen. |
 | jointcv1bHCl01_concat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.34 | frz 0.092 | frz 1.42 |  |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat (appendix only). |
 | jointcv1bAnoancl01_spec_on_spatial | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 2.92 |  | frz 2.02 |  |  | Leakage: V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), spectral encoder on the spatial tasks. |
-| jointcv1bHCl01_spat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.32 | frz 0.074 | frz 1.46 |  |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointcv3_spec_on_spatial | ok | pilotc_v3 | unpaired-8s v2 | frz 2.93 |  | frz 2.20 |  |  | Leakage: V3 unpaired swap, spectral encoder on the spatial tasks. |
 | jointcv1bAl01_spat_chkfull | smoke | pilotc_v1bA_l01 | paired v2 |  | frz 0.090 |  |  |  | Code check 11-27 (not a result): same T60 rerun on the old full-checkpoint path (SARSSL_FULL_EPOCH_CKPT=1), control for GPU nondeterminism; 0.0895. |
 | jointcv1bAl01_spat_chklight | smoke | pilotc_v1bA_l01 | paired v2 |  | frz 0.090 |  |  |  | Code check 11-27 (not a result): V1b A′ λ0.1 T60 rerun with light per-epoch checkpoints + node-local staging (SAC-SAR-SSL 7402a06); 0.0895 = original. |
