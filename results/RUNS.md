@@ -63,6 +63,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bA30noancl01s1_spec_on_spatial | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 2.93 |  |  |  |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spectral encoder on the spatial tasks. |
 | jointcv1bA30noancl01s1_spat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.33 |  |  |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s2_concat | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | frz 1.48 | frz 0.099 | frz 1.51 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat (appendix only). |
 | jointcv1bA30noancl01s2_spec_on_spatial | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | frz 2.92 | frz 0.126 | frz 1.97 |  |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2, spectral encoder on the spatial tasks. |
@@ -216,6 +217,9 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv1al1_concat_probe | ok | pilotc_v1a_l1 | paired v2 | 18.9 | 17.6 | V1a λ1 (latent prediction): concat on SC2/SID (appendix only). |
 | jointcv1al1_spat_probe | ok | pilotc_v1a_l1 | paired v2 | 7.1 | 1.8 | Leakage: V1a λ1 (latent prediction), spatial encoder on SC2/SID. |
 | jointcv1al1_spec_probe | ok | pilotc_v1a_l1 | paired v2 | 26.0 | 48.7 | V1a λ1 (latent prediction): spectral encoder on SC2/SID. |
+| jointcv1bA30noancl01s1_concat_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 20.9 | 15.5 | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat on SC2/SID (appendix only). |
+| jointcv1bA30noancl01s1_spat_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 7.7 | 2.6 | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spatial encoder on SC2/SID. |
+| jointcv1bA30noancl01s1_spec_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 22.5 | 47.5 | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spectral encoder on SC2/SID. |
 | jointcv1bA30noancl01s2_concat_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 21.8 | 15.7 | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat on SC2/SID (appendix only). |
 | jointcv1bA30noancl01s2_spat_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 9.7 | 1.9 | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2, spatial encoder on SC2/SID. |
 | jointcv1bA30noancl01s2_spec_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 24.6 | 44.4 | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: spectral encoder on SC2/SID. |
