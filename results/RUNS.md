@@ -63,6 +63,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointcv1bA30noancl01s2_spat | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | frz 1.38 | frz 0.086 | frz 1.39 | frz 0.60 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s1_spat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.33 | frz 0.092 | frz 1.42 | frz 0.53 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spatial encoder alone, frozen. |
 | jointcv1bHCl01_spat | ok | pilotc_v1bHC_l01 | paired v2 | frz 1.32 | frz 0.074 | frz 1.46 | frz 0.50 |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), 10 ep paired v2: spatial encoder alone, frozen. |
 | jointC30v2r_spat | ok | pilotC30_v2r | paired v2 | frz 2.47 | frz 0.070 | frz 1.27 | frz 0.39 | frz 0.07 | C 30 ep reference (v2, new recipe): spatial encoder alone, frozen. |
@@ -71,7 +72,6 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv1bA30noancl01s1_spec_on_spatial | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 2.93 | frz 0.125 | frz 1.95 |  |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spectral encoder on the spatial tasks. |
 | jointcv1bA30noancl01s2_concat | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | frz 1.48 | frz 0.099 | frz 1.51 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat (appendix only). |
 | jointcv1bA30noancl01s2_spec_on_spatial | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | frz 2.92 | frz 0.126 | frz 1.97 |  |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2, spectral encoder on the spatial tasks. |
-| jointcv1bA30noancl01s2_spat | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | frz 1.38 | frz 0.086 | frz 1.39 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: spatial encoder alone, frozen. |
 | jointcv1bAnoancl01_concat | ok | pilotc_v1bA_noanc_l01 | paired v2 | frz 1.34 | frz 0.099 | frz 1.53 |  |  | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): concat (appendix only). |
 | jointcv1bHCl01_spec_on_spatial | ok | pilotc_v1bHC_l01 | paired v2 | frz 2.92 |  | frz 1.97 |  |  | Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spectral encoder on the spatial tasks. |
 | jointcv3_spat | ok | pilotc_v3 | unpaired-8s v2 | frz 2.62 | frz 0.091 | frz 2.09 |  |  | V3 unpaired swap, 10 ep: spatial encoder alone, frozen. |
