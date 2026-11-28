@@ -63,7 +63,7 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
-| jointcv1bA30noancl01s1_concat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.36 | frz 0.100 |  |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat (appendix only). |
+| jointcv1bA30noancl01s1_concat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.36 | frz 0.100 | frz 1.52 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat (appendix only). |
 | jointcv1bA30noancl01s1_spec_on_spatial | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 2.93 | frz 0.125 | frz 1.95 |  |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spectral encoder on the spatial tasks. |
 | jointcv1bA30noancl01s1_spat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.33 | frz 0.092 | frz 1.42 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s2_concat | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | frz 1.48 | frz 0.099 | frz 1.51 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat (appendix only). |
@@ -162,108 +162,108 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | ssamba_random_lrsweep | old | random init |  | scr 2.93 |  |  |  |  | Random-init SSAMBA on SAR-SSL TDOA (11-11 lr sweep). |
 | ssamba_pitchfix_lrsweep | old | sac-ssamba lossfix_blockmask_pitchfix_baseline:final |  | ft 2.93 / frz 2.89 (n=2) |  |  |  |  | Binaural sac-ssamba pitchfix encoder (magnitude input, tiled) on SAR-SSL TDOA (11-11): fails on TDOA. |
 
-## Speech probes (SC2 / SID, frozen, linear accuracy %)
+## Speech probes (SC2 / SID linear accuracy %, ER = binaural IEMOCAP fold 1 linear UA %; frozen)
 
-| probe file | status | model (ckpt) | data | SC2 linear | SID linear | description |
-|---|---|---|---|---|---|---|
-| ipd16_probe_2026-11-17 | ok | ipd16_sac | unpaired-4s v1 | 19.4 | 13.0 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
-| ipd16_probe_2026-11-17 | ok | ipd16_nosac | unpaired-4s v1 | 19.1 | 15.7 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
-| ipd16_probe_2026-11-17 | ok | random init |  | 3.1 | 9.1 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
-| ipd16_probe_2026-11-17 | ok | gramt |  | 71.2 | 62.4 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
-| jointA_concat_probe | ok | pilotA_spec+pilotA_spat | unpaired-4s v1 | 14.0 | 18.9 | Pilot A concat on SC2/SID (SID with 16 rows of concat is unreliable). PROVISIONAL: concat probe under check (11-23). |
-| jointA_spat_probe | ok | pilotA_spat | unpaired-4s v1 | 10.9 | 8.5 | Leakage probe: Pilot A spatial encoder on SC2/SID (random ipd16 = 3.1 / 9.1). |
-| jointA_spat_probe_2026-11-18_VOID_flippair_bug | void | pilotA_spat | unpaired-4s v1 | 5.9 | 1.8 | Void: flip-pair layer-order bug (fixed 11-18). |
-| jointA_spec_probe | ok | pilotA_spec | unpaired-4s v1 | 14.8 | 34.0 | Pilot A spectral encoder on SC2/SID (+ random-init row). |
-| jointA_spec_probe | ok | random init |  | 5.7 | 36.6 | Pilot A spectral encoder on SC2/SID (+ random-init row). |
-| jointA_spec_probe_2026-11-18_VOID_flippair_bug | void | pilotA_spec | unpaired-4s v1 | 3.8 | 1.9 | Void: flip-pair layer-order bug (fixed 11-18). |
-| jointA_spec_probe_2026-11-18_VOID_flippair_bug | void | pilotA_spec | unpaired-4s v1 | 5.9 | 6.1 | Void: flip-pair layer-order bug (fixed 11-18). |
-| jointA_spec_probe_2026-11-18_VOID_flippair_bug | void | random init |  | 5.7 | 36.6 | Void: flip-pair layer-order bug (fixed 11-18). |
-| jointAp_spat_probe | ok | pilotA_spat_paired | paired v1 | 9.7 | 8.1 | Leakage probe: paired-set A spatial control (data-only control for C) on SC2/SID. |
-| jointB_fusion_on_probe | ok | pilotB_fusion | unpaired-4s v1 | 16.4 | 15.7 | Pilot B, fusion on, on SC2/SID. |
-| jointB_spec_off_probe | ok | pilotB_fusion | unpaired-4s v1 | 13.5 | 29.7 | Pilot B, fusion off, on SC2/SID. |
-| jointC2_concat_probe | ok | pilotC2_ctr | paired v1 | 21.1 | 8.7 | C2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
-| jointC2_ep2_spat_probe | ok | pilotC2_ctr | paired v1 | 4.8 | 0.4 | Early read: C2 at epoch 2, spatial encoder on SC2/SID (leakage). |
-| jointC2_ep5_spec_probe | ok | pilotC2_ctr | paired v1 | 24.4 | 26.4 | Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spectral encoder on SC2/SID. |
-| jointC2_spat_probe | ok | pilotC2_ctr | paired v1 | 8.3 | 0.6 | Leakage probe: C2 spatial encoder on SC2/SID. |
-| jointC2_spec_probe | ok | pilotC2_ctr | paired v1 | 26.6 | 26.0 | C2 spectral encoder on SC2/SID. |
-| jointC2head_concat_probe | ok | pilotC2_head | paired v1 | 19.0 | 7.6 | C2 + head: concat on SC2/SID (appendix only). |
-| jointC2head_spat_probe | ok | pilotC2_head | paired v1 | 7.9 | 2.1 | Leakage: C2 + head, spatial encoder on SC2/SID. |
-| jointC2head_spec_probe | ok | pilotC2_head | paired v1 | 24.4 | 22.1 | C2 + head: spectral encoder on SC2/SID. |
-| jointC2s2_concat_probe | ok | pilotC2_ctr_s2 | paired v1 | 19.7 | 9.3 | C2 seed 2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
-| jointC2s2_spat_probe | ok | pilotC2_ctr_s2 | paired v1 | 6.3 | 1.0 | Leakage probe: C2 seed 2 spatial encoder on SC2/SID. |
-| jointC2s2_spec_probe | ok | pilotC2_ctr_s2 | paired v1 | 28.4 | 25.0 | C2 seed 2 spectral encoder on SC2/SID. |
-| jointC30v2r_concat_probe | ok | pilotC30_v2r | paired v2 | 20.2 | 22.6 | C 30 ep reference: concat on SC2/SID (appendix only). |
-| jointC30v2r_spat_probe | ok | pilotC30_v2r | paired v2 | 10.9 | 3.7 | Leakage: C 30 ep reference, spatial encoder on SC2/SID. |
-| jointC30v2r_spec_probe | ok | pilotC30_v2r | paired v2 | 23.8 | 45.9 | C 30 ep reference: spectral encoder on SC2/SID. |
-| jointC9_concat_probe | ok | pilotC_swap | paired v1 | 19.0 | 21.0 | Pilot C seed 1 at epoch 9 (pre-spike): concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
-| jointC9_spat_probe | ok | pilotC_swap | paired v1 | 12.3 | 4.4 | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spatial encoder on SC2/SID. |
-| jointC9_spec_probe | ok | pilotC_swap | paired v1 | 20.3 | 43.4 | Pilot C seed 1 at epoch 9 (pre-spike): spectral encoder on SC2/SID. |
-| jointC_concat_probe | ok | pilotC_swap | paired v1 | 17.9 | 19.1 | Pilot C concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
-| jointC_ep2_spat_probe | ok | pilotC_swap | paired v1 | 7.5 | 3.6 | Early read: Pilot C seed 1 at epoch 2, spatial encoder on SC2/SID (leakage), for the C2 comparison. |
-| jointC_ep5_spec_probe | ok | pilotC_swap | paired v1 | 18.4 | 41.4 | Own-task read (11-22): Pilot C seed 1 at epoch 5, spectral encoder on SC2/SID (same-epoch comparison for C2). |
-| jointC_spat_probe | ok | pilotC_swap | paired v1 | 9.6 | 3.9 | Leakage probe: Pilot C spatial encoder on SC2/SID. |
-| jointC_spec_probe | ok | pilotC_swap | paired v1 | 20.9 | 43.8 | Pilot C spectral encoder on SC2/SID. |
-| jointCs2_concat_probe | ok | pilotC_swap_s2 | paired v1 | 19.5 | 22.1 | C seed 2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
-| jointCs2_spat_probe | ok | pilotC_swap_s2 | paired v1 | 11.0 | 4.4 | Leakage probe: C seed 2 spatial encoder on SC2/SID. |
-| jointCs2_spec_probe | ok | pilotC_swap_s2 | paired v1 | 20.9 | 44.5 | C seed 2 spectral encoder on SC2/SID. |
-| jointCsac_concat_probe | ok | pilotCsac | paired v1 | 19.0 | 21.2 | C + SAC concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
-| jointCsac_spat_probe | ok | pilotCsac | paired v1 | 10.2 | 4.6 | Leakage: C + SAC spatial encoder on SC2/SID. |
-| jointCsac_spec_probe | ok | pilotCsac | paired v1 | 21.2 | 44.2 | C + SAC spectral encoder on SC2/SID. |
-| jointCswapv2r_concat_probe | ok | pilotCswap_v2r | paired v2 | 20.7 | 19.5 | C swap-only (own-scale 0) 10 ep v2: concat on SC2/SID (appendix only). |
-| jointCswapv2r_spat_probe | ok | pilotCswap_v2r | paired v2 | 8.8 | 3.6 | Leakage: C swap-only (own-scale 0) 10 ep v2, spatial encoder on SC2/SID. |
-| jointCswapv2r_spec_probe | ok | pilotCswap_v2r | paired v2 | 24.8 | 45.5 | C swap-only (own-scale 0) 10 ep v2: spectral encoder on SC2/SID. |
-| jointCv2r_concat_probe | ok | pilotC_v2r | paired v2 | 17.2 | 19.2 | C 10 ep v2 + new recipe: concat on SC2/SID (appendix only). |
-| jointCv2r_spat_probe | ok | pilotC_v2r | paired v2 | 10.1 | 4.1 | Leakage: C 10 ep v2 + new recipe, spatial encoder on SC2/SID. |
-| jointCv2r_spec_probe | ok | pilotC_v2r | paired v2 | 19.4 | 43.6 | C 10 ep v2 + new recipe: spectral encoder on SC2/SID. |
-| jointcv1al1_concat_probe | ok | pilotc_v1a_l1 | paired v2 | 18.9 | 17.6 | V1a λ1 (latent prediction): concat on SC2/SID (appendix only). |
-| jointcv1al1_spat_probe | ok | pilotc_v1a_l1 | paired v2 | 7.1 | 1.8 | Leakage: V1a λ1 (latent prediction), spatial encoder on SC2/SID. |
-| jointcv1al1_spec_probe | ok | pilotc_v1a_l1 | paired v2 | 26.0 | 48.7 | V1a λ1 (latent prediction): spectral encoder on SC2/SID. |
-| jointcv1bA30noancl01s1_concat_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 20.9 | 15.5 | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat on SC2/SID (appendix only). |
-| jointcv1bA30noancl01s1_spat_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 7.7 | 2.6 | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spatial encoder on SC2/SID. |
-| jointcv1bA30noancl01s1_spec_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 22.5 | 47.5 | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spectral encoder on SC2/SID. |
-| jointcv1bA30noancl01s2_concat_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 21.8 | 15.7 | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat on SC2/SID (appendix only). |
-| jointcv1bA30noancl01s2_spat_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 9.7 | 1.9 | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2, spatial encoder on SC2/SID. |
-| jointcv1bA30noancl01s2_spec_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 24.6 | 44.4 | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: spectral encoder on SC2/SID. |
-| jointcv1bAl01_concat_probe | ok | pilotc_v1bA_l01 | paired v2 | 20.2 | 18.0 | V1b A′ λ0.1 (learned RIR teacher, the method): concat on SC2/SID (appendix only). |
-| jointcv1bAl01_spat_probe | ok | pilotc_v1bA_l01 | paired v2 | 10.4 | 4.3 | Leakage: V1b A′ λ0.1 (learned RIR teacher, the method), spatial encoder on SC2/SID. |
-| jointcv1bAl01_spec_probe | ok | pilotc_v1bA_l01 | paired v2 | 22.3 | 46.1 | V1b A′ λ0.1 (learned RIR teacher, the method): spectral encoder on SC2/SID. |
-| jointcv1bAl1_concat_probe | ok | pilotc_v1bA_l1 | paired v2 | 19.8 | 13.2 | V1b A′ λ1 (learned RIR teacher, the method): concat on SC2/SID (appendix only). |
-| jointcv1bAl1_spat_probe | ok | pilotc_v1bA_l1 | paired v2 | 10.8 | 2.0 | Leakage: V1b A′ λ1 (learned RIR teacher, the method), spatial encoder on SC2/SID. |
-| jointcv1bAl1_spec_probe | ok | pilotc_v1bA_l1 | paired v2 | 23.2 | 42.6 | V1b A′ λ1 (learned RIR teacher, the method): spectral encoder on SC2/SID. |
-| jointcv1bAnoancl01_concat_probe | ok | pilotc_v1bA_noanc_l01 | paired v2 | 20.7 | 16.0 | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): concat on SC2/SID (appendix only). |
-| jointcv1bAnoancl01_spat_probe | ok | pilotc_v1bA_noanc_l01 | paired v2 | 10.1 | 2.4 | Leakage: V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), spatial encoder on SC2/SID. |
-| jointcv1bAnoancl01_spec_probe | ok | pilotc_v1bA_noanc_l01 | paired v2 | 24.7 | 45.1 | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): spectral encoder on SC2/SID. |
-| jointcv1bBl01_concat_probe | ok | pilotc_v1bB_l01 | paired v2 | 20.8 | 21.2 | V1b oracle B λ0.1 (analysis row): concat on SC2/SID (appendix only). |
-| jointcv1bBl01_spat_probe | ok | pilotc_v1bB_l01 | paired v2 | 11.2 | 3.7 | Leakage: V1b oracle B λ0.1 (analysis row), spatial encoder on SC2/SID. |
-| jointcv1bBl01_spec_probe | ok | pilotc_v1bB_l01 | paired v2 | 21.3 | 46.6 | V1b oracle B λ0.1 (analysis row): spectral encoder on SC2/SID. |
-| jointcv1bBl1_concat_probe | ok | pilotc_v1bB_l1 | paired v2 | 18.5 | 20.4 | V1b oracle B λ1 (analysis row): concat on SC2/SID (appendix only). |
-| jointcv1bBl1_spat_probe | ok | pilotc_v1bB_l1 | paired v2 | 9.0 | 3.9 | Leakage: V1b oracle B λ1 (analysis row), spatial encoder on SC2/SID. |
-| jointcv1bBl1_spec_probe | ok | pilotc_v1bB_l1 | paired v2 | 20.5 | 42.9 | V1b oracle B λ1 (analysis row): spectral encoder on SC2/SID. |
-| jointcv1bHCl01_concat_probe | ok | pilotc_v1bHC_l01 | paired v2 | 19.5 | 23.4 | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat on SC2/SID (appendix only). |
-| jointcv1bHCl01_spat_probe | ok | pilotc_v1bHC_l01 | paired v2 | 11.9 | 4.0 | Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spatial encoder on SC2/SID. |
-| jointcv1bHCl01_spec_probe | ok | pilotc_v1bHC_l01 | paired v2 | 19.5 | 46.1 | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): spectral encoder on SC2/SID. |
-| jointcv1bHCl1_concat_probe | ok | pilotc_v1bHC_l1 | paired v2 | 17.5 | 24.5 | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): concat on SC2/SID (appendix only). |
-| jointcv1bHCl1_spat_probe | ok | pilotc_v1bHC_l1 | paired v2 | 8.7 | 5.0 | Leakage: V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), spatial encoder on SC2/SID. |
-| jointcv1bHCl1_spec_probe | ok | pilotc_v1bHC_l1 | paired v2 | 21.0 | 42.1 | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): spectral encoder on SC2/SID. |
-| jointcv3_concat_probe | ok | pilotc_v3 | unpaired-8s v2 | 15.0 | 18.1 | V3 unpaired swap: concat on SC2/SID (appendix only). |
-| jointcv3_spat_probe | ok | pilotc_v3 | unpaired-8s v2 | 11.0 | 8.0 | Leakage: V3 unpaired swap, spatial encoder on SC2/SID. |
-| jointcv3_spec_probe | ok | pilotc_v3 | unpaired-8s v2 | 16.9 | 39.2 | V3 unpaired swap: spectral encoder on SC2/SID. |
-| mono_on_binaural_2026-11-17_bin_left | ok | sac-ssamba amba_seed1:final |  | 24.4 | 38.9 | Mono amba s1 on binaural SC2/SID, left channel. |
-| mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed1:final |  | 26.4 | 40.3 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
-| mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed2:final |  | 22.3 | 36.5 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
-| mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed3:final |  | 26.9 | 39.1 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
-| mono_on_binaural_2026-11-17_bin_mid | ok | random init |  | 4.8 | 35.0 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
-| mono_on_binaural_2026-11-17_binmodel | ok | sac-ssamba spectral_only_logmel:final |  | 19.7 | 32.4 | Binaural spectral_only_logmel encoder on binaural SC2/SID. |
-| mono_on_binaural_2026-11-17_mono | ok | sac-ssamba amba_seed1:final |  | 34.5 | 30.1 | Mono amba s1-s3 on mono SC2/SID (reference for the binaural rows). |
-| mono_on_binaural_2026-11-17_mono | ok | sac-ssamba amba_seed2:final |  | 32.5 | 28.6 | Mono amba s1-s3 on mono SC2/SID (reference for the binaural rows). |
-| mono_on_binaural_2026-11-17_mono | ok | sac-ssamba amba_seed3:final |  | 33.9 | 27.3 | Mono amba s1-s3 on mono SC2/SID (reference for the binaural rows). |
-| mono_probe_2026-11-16 | void | sac-ssamba sac_eg18_perp5:2 |  | 2.9 | 0.5 | Void: first mono probe; trained checkpoints at exact chance (fp16 probing of fp32-trained mono models). |
-| mono_probe_2026-11-16 | void | random init |  | 6.7 | 24.1 | Void: first mono probe; trained checkpoints at exact chance (fp16 probing of fp32-trained mono models). |
-| mono_probe_2026-11-16 | void | sac-ssamba sac_eg18_perp5:2 |  | 2.9 | 0.5 | Void: first mono probe; trained checkpoints at exact chance (fp16 probing of fp32-trained mono models). |
-| mono_probe_2026-11-16 | void | random init |  | 6.7 | 24.1 | Void: first mono probe; trained checkpoints at exact chance (fp16 probing of fp32-trained mono models). |
-| mono_probe_2026-11-17 | ok | sac-ssamba sac_eg18_perp5:2 |  | 27.6 | 32.5 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
-| mono_probe_2026-11-17 | ok | sac-ssamba sac_eg18_perp5:4 |  | 24.5 | 31.0 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
-| mono_probe_2026-11-17 | ok | sac-ssamba sac_eg18_perp5:5 |  | 33.7 | 36.4 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
-| mono_probe_2026-11-17 | ok | sac-ssamba baseline_objective_egemaps18:final |  | 38.2 | 30.5 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
-| mono_probe_2026-11-17 | ok | sac-ssamba amba_seed1:final |  | 34.5 | 30.1 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
-| mono_probe_2026-11-17 | ok | random init |  | 6.7 | 24.1 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
+| probe file | status | model (ckpt) | data | SC2 linear | SID linear | ER linear UA | description |
+|---|---|---|---|---|---|---|---|
+| ipd16_probe_2026-11-17 | ok | ipd16_sac | unpaired-4s v1 | 19.4 | 13.0 | 51.3 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
+| ipd16_probe_2026-11-17 | ok | ipd16_nosac | unpaired-4s v1 | 19.1 | 15.7 | 49.5 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
+| ipd16_probe_2026-11-17 | ok | random init |  | 3.1 | 9.1 | 46.8 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
+| ipd16_probe_2026-11-17 | ok | gramt |  | 71.2 | 62.4 | 62.9 | RQ2: ipd16 encoders (SAC, no-SAC, random) and GRAM-T on binaural SC2/SID. |
+| jointA_concat_probe | ok | pilotA_spec+pilotA_spat | unpaired-4s v1 | 14.0 | 18.9 |  | Pilot A concat on SC2/SID (SID with 16 rows of concat is unreliable). PROVISIONAL: concat probe under check (11-23). |
+| jointA_spat_probe | ok | pilotA_spat | unpaired-4s v1 | 10.9 | 8.5 |  | Leakage probe: Pilot A spatial encoder on SC2/SID (random ipd16 = 3.1 / 9.1). |
+| jointA_spat_probe_2026-11-18_VOID_flippair_bug | void | pilotA_spat | unpaired-4s v1 | 5.9 | 1.8 | 39.8 | Void: flip-pair layer-order bug (fixed 11-18). |
+| jointA_spec_probe | ok | pilotA_spec | unpaired-4s v1 | 14.8 | 34.0 |  | Pilot A spectral encoder on SC2/SID (+ random-init row). |
+| jointA_spec_probe | ok | random init |  | 5.7 | 36.6 |  | Pilot A spectral encoder on SC2/SID (+ random-init row). |
+| jointA_spec_probe_2026-11-18_VOID_flippair_bug | void | pilotA_spec | unpaired-4s v1 | 3.8 | 1.9 | 44.7 | Void: flip-pair layer-order bug (fixed 11-18). |
+| jointA_spec_probe_2026-11-18_VOID_flippair_bug | void | pilotA_spec | unpaired-4s v1 | 5.9 | 6.1 | 43.2 | Void: flip-pair layer-order bug (fixed 11-18). |
+| jointA_spec_probe_2026-11-18_VOID_flippair_bug | void | random init |  | 5.7 | 36.6 | 47.6 | Void: flip-pair layer-order bug (fixed 11-18). |
+| jointAp_spat_probe | ok | pilotA_spat_paired | paired v1 | 9.7 | 8.1 |  | Leakage probe: paired-set A spatial control (data-only control for C) on SC2/SID. |
+| jointB_fusion_on_probe | ok | pilotB_fusion | unpaired-4s v1 | 16.4 | 15.7 |  | Pilot B, fusion on, on SC2/SID. |
+| jointB_spec_off_probe | ok | pilotB_fusion | unpaired-4s v1 | 13.5 | 29.7 |  | Pilot B, fusion off, on SC2/SID. |
+| jointC2_concat_probe | ok | pilotC2_ctr | paired v1 | 21.1 | 8.7 |  | C2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
+| jointC2_ep2_spat_probe | ok | pilotC2_ctr | paired v1 | 4.8 | 0.4 |  | Early read: C2 at epoch 2, spatial encoder on SC2/SID (leakage). |
+| jointC2_ep5_spec_probe | ok | pilotC2_ctr | paired v1 | 24.4 | 26.4 |  | Own-task read (11-22): C2 at epoch 5 (pre-crash snapshot, tag ep5a), spectral encoder on SC2/SID. |
+| jointC2_spat_probe | ok | pilotC2_ctr | paired v1 | 8.3 | 0.6 |  | Leakage probe: C2 spatial encoder on SC2/SID. |
+| jointC2_spec_probe | ok | pilotC2_ctr | paired v1 | 26.6 | 26.0 |  | C2 spectral encoder on SC2/SID. |
+| jointC2head_concat_probe | ok | pilotC2_head | paired v1 | 19.0 | 7.6 |  | C2 + head: concat on SC2/SID (appendix only). |
+| jointC2head_spat_probe | ok | pilotC2_head | paired v1 | 7.9 | 2.1 |  | Leakage: C2 + head, spatial encoder on SC2/SID. |
+| jointC2head_spec_probe | ok | pilotC2_head | paired v1 | 24.4 | 22.1 |  | C2 + head: spectral encoder on SC2/SID. |
+| jointC2s2_concat_probe | ok | pilotC2_ctr_s2 | paired v1 | 19.7 | 9.3 |  | C2 seed 2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
+| jointC2s2_spat_probe | ok | pilotC2_ctr_s2 | paired v1 | 6.3 | 1.0 |  | Leakage probe: C2 seed 2 spatial encoder on SC2/SID. |
+| jointC2s2_spec_probe | ok | pilotC2_ctr_s2 | paired v1 | 28.4 | 25.0 |  | C2 seed 2 spectral encoder on SC2/SID. |
+| jointC30v2r_concat_probe | ok | pilotC30_v2r | paired v2 | 20.2 | 22.6 |  | C 30 ep reference: concat on SC2/SID (appendix only). |
+| jointC30v2r_spat_probe | ok | pilotC30_v2r | paired v2 | 10.9 | 3.7 |  | Leakage: C 30 ep reference, spatial encoder on SC2/SID. |
+| jointC30v2r_spec_probe | ok | pilotC30_v2r | paired v2 | 23.8 | 45.9 |  | C 30 ep reference: spectral encoder on SC2/SID. |
+| jointC9_concat_probe | ok | pilotC_swap | paired v1 | 19.0 | 21.0 |  | Pilot C seed 1 at epoch 9 (pre-spike): concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
+| jointC9_spat_probe | ok | pilotC_swap | paired v1 | 12.3 | 4.4 |  | Pilot C seed 1 at epoch 9 (pre-spike): leakage, spatial encoder on SC2/SID. |
+| jointC9_spec_probe | ok | pilotC_swap | paired v1 | 20.3 | 43.4 |  | Pilot C seed 1 at epoch 9 (pre-spike): spectral encoder on SC2/SID. |
+| jointC_concat_probe | ok | pilotC_swap | paired v1 | 17.9 | 19.1 |  | Pilot C concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
+| jointC_ep2_spat_probe | ok | pilotC_swap | paired v1 | 7.5 | 3.6 |  | Early read: Pilot C seed 1 at epoch 2, spatial encoder on SC2/SID (leakage), for the C2 comparison. |
+| jointC_ep5_spec_probe | ok | pilotC_swap | paired v1 | 18.4 | 41.4 |  | Own-task read (11-22): Pilot C seed 1 at epoch 5, spectral encoder on SC2/SID (same-epoch comparison for C2). |
+| jointC_spat_probe | ok | pilotC_swap | paired v1 | 9.6 | 3.9 |  | Leakage probe: Pilot C spatial encoder on SC2/SID. |
+| jointC_spec_probe | ok | pilotC_swap | paired v1 | 20.9 | 43.8 |  | Pilot C spectral encoder on SC2/SID. |
+| jointCs2_concat_probe | ok | pilotC_swap_s2 | paired v1 | 19.5 | 22.1 |  | C seed 2 concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
+| jointCs2_spat_probe | ok | pilotC_swap_s2 | paired v1 | 11.0 | 4.4 |  | Leakage probe: C seed 2 spatial encoder on SC2/SID. |
+| jointCs2_spec_probe | ok | pilotC_swap_s2 | paired v1 | 20.9 | 44.5 |  | C seed 2 spectral encoder on SC2/SID. |
+| jointCsac_concat_probe | ok | pilotCsac | paired v1 | 19.0 | 21.2 |  | C + SAC concat on SC2/SID (SID with concat unreliable). PROVISIONAL: concat probe under check (11-23). |
+| jointCsac_spat_probe | ok | pilotCsac | paired v1 | 10.2 | 4.6 |  | Leakage: C + SAC spatial encoder on SC2/SID. |
+| jointCsac_spec_probe | ok | pilotCsac | paired v1 | 21.2 | 44.2 |  | C + SAC spectral encoder on SC2/SID. |
+| jointCswapv2r_concat_probe | ok | pilotCswap_v2r | paired v2 | 20.7 | 19.5 |  | C swap-only (own-scale 0) 10 ep v2: concat on SC2/SID (appendix only). |
+| jointCswapv2r_spat_probe | ok | pilotCswap_v2r | paired v2 | 8.8 | 3.6 |  | Leakage: C swap-only (own-scale 0) 10 ep v2, spatial encoder on SC2/SID. |
+| jointCswapv2r_spec_probe | ok | pilotCswap_v2r | paired v2 | 24.8 | 45.5 |  | C swap-only (own-scale 0) 10 ep v2: spectral encoder on SC2/SID. |
+| jointCv2r_concat_probe | ok | pilotC_v2r | paired v2 | 17.2 | 19.2 |  | C 10 ep v2 + new recipe: concat on SC2/SID (appendix only). |
+| jointCv2r_spat_probe | ok | pilotC_v2r | paired v2 | 10.1 | 4.1 |  | Leakage: C 10 ep v2 + new recipe, spatial encoder on SC2/SID. |
+| jointCv2r_spec_probe | ok | pilotC_v2r | paired v2 | 19.4 | 43.6 |  | C 10 ep v2 + new recipe: spectral encoder on SC2/SID. |
+| jointcv1al1_concat_probe | ok | pilotc_v1a_l1 | paired v2 | 18.9 | 17.6 |  | V1a λ1 (latent prediction): concat on SC2/SID (appendix only). |
+| jointcv1al1_spat_probe | ok | pilotc_v1a_l1 | paired v2 | 7.1 | 1.8 |  | Leakage: V1a λ1 (latent prediction), spatial encoder on SC2/SID. |
+| jointcv1al1_spec_probe | ok | pilotc_v1a_l1 | paired v2 | 26.0 | 48.7 |  | V1a λ1 (latent prediction): spectral encoder on SC2/SID. |
+| jointcv1bA30noancl01s1_concat_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 20.9 | 15.5 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat on SC2/SID (appendix only). |
+| jointcv1bA30noancl01s1_spat_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 7.7 | 2.6 |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spatial encoder on SC2/SID. |
+| jointcv1bA30noancl01s1_spec_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 22.5 | 47.5 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spectral encoder on SC2/SID. |
+| jointcv1bA30noancl01s2_concat_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 21.8 | 15.7 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat on SC2/SID (appendix only). |
+| jointcv1bA30noancl01s2_spat_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 9.7 | 1.9 |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2, spatial encoder on SC2/SID. |
+| jointcv1bA30noancl01s2_spec_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 24.6 | 44.4 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: spectral encoder on SC2/SID. |
+| jointcv1bAl01_concat_probe | ok | pilotc_v1bA_l01 | paired v2 | 20.2 | 18.0 |  | V1b A′ λ0.1 (learned RIR teacher, the method): concat on SC2/SID (appendix only). |
+| jointcv1bAl01_spat_probe | ok | pilotc_v1bA_l01 | paired v2 | 10.4 | 4.3 |  | Leakage: V1b A′ λ0.1 (learned RIR teacher, the method), spatial encoder on SC2/SID. |
+| jointcv1bAl01_spec_probe | ok | pilotc_v1bA_l01 | paired v2 | 22.3 | 46.1 |  | V1b A′ λ0.1 (learned RIR teacher, the method): spectral encoder on SC2/SID. |
+| jointcv1bAl1_concat_probe | ok | pilotc_v1bA_l1 | paired v2 | 19.8 | 13.2 |  | V1b A′ λ1 (learned RIR teacher, the method): concat on SC2/SID (appendix only). |
+| jointcv1bAl1_spat_probe | ok | pilotc_v1bA_l1 | paired v2 | 10.8 | 2.0 |  | Leakage: V1b A′ λ1 (learned RIR teacher, the method), spatial encoder on SC2/SID. |
+| jointcv1bAl1_spec_probe | ok | pilotc_v1bA_l1 | paired v2 | 23.2 | 42.6 |  | V1b A′ λ1 (learned RIR teacher, the method): spectral encoder on SC2/SID. |
+| jointcv1bAnoancl01_concat_probe | ok | pilotc_v1bA_noanc_l01 | paired v2 | 20.7 | 16.0 |  | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): concat on SC2/SID (appendix only). |
+| jointcv1bAnoancl01_spat_probe | ok | pilotc_v1bA_noanc_l01 | paired v2 | 10.1 | 2.4 |  | Leakage: V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0), spatial encoder on SC2/SID. |
+| jointcv1bAnoancl01_spec_probe | ok | pilotc_v1bA_noanc_l01 | paired v2 | 24.7 | 45.1 |  | V1b-A′-noanc (V1b A′ λ0.1, --own-scale 0): spectral encoder on SC2/SID. |
+| jointcv1bBl01_concat_probe | ok | pilotc_v1bB_l01 | paired v2 | 20.8 | 21.2 |  | V1b oracle B λ0.1 (analysis row): concat on SC2/SID (appendix only). |
+| jointcv1bBl01_spat_probe | ok | pilotc_v1bB_l01 | paired v2 | 11.2 | 3.7 |  | Leakage: V1b oracle B λ0.1 (analysis row), spatial encoder on SC2/SID. |
+| jointcv1bBl01_spec_probe | ok | pilotc_v1bB_l01 | paired v2 | 21.3 | 46.6 |  | V1b oracle B λ0.1 (analysis row): spectral encoder on SC2/SID. |
+| jointcv1bBl1_concat_probe | ok | pilotc_v1bB_l1 | paired v2 | 18.5 | 20.4 |  | V1b oracle B λ1 (analysis row): concat on SC2/SID (appendix only). |
+| jointcv1bBl1_spat_probe | ok | pilotc_v1bB_l1 | paired v2 | 9.0 | 3.9 |  | Leakage: V1b oracle B λ1 (analysis row), spatial encoder on SC2/SID. |
+| jointcv1bBl1_spec_probe | ok | pilotc_v1bB_l1 | paired v2 | 20.5 | 42.9 |  | V1b oracle B λ1 (analysis row): spectral encoder on SC2/SID. |
+| jointcv1bHCl01_concat_probe | ok | pilotc_v1bHC_l01 | paired v2 | 19.5 | 23.4 |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): concat on SC2/SID (appendix only). |
+| jointcv1bHCl01_spat_probe | ok | pilotc_v1bHC_l01 | paired v2 | 11.9 | 4.0 |  | Leakage: V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues), spatial encoder on SC2/SID. |
+| jointcv1bHCl01_spec_probe | ok | pilotc_v1bHC_l01 | paired v2 | 19.5 | 46.1 |  | V1b-HC λ0.1 (matched control: V1b A′ with hand-crafted spatial cues): spectral encoder on SC2/SID. |
+| jointcv1bHCl1_concat_probe | ok | pilotc_v1bHC_l1 | paired v2 | 17.5 | 24.5 |  | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): concat on SC2/SID (appendix only). |
+| jointcv1bHCl1_spat_probe | ok | pilotc_v1bHC_l1 | paired v2 | 8.7 | 5.0 |  | Leakage: V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues), spatial encoder on SC2/SID. |
+| jointcv1bHCl1_spec_probe | ok | pilotc_v1bHC_l1 | paired v2 | 21.0 | 42.1 |  | V1b-HC λ1 (matched control: V1b A′ with hand-crafted spatial cues): spectral encoder on SC2/SID. |
+| jointcv3_concat_probe | ok | pilotc_v3 | unpaired-8s v2 | 15.0 | 18.1 |  | V3 unpaired swap: concat on SC2/SID (appendix only). |
+| jointcv3_spat_probe | ok | pilotc_v3 | unpaired-8s v2 | 11.0 | 8.0 |  | Leakage: V3 unpaired swap, spatial encoder on SC2/SID. |
+| jointcv3_spec_probe | ok | pilotc_v3 | unpaired-8s v2 | 16.9 | 39.2 |  | V3 unpaired swap: spectral encoder on SC2/SID. |
+| mono_on_binaural_2026-11-17_bin_left | ok | sac-ssamba amba_seed1:final |  | 24.4 | 38.9 | 52.4 | Mono amba s1 on binaural SC2/SID, left channel. |
+| mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed1:final |  | 26.4 | 40.3 | 53.8 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
+| mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed2:final |  | 22.3 | 36.5 | 55.5 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
+| mono_on_binaural_2026-11-17_bin_mid | ok | sac-ssamba amba_seed3:final |  | 26.9 | 39.1 | 56.6 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
+| mono_on_binaural_2026-11-17_bin_mid | ok | random init |  | 4.8 | 35.0 | 48.1 | Mono amba s1-s3 + random on binaural SC2/SID, mid channel. |
+| mono_on_binaural_2026-11-17_binmodel | ok | sac-ssamba spectral_only_logmel:final |  | 19.7 | 32.4 | 53.2 | Binaural spectral_only_logmel encoder on binaural SC2/SID. |
+| mono_on_binaural_2026-11-17_mono | ok | sac-ssamba amba_seed1:final |  | 34.5 | 30.1 | 58.3 | Mono amba s1-s3 on mono SC2/SID (reference for the binaural rows). |
+| mono_on_binaural_2026-11-17_mono | ok | sac-ssamba amba_seed2:final |  | 32.5 | 28.6 | 57.4 | Mono amba s1-s3 on mono SC2/SID (reference for the binaural rows). |
+| mono_on_binaural_2026-11-17_mono | ok | sac-ssamba amba_seed3:final |  | 33.9 | 27.3 | 57.1 | Mono amba s1-s3 on mono SC2/SID (reference for the binaural rows). |
+| mono_probe_2026-11-16 | void | sac-ssamba sac_eg18_perp5:2 |  | 2.9 | 0.5 | 25.0 | Void: first mono probe; trained checkpoints at exact chance (fp16 probing of fp32-trained mono models). |
+| mono_probe_2026-11-16 | void | random init |  | 6.7 | 24.1 | 49.4 | Void: first mono probe; trained checkpoints at exact chance (fp16 probing of fp32-trained mono models). |
+| mono_probe_2026-11-16 | void | sac-ssamba sac_eg18_perp5:2 |  | 2.9 | 0.5 | 25.0 | Void: first mono probe; trained checkpoints at exact chance (fp16 probing of fp32-trained mono models). |
+| mono_probe_2026-11-16 | void | random init |  | 6.7 | 24.1 | 49.4 | Void: first mono probe; trained checkpoints at exact chance (fp16 probing of fp32-trained mono models). |
+| mono_probe_2026-11-17 | ok | sac-ssamba sac_eg18_perp5:2 |  | 27.6 | 32.5 | 53.1 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
+| mono_probe_2026-11-17 | ok | sac-ssamba sac_eg18_perp5:4 |  | 24.5 | 31.0 | 56.5 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
+| mono_probe_2026-11-17 | ok | sac-ssamba sac_eg18_perp5:5 |  | 33.7 | 36.4 | 58.0 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
+| mono_probe_2026-11-17 | ok | sac-ssamba baseline_objective_egemaps18:final |  | 38.2 | 30.5 | 58.4 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
+| mono_probe_2026-11-17 | ok | sac-ssamba amba_seed1:final |  | 34.5 | 30.1 | 58.3 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
+| mono_probe_2026-11-17 | ok | random init |  | 6.7 | 24.1 | 49.4 | Mono sac-ssamba checkpoints (k=5 epochs 2/4/5, eg18 median, amba s1, random) on mono SC2/SID. |
