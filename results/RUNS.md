@@ -63,8 +63,8 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 
 | label | status | pretrain run (ckpt) | data | TDOA | T60 | DRR | C50 | ABS | description |
 |---|---|---|---|---|---|---|---|---|---|
+| jointA_spat | ok | pilotA_spat | unpaired-4s v1 | frz 2.57 | frz 0.084 | frz 2.32 | frz 0.82 | frz 0.07 | Pilot A spatial encoder alone, frozen. |
 | jointC30v2r_spat | ok | pilotC30_v2r | paired v2 | frz 2.47 | frz 0.070 | frz 1.27 | frz 0.39 |  | C 30 ep reference (v2, new recipe): spatial encoder alone, frozen. |
-| jointA_spat | ok | pilotA_spat | unpaired-4s v1 | frz 2.57 | frz 0.084 | frz 2.32 | frz 0.82 |  | Pilot A spatial encoder alone, frozen. |
 | jointcv1bA30noancl01s1_concat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.36 | frz 0.100 | frz 1.52 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat (appendix only). |
 | jointcv1bA30noancl01s1_spec_on_spatial | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 2.93 | frz 0.125 | frz 1.95 |  |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spectral encoder on the spatial tasks. |
 | jointcv1bA30noancl01s1_spat | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | frz 1.33 | frz 0.092 | frz 1.42 |  |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spatial encoder alone, frozen. |
@@ -222,9 +222,11 @@ Data versions: paired v1 = simu_paired_pretrain.tar (11-20; RIR tails not reprod
 | jointcv1al1_spec_probe | ok | pilotc_v1a_l1 | paired v2 | 26.0 | 48.7 |  | V1a λ1 (latent prediction): spectral encoder on SC2/SID. |
 | jointcv1bA30noancl01s1_concat_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 20.9 | 15.5 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: concat on SC2/SID (appendix only). |
 | jointcv1bA30noancl01s1_spat_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 7.7 | 2.6 |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1, spatial encoder on SC2/SID. |
+| jointcv1bA30noancl01s1_spec_er | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 |  |  | 55.3 | FINAL V1b A′ λ0.1 anchors off, 30 ep, seed 1: spectral encoder on ER (binaural IEMOCAP, fold 1, linear UA; coverage check Yotam 11-28, job list coverage_c50_abs_er_jobs.txt). |
 | jointcv1bA30noancl01s1_spec_probe | ok | pilotc_v1bA30noanc_l01_s1 | paired v2 | 22.5 | 47.5 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 1: spectral encoder on SC2/SID. |
 | jointcv1bA30noancl01s2_concat_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 21.8 | 15.7 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: concat on SC2/SID (appendix only). |
 | jointcv1bA30noancl01s2_spat_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 9.7 | 1.9 |  | Leakage: FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2, spatial encoder on SC2/SID. |
+| jointcv1bA30noancl01s2_spec_er | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 |  |  | 53.8 | FINAL V1b A′ λ0.1 anchors off, 30 ep, seed 2: spectral encoder on ER (binaural IEMOCAP, fold 1, linear UA; coverage check Yotam 11-28, job list coverage_c50_abs_er_jobs.txt). |
 | jointcv1bA30noancl01s2_spec_probe | ok | pilotc_v1bA30noanc_l01_s2 | paired v2 | 24.6 | 44.4 |  | FINAL V1b A′ λ0.1 anchors off (--own-scale 0), 30 ep, seed 2: spectral encoder on SC2/SID. |
 | jointcv1bAl01_concat_probe | ok | pilotc_v1bA_l01 | paired v2 | 20.2 | 18.0 |  | V1b A′ λ0.1 (learned RIR teacher, the method): concat on SC2/SID (appendix only). |
 | jointcv1bAl01_spat_probe | ok | pilotc_v1bA_l01 | paired v2 | 10.4 | 4.3 |  | Leakage: V1b A′ λ0.1 (learned RIR teacher, the method), spatial encoder on SC2/SID. |
