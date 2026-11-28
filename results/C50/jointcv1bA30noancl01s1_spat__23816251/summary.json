@@ -1,0 +1,32 @@
+{
+  "task": "C50",
+  "experiment": "jointcv1bA30noancl01s1_spat",
+  "model": "upstream ssamba_spatial\nssamba_ckpt /scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotc_v1bA30noanc_l01_s1/spat_encoder_final.pth\nfill none\ntoken all\ninput ipd\npatch 16x16\nstem False\nnframes None",
+  "job_id": "23816251",
+  "status": "done",
+  "date": "2026-11-28T09:24:04+02:00",
+  "collected_at": "2026-11-28T09:24:05+02:00",
+  "seed": null,
+  "lr": null,
+  "frozen": true,
+  "git_commit": null,
+  "ckpt_dir": "/tmp/job_23816251/exp/C50/jointcv1bA30noancl01s1_spat",
+  "metrics": {
+    "lineareval": {
+      "lowest": 0.5339145064353943,
+      "mean": 0.5339145064353943,
+      "seed_std": 0.0,
+      "n_trials": 1,
+      "mean_test_std": 0.4548901915550232,
+      "trials": [
+        {
+          "trial_idx": 0,
+          "lr_idx": 0,
+          "bs_idx": 0,
+          "metric_test": 0.5339145064353943,
+          "loss_test": 0.4919898297786713
+        }
+      ]
+    }
+  }
+}
