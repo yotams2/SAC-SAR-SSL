@@ -1,0 +1,1 @@
+{"model": "/scratch200/yotams2/SAC-SAR-SSL/exp/joint_pretrain/pilotc_v1bA_l01/spec_encoder_final.pth", "emo/knn20_ua": 0.5255132913589478, "emo/ncm_ua": 0.5246378183364868, "emo/linear_ua": 0.5402546525001526, "emo/linear_acc": 0.4903225898742676, "probe_sec": 122.43796801567078}
